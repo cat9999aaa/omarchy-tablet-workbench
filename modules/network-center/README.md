@@ -18,6 +18,16 @@ root拥有的 /etc/pcadmin-network/tun.json 来源于客户端生成的 configPr
 
 ZeroTier常驻，显示在线及授权状态，不接管默认出口或DNS。GPS按需开启，不保存位置。飞行模式需确认，保存无线状态后恢复。
 
+### ZeroTier 与 TUN 分离
+
+`zero_bypass.py` 与 `pcadmin-zerotier-bypass.service` 使用 Linux 策略路由：仅将独立 `zerotier-one` 账户的外层连接送入主路由表，优先级8990早于TUN的9000系列规则；IPv4/IPv6均处理。不按全局UDP端口绕过，不绕过root或普通应用，也不改ZeroTier网络规则、代理节点及国内外分流。适用于本机已确认会降权到独立账户的ZeroTier版本；其他机器必须先核对实际运行UID，不能直接照装。
+
+部署脚本至 `/usr/local/libexec/pcadmin-zerotier-bypass.py`（root拥有、0644），安装并启用配套服务。ZeroTier和托管TUN的用户维护systemd drop-in使用Wants/After依赖该服务。应用无需重启代理或蜂窝连接。脚本会拒绝占用的优先级、识别重复规则、在部分添加失败时撤销本次添加；执行前检查IPv4/IPv6两侧冲突。停止只删除匹配本账户和主路由表的规则。部署后必须用该账户UID查询实际路由，并对比普通应用仍走TUN；服务active不能代替路由验证。
+
+恢复时先移除两个服务的 `30-pcadmin-zero-bypass.conf` drop-in，daemon-reload，再disable --now配套bypass服务；不停止ZeroTier或TUN。原件备份在本机 `/var/lib/pcadmin-network/recovery/zerotier-bypass-*`。规则绕过代理不保证NAT穿透、远端在线或所有成员互通；P2P连接状态须单独验证。2026-10-16实测路由分离通过，重复应用无新增规则，37项模块测试通过；冷启动尚未实测。
+
+蜂窝信号百分比不能独立用作优化依据。本次22%同时对应RSRP -74dBm、RSRQ -12dB、S/N 4dB，说明信号强度与质量应分开看。临时开启详细信号轮询后已恢复关闭。国内/国外小请求响应不能代替带宽测试，也不能把前后波动当成因果提速证据。
+
 本机权威源码是管理项目 tools/network-center；仓库副本默认使用 ~/.local/lib/omarchy-tablet-workbench/network-center/network.py，可通过 PCADMIN_NETWORK_HELPER 覆盖。本模块尚无通用安装器。仓库服务模板中的 __USER__/__UID__ 必须在部署前替换，本机蜂窝接口/profile也需按目标适配。
 
 ## 实际验证与边界

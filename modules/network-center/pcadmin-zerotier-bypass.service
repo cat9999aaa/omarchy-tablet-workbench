@@ -1,0 +1,17 @@
+[Unit]
+Description=Keep dedicated ZeroTier transport outside proxy TUN
+Before=pcadmin-v2ray-tun.service zerotier-one.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python /usr/local/libexec/pcadmin-zerotier-bypass.py start
+ExecStop=/usr/bin/python /usr/local/libexec/pcadmin-zerotier-bypass.py stop
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target
