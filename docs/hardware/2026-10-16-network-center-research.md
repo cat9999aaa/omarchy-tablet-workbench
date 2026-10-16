@@ -37,3 +37,11 @@
 - Arch客户端包文件：https://archlinux.org/packages/extra/x86_64/zerotier-one/files/
 - gpsd状态与客户端：https://gpsd.gitlab.io/gpsd/client-howto.html
 - 中国电信官方账户流量查询（省份/套餐需以实际账户为准）：https://m.gd.189.cn/consumeInfo/myHisConsume/myHisConsume.html
+
+## ZeroTier实施进展（同日）
+
+用户随后明确要求先配置本机ZeroTier。已从Arch extra安装1.16.2-1（包完整性检查25文件0改动），启动并启用systemd服务。通过用户自行登录旧版控制台，逐网核对已授权活跃数量，按用户“最多在线设备”标准选定既有私人网络；仅在用户当场确认后授权本机，未授权其他待接入节点。
+
+本机网络状态OK、获得地址、持久网络文件存在。allowManaged=true、allowGlobal=false、allowDefault=false、allowDNS=false；普通默认路由保留Wi-Fi600/4G2000。经虚拟网口ping手机和一台Linux成员均2/2成功，普通HTTPS200。主路由首次ICMP无响应，不能宣称所有远端LAN均通。未做Wi-Fi/4G切换后的隧道重连或重启验收。私有网络ID、成员IP、账号及截图仅在本机管理记录，不上传仓库。
+
+实施中修正了首次手工建networks.d的所有权：目录和local.conf使用软件服务账户，而非root；服务正常、网络配置已持久化。核心身份/认证令牌未导出，未新增软件源。网络面板UI、代理控制、GPS仍未部署。
