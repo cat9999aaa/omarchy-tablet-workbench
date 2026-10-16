@@ -47,3 +47,15 @@ AT只读检查后已重启ModemManager，连接恢复命令一度返回未成功
 - https://man.archlinux.org/man/vnstat.1
 
 详细现场证据归本项目启明蜂窝网络会员；不保存SIM身份、号码、序列号或短信正文。
+
+## 2026-10-16 接收修复实验
+
+- `wms_registration_probe.py` 使用官方 libqmi 1.38 的实际 WMS 查询接口，核对 USB 413c:81d7 后通过 MBIM proxy 查询短信传输网络注册，并释放客户端；不改配置、不读取短信内容。实机返回 DeviceNotReady；此结果不等于硬件永久不支持。此版本未加入 WMS subscription binding，不能排除上下文原因。
+- CNMI 单变量实验：在保持 Wi-Fi 的情况下临时释放 ModemManager 的 AT 口，将 CNMI 从0,0,0,0,0改为2,1,0,0,0，读回成功。用户在窗口内重发短信；150秒内ME存储0/23，未收到。CNMI已恢复并读回，ModemManager与蜂窝数据连接随后恢复。
+- 实验设独立 systemd 240秒恢复定时器；限时脚本正常收尾后停止定时器。没有设置开机覆盖，没有刷固件或切换PDC配置。
+- 已成功刷新现有 LVFS 正式源元数据，再用实时枚举的模块DeviceId查询，返回No releases found。当前官方源无匹配发布，不代表厂商所有渠道都无更新。未启用测试源/额外源。
+- 第二轮已实际执行：CPMS临时SM/SM/SM、CNMI=2,1,0,0,0，用户再次发送短信，150秒内SM存储0/40。未修复，三项CPMS恢复ME/ME/ME、CNMI恢复0,0,0,0,0并读回一致。恢复后蜂窝网卡独立HTTPS200，Wi-Fi连接保持，两个恢复定时器已停止。
+
+只读诊断：`pkexec /usr/bin/python tools/cellular/wms_registration_probe.py`。临时AT实验脚本按任务证据保留，不作为自动部署/通用修复器。
+
+附加只读证据：AT+CREG?返回注册状态3（电路交换注册被拒绝），AT+CEREG?状态1（LTE本地注册）；CIREG/CIREP/CAVIMS的能力查询均ERROR；CLAC枚举到^IMSTESTMODE及^IMSTESTMODE2，两者只读查询均IMS Test Mode Disabled。未执行其设置命令，也没有由此推断本机已具备VoLTE通话能力。AT+CGDCONT?本轮未解析到profile，响应成功性未保存，不能据此断言APN缺失。
