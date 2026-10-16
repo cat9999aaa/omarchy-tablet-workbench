@@ -1,0 +1,39 @@
+{
+  "observed_at": "2026-10-17T04:37:24.031941+08:00",
+  "original_rom_files": 1510,
+  "distinct_shortnames": 1298,
+  "system_and_non_game_resources": 45,
+  "daily_preferred_games": 666,
+  "other_versions": 389,
+  "compatibility_pending": 198,
+  "duplicate_same_shortname_copies_hidden": 212,
+  "chinese_labels": 1253,
+  "snapshot_links_covered_games": 1253,
+  "primary_missing_snapshots": 0,
+  "games_with_matching_cheat_sources": 606,
+  "primary_missing_cheats": 60,
+  "all_playlist_path_and_picture_checks": {
+    "passed": true,
+    "items_checked": 1865
+  },
+  "thumbnail_mode": "Checked against RetroArch v1.22.2 gfx_thumbnail_path.c/playlist.h: list2 Snaps,list3 Titles; global1 Snaps,global2 Titles",
+  "test_suite": "3 unittest passed",
+  "cheat_effect": {
+    "game": "dino",
+    "cheat": "fbneo-cheat-0-dino-Infinite_Time",
+    "ram_size": 65536,
+    "address": "FF84E9 / M68000 byte-swapped workRAM+84E8",
+    "injected": 1,
+    "disabled_readback": 1,
+    "enabled_readback": 9,
+    "disabled_again_readback": 1,
+    "passed": true,
+    "isolation": "temporary saves; no user save/state writes; ROM untouched"
+  },
+  "native_frontend_visual": "menu starts; full thumbnail/list visual and user hand feel not yet confirmed; do not claim visual pass",
+  "rom_policy": "Original ROM names/files and dependencies retained; playlists only deduplicated; modifications in user config/thumbnails",
+  "art_provenance": "local MAME collection first;52 missing screenshots from Libretro matching game titles;some old/hack variants reuse family/base screenshot",
+  "game_compatibility": "FBNeo DAT recognition is not a ROM audit;198 entries kept as compatibility pending,666 not all individually launched",
+  "cheat_limit": "Matching source exists for606; only dino Infinite Time tested for actual memory effect,others not individually verified; all disabled by default",
+  "virtual_game_buttons": "remain disabled"
+}

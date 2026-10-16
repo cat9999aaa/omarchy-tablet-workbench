@@ -45,3 +45,9 @@ FBNeo金手指使用[上游作弊库](https://github.com/finalburnneo/FBNeo-chea
 撤回字体修正时移除自己新增的用户规则并运行`fc-cache -f`，然后重开应用。恢复模拟器时只恢复此次修改的键，保留期间新增设置。时钟只恢复clock的两个格式字段。升级前备份普通存档、即时存档与核心版本，升级后复测代表游戏；跨核心或跨版本的即时存档不保证兼容。
 
 参考：[FBNeo核心说明](https://docs.libretro.com/library/fbneo/)、[RetroArch输入映射](https://docs.libretro.com/guides/input-and-controls/)、[FreeType字体选择实现](https://github.com/libretro/RetroArch/blob/v1.22.2/gfx/drivers_font_renderer/freetype.c)。第三方软件和字体沿用各自上游许可；仓库整体许可尚未选定。
+
+## 2026-10-17 目录修复
+
+[目录维护工具](catalog/README.md)：666主要游戏按玩法分类；1253个版本有中文标签和截图路径，389其他版本独立收纳，198兼容待确认。212同名拷贝及45资源项不重复作为游戏显示，原ROM保留。606款主要游戏找到INI/DAT金手指，恐龙快打无限时间RAM开关对照通过；60款尚无匹配代码，其余效果未逐项验。原生菜单的截图参数按RetroArch1.22.2枚举核对，完整菜单视觉/实体触屏待反馈。
+
+金手指入口：加载游戏后快捷菜单→核心选项/选项→Cheats/金手指，默认关闭。FBNeo专用override隐藏通用空金手指菜单。截图/ROM/私人报告不随源码分发；部分改版复用基础版图片。
