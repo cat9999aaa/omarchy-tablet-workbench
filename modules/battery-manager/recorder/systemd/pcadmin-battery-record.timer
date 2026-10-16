@@ -1,0 +1,12 @@
+[Unit]
+Description=Record local battery facts once per minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=5s
+WakeSystem=false
+Unit=pcadmin-battery-record.service
+
+[Install]
+WantedBy=timers.target

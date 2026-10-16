@@ -1,0 +1,12 @@
+const assert=require('assert');const D=require('./Details.js');
+assert.equal(D.elapsedLabel(null),'未知');assert.equal(D.elapsedLabel(3661),'1小时 1分钟');
+assert.equal(D.sessionLabel({kind:'charge',partial_start:true}),'本次接电 · 从首次记录起');
+assert.equal(D.sessionLabel({kind:'discharge',partial_start:false}),'本次使用');
+assert.equal(D.batteryChange({start_percent_by_bay:{BAT0:10},end_percent_by_bay:{BAT0:20}},'BAT0'),'10% → 20%');
+assert.equal(D.batteryChange(null,'BAT0'),'未知');
+assert.equal(D.observedBatteryState({status:'Not charging',percent:10,charge_end_threshold:90}),'等待／未充电');
+assert.equal(D.observedBatteryState({status:'Full',percent:100}),'已充满');
+assert.equal(D.screenLabel({screen_on_s:0,screen_unknown_s:60}),'亮屏时长未知（1分钟未能确认）');
+assert.equal(D.screenLabel({screen_on_s:120,screen_unknown_s:60}),'亮屏采样约 2分钟；另有1分钟未知');
+assert.equal(D.observedBatteryState({present:true,status:'Not charging',percent:90,charge_end_threshold:90}),'已到设置上限（90%）');
+console.log('11 history formatting checks passed');

@@ -1,0 +1,9 @@
+[Unit]
+Description=Local dual battery session and activity recorder
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/Projects/pcadmin/tools/battery-manager/battery.py record
+UMask=0077
+TimeoutStartSec=15
+Nice=10
