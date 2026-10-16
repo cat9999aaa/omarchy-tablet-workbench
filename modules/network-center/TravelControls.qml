@@ -22,6 +22,17 @@ Item {
     function refresh() { if (!poll.running && opened) poll.running=true }
     function act(op) { if(busy)return; feedback="正在操作…";action.command=["/usr/bin/python",helper,op];action.running=true }
     function bytes(n) { if(n===null || n===undefined)return "—";return n>=1073741824 ? (n/1073741824).toFixed(2)+" GB" : (n/1048576).toFixed(1)+" MB" }
+    function responseText(key) {
+        const health=state.health || {}, n=(health.latency_ms || {})[key]
+        if(health[key]==="failed")return "检测失败／超时"
+        if(health[key]!=="ok" || n===null || n===undefined)return "等待检测"
+        return n<1000 ? Math.round(n)+" 毫秒" : (n/1000).toFixed(2)+" 秒"
+    }
+    function zeroDetails(s) {
+        const peers=s.zero_peers || {}
+        if(peers.active_devices===undefined)return s.zero_peer_error || "设备连接：等待检测"
+        return "有活动路径的设备："+peers.active_devices+"\n最低响应："+(peers.best_latency_ms===null || peers.best_latency_ms===undefined ? "未测得" : Math.round(peers.best_latency_ms)+" 毫秒")
+    }
     function ownState(connected,type) { return connected ? (hub.state.primary===type ? "已连接 · 正在上网" : "已连接 · 备用") : "未连接" }
     function pageData(tab,s) {
         const addresses=(s.local_addresses || []).map(x=>x.interface+" · "+(x.addresses || []).join(" / ")).join("\n")
@@ -29,8 +40,8 @@ Item {
         if(tab==="wifi")return {title:"Wi-Fi",status:s.wifi_enabled ? ownState(s.wifi_state==="connected","wifi") : "无线已关闭",info:(s.wifi_connection || "尚未连接热点")+"\n"+((s.local_addresses || []).filter(x=>x.interface==="wlp3s0").map(x=>(x.addresses || []).join(" / ")).join("\n")),hint:"选择下方热点可连接；固定线路会退出自动选网。",actions:[{text:s.wifi_enabled?"关闭 Wi-Fi":"开启 Wi-Fi",op:s.wifi_enabled?"wifi-off":"wifi-on",enabled:true},{text:"固定用 Wi-Fi",op:"prefer-wifi",enabled:s.wifi_state==="connected"}]}
         if(tab==="cell")return {title:"中国电信 4G",status:s.wwan ? ownState(s.cell_connected,"4g") : "蜂窝无线已关闭",info:"信号："+(s.wwan ? (s.signal || "0")+"%" : "—")+"\n今日用量："+bytes((s.traffic || {}).day)+"\n本月用量："+bytes((s.traffic || {}).month),hint:"流量是本机统计。自动模式下可保持备用；V2Ray 的手动关闭选择始终有效。",actions:[{text:"固定用 4G",op:"prefer-cell",enabled:true},{text:s.cell_connected?"断开 4G 数据":"连接 4G 数据",op:s.cell_connected?"cell-off":"cell-on",enabled:true},{text:s.wwan?"关闭蜂窝无线":"开启蜂窝无线",op:s.wwan?"cell-radio-off":"cell-radio-on",enabled:true}]}
         if(tab==="local")return {title:"有线／本地网络",status:(s.wired || []).some(x=>x.state==="connected") ? ownState(true,"ethernet") : "未连接有线网卡",info:addresses || "尚无本地网络地址",hint:"Wi-Fi 也能访问它所在的局域网。有线网卡接入后在这里操作。",actions:[{text:"固定用有线",op:"prefer-wired",enabled:(s.wired || []).some(x=>x.state==="connected")},{text:(s.wired || []).some(x=>x.state==="connected")?"断开有线":"连接有线",op:(s.wired || []).some(x=>x.state==="connected")?"wired-off":"wired-on",enabled:(s.wired || []).length>0}]}
-        if(tab==="zero")return {title:"ZeroTier",status:s.flight_active?"飞行模式 · 等待网络":s.zero_online?"在线":s.zero_enabled?"服务已开 · 等待连接":"服务未运行",info:(s.zero_networks || []).map(x=>x.name+" · "+x.state+"\n"+(x.addresses || []).join("\n")).join("\n") || s.zero_error || "等待授权状态",hint:"保持常驻。已授权后加入私有网络，不接管默认上网出口或 DNS。",actions:[{text:"恢复连接服务",op:"zero-on",enabled:!s.zero_enabled},{text:"核对网络授权",op:"zero-refresh",enabled:true}]}
-        if(tab==="proxy")return {title:"V2Ray",status:!policy.proxy_enabled?"已手动关闭":s.proxy_available&&s.proxy_tun?"TUN 应用接管已开启":"代理未就绪",info:"本地入口：127.0.0.1:10808\n系统代理："+(s.proxy_system?"已开启":"已关闭")+"\n应用接管："+(s.proxy_tun?"TUN 已开启":"未开启")+"\n联网检测："+hub.proxyState,hint:"唯一实例常驻，切网不重启。手动关闭会关闭 TUN、客户端和核心，并阻止自动重新开启。",actions:[{text:policy.proxy_enabled?"关闭 V2Ray":"开启 V2Ray",op:policy.proxy_enabled?"proxy-off":"proxy-on",enabled:true},{text:"打开节点设置",op:"proxy-open",enabled:true}]}
+        if(tab==="zero")return {title:"ZeroTier",status:s.flight_active?"飞行模式 · 等待网络":s.zero_online?"服务在线 · 设备连接见下方":s.zero_enabled?"服务已开 · 等待连接":"服务未运行",info:((s.zero_networks || []).map(x=>x.name+" · "+x.state+"\n"+(x.addresses || []).join("\n")).join("\n") || s.zero_error || "等待授权状态")+"\n\n"+zeroDetails(s),hint:"保持常驻，不接管默认出口或 DNS。活动路径不等于所有设备互通，也不代表应用服务可访问。",actions:[{text:"恢复连接服务",op:"zero-on",enabled:!s.zero_enabled},{text:"核对网络授权",op:"zero-refresh",enabled:true}]}
+        if(tab==="proxy")return {title:"V2Ray",status:!policy.proxy_enabled?"已手动关闭":s.proxy_available&&s.proxy_tun?"TUN 应用接管已开启":"代理未就绪",info:"本地入口：127.0.0.1:10808\n系统代理："+(s.proxy_system?"已开启":"已关闭")+"\n应用接管："+(s.proxy_tun?"TUN 已开启":"未开启")+"\n联网检测："+hub.proxyState+"\n\n国内直连响应："+responseText("internet")+"\n代理响应："+responseText("proxy")+"\nTUN 响应："+responseText("tun"),hint:"响应为小请求完成时间，不是下载速度。唯一实例常驻，切网不重启；手动关闭会关闭 TUN、客户端和核心。",actions:[{text:policy.proxy_enabled?"关闭 V2Ray":"开启 V2Ray",op:policy.proxy_enabled?"proxy-off":"proxy-on",enabled:true},{text:"打开节点设置",op:"proxy-open",enabled:true}]}
         return {title:"GPS 卫星定位",status:(s.gps || {}).state || "读取中",info:"可见卫星："+((s.gps || {}).satellites===null || (s.gps || {}).satellites===undefined ? "—" : s.gps.satellites)+"\n参与定位："+((s.gps || {}).used===null || (s.gps || {}).used===undefined ? "—" : s.gps.used),hint:"按需开启，不保存轨迹。GPS 接收不参与上网线路选择。",actions:[{text:(s.gps || {}).state==="关闭"?"开始定位":"停止定位",op:(s.gps || {}).state==="关闭"?"gps-on":"gps-off",enabled:true},{text:"卫星详情",op:"gps-details",enabled:true}]}
     }
     Timer { interval:4000;repeat:true;running:hub.opened;triggeredOnStart:true;onTriggered:hub.refresh() }

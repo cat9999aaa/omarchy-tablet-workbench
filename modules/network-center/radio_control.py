@@ -12,6 +12,12 @@ def zero_summary(networks):
  names={'OK':'已连接／已授权','ACCESS_DENIED':'未授权','REQUESTING_CONFIGURATION':'等待网络配置','NOT_FOUND':'网络不存在','PORT_ERROR':'虚拟接口错误','CLIENT_TOO_OLD':'客户端需要更新'}
  return [{'name':x.get('name') or '未命名网络','state':names.get(x.get('status'), '状态未知'),'status':x.get('status','UNKNOWN'),'addresses':x.get('assignedAddresses',[])} for x in networks]
 
+def peer_summary(peers):
+ leaves=[p for p in peers if p.get('role')=='LEAF']
+ active=[p for p in leaves if any(x.get('active') is True for x in p.get('paths',[]))]
+ timings=[p['latency'] for p in active if isinstance(p.get('latency'),(int,float)) and p['latency']>=0]
+ return {'active_devices':len(active),'best_latency_ms':min(timings) if timings else None,'unconfirmed_devices':len(leaves)-len(active)}
+
 def radio_state(runner=run):
  values=runner(['nmcli','-t','-f','WIFI,WWAN','radio']).split(':')
  bt=[x for x in json.loads(runner(['rfkill','--json'])).get('rfkilldevices',[]) if x.get('type')=='bluetooth']
@@ -46,14 +52,16 @@ def flight(enabled,path,runner=run):
   restore(json.loads(path.read_text()),runner);path.unlink()
 
 def export_status():
- networks=[];error='';node_online=False
+ networks=[];error='';node_online=False;peers={};peer_error=''
  try:
   node_online=json.loads(run(['/usr/bin/zerotier-cli','-j','info'])).get('online',False)
   networks=zero_summary(json.loads(run(['/usr/bin/zerotier-cli','-j','listnetworks'])))
  except Exception:error='ZeroTier 服务未连接或状态读取失败'
+ try:peers=peer_summary(json.loads(run(['/usr/bin/zerotier-cli','-j','listpeers'])))
+ except Exception:peer_error='设备连接状态读取失败'
  snapshot=Path('/var/lib/pcadmin-network/flight.json')
  radios=radio_state()
- atomic_json(Path('/run/pcadmin-network/status.json'),{'zero_online':node_online,'zero_networks':networks,'zero_error':error,'flight_saved':snapshot.exists(),'flight_active':snapshot.exists() and not any(radios.values()),'radios':radios},0o644)
+ atomic_json(Path('/run/pcadmin-network/status.json'),{'zero_online':node_online,'zero_networks':networks,'zero_error':error,'zero_peers':peers,'zero_peer_error':peer_error,'flight_saved':snapshot.exists(),'flight_active':snapshot.exists() and not any(radios.values()),'radios':radios},0o644)
 
 if __name__=='__main__':
  try:

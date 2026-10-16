@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Local touch-network adapter. Never reads proxy credentials or ZeroTier tokens."""
-import json,subprocess,sys,os,socket,time,fcntl,signal,tempfile
+import json,subprocess,sys,os,socket,time,fcntl,signal,tempfile,math
 from pathlib import Path
 from policy import read_policy,update_policy
 PROFILE=os.environ.get('PCADMIN_CELL_PROFILE','平板蜂窝网络')
@@ -54,17 +54,28 @@ def gps_status():
    if out['mode']>=2:out['state']='已定位'
  except (OSError,ValueError):out['state']='服务已开，等待数据'
  return out
+def parse_probe(raw,codes,body=None):
+ text,sep,metrics=raw.rpartition('\n')
+ try:
+  code,seconds=metrics.split('\t');seconds=float(seconds)
+  if (not sep and body is not None) or not math.isfinite(seconds) or seconds<0:raise ValueError('invalid duration')
+ except (ValueError,TypeError):return {'state':'failed','latency_ms':None}
+ valid=code in codes and (body is None or text.strip()==body)
+ return {'state':'ok' if valid else 'failed','latency_ms':round(seconds*1000)}
+
 def health_check():
  route=route_status();iface=route['interface'];out={'observed_at':time.time(),'interface':iface,'internet':'unavailable','proxy':'off'}
+ out['latency_ms']={}
  if iface:
-  answer=optional(['curl','--noproxy','*','--interface',iface,'-4','-sS','--max-time','4','http://ping.archlinux.org/nm-check.txt'],timeout=6)
-  out['internet']='ok' if answer=='NetworkManager is online' else 'failed'
+  answer=optional(['curl','--noproxy','*','--interface',iface,'-4','-sS','--max-time','4','-w','\n%{http_code}\t%{time_total}','http://ping.archlinux.org/nm-check.txt'],timeout=6)
+  probe=parse_probe(answer,('200',),'NetworkManager is online');out['internet']=probe['state'];out['latency_ms']['internet']=probe['latency_ms']
  if read_policy()['proxy_enabled']:
-  code=optional(['curl','--proxy','http://127.0.0.1:10808','-sS','-o','/dev/null','-w','%{http_code}','--max-time','5','https://www.google.com'],timeout=7)
-  out['proxy']='ok' if code in ('200','301','302') else 'failed'
+  answer=optional(['curl','--proxy','http://127.0.0.1:10808','-sS','-o','/dev/null','-w','\n%{http_code}\t%{time_total}','--max-time','5','https://www.google.com/generate_204'],timeout=7)
+  probe=parse_probe(answer,('204',));out['proxy']=probe['state'];out['latency_ms']['proxy']=probe['latency_ms']
  if optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active':
-  code=optional(['curl','--noproxy','*','-sS','-o','/dev/null','-w','%{http_code}','--max-time','5','https://www.google.com/generate_204'],timeout=7)
-  out['tun']='ok' if code=='204' else 'failed'
+  answer=optional(['curl','--noproxy','*','-sS','-o','/dev/null','-w','\n%{http_code}\t%{time_total}','--max-time','5','https://www.google.com/generate_204'],timeout=7)
+  probe=parse_probe(answer,('204',));out['tun']=probe['state'];out['latency_ms']['tun']=probe['latency_ms']
+ out['observed_at']=time.time()
  p=Path.home()/'.local/state/pcadmin-network/health.json';p.parent.mkdir(parents=True,exist_ok=True)
  fd,name=tempfile.mkstemp(dir=p.parent,prefix='.health-')
  with os.fdopen(fd,'w') as f:json.dump(out,f)
@@ -107,7 +118,7 @@ def status():
  try:cache=json.loads(Path('/run/pcadmin-network/status.json').read_text())
  except (OSError,ValueError):pass
  if cache and time.time()-Path('/run/pcadmin-network/status.json').stat().st_mtime>45:
-  cache.update(zero_online=False,zero_networks=[],zero_error='授权状态已过期，请重新核对')
+  cache.update(zero_online=False,zero_networks=[],zero_peers={},zero_peer_error='连接数据已过期',zero_error='授权状态已过期，请重新核对')
  linkage={}
  try:linkage=json.loads((Path.home()/'.local/state/pcadmin-network/cell-proxy.json').read_text())
  except (OSError,ValueError):pass
