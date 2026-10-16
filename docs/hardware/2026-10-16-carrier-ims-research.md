@@ -28,3 +28,13 @@
 4. 先验证模块固件的语音能力和音频通道；短信优先调查 SMS over IMS 与其他 LTE 短信承载，不能仅凭 IMS 未注册断言所有短信必须失败。
 
 下一步：优先从官方 libqmi/MM 与厂商文档确认 WMS transport/network-registration 查询及该固件的 IMS 支持；证据充分后才设计可逆配置实验。尚不移植 Android APK、不刷其他地区配置、不把拨号 UI 开发当作解决注册的前提。
+
+## 用户转来的换模块建议核对
+
+- 戴尔[7220通信规格](https://www.dell.com/support/manuals/en-in/latitude-12-7220-tablet/lat7220_ret_specs/communications?guid=guid-dfacccf4-6bf4-4db9-8d4a-9edcc8dd4cc6&lang=en-us)列出DW5821e和DW5930e，但不能把数据规格清单当成语音能力证明。
+- 微雪[SIM7600G-H-M2 4G HAT](https://www.waveshare.com/wiki/SIM7600G-H-M2_4G_HAT)官方资料确有通话、短信和耳麦接口说明；[M.2模块资料](https://www.waveshare.com/wiki/SIM7600G-H-M.2)说明其Cat4、Linux支持。直接页面此次403，搜索索引提供正文；未取得最新完整硬件尺寸/引脚/厚度核对，不据此批准内置替换。
+- [SIM7600G-H USB模块语音例程](https://www.waveshare.com/wiki/SIM7600G-H_4G_Module)说明可经USB Audio端口传二进制语音、由主机音频设备处理。因此“通话必须额外外置音频编解码器”不是所有SIM7600方案的通用结论；具体M.2版本/固件及主机接口仍需确认。
+- 候选需确认：卖家实际SKU/固件、中国电信本SIM的IMS注册与LTE-only双向电话实测、USB语音数据路径、短信收发，以及7220卡槽供电/尺寸/散热/天线。M.2 B-Key和42mm只覆盖部分兼容条件。没有核验价格；不据用户转文中的美元价格建议购买。
+- 已核对本机mmcli1.24.2提供messaging-status与voice-status，转文中的基础命令存在。但本机早已安装并实测，不需用户再次贴包含个人标识的整机输出。
+
+新增现场结果见README：CNMI-only与SIM-store+CNMI两轮均未收到用户测试短信，设置完整恢复，绑定蜂窝HTTPS200。IMS测试模式两个只读查询均Disabled；CREG3与CEREG1并存。不能将“只要改CNMI就一定解决”作为本机结论。
