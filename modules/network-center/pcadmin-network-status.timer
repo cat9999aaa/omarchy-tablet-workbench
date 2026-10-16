@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh local ZeroTier status every 15 seconds
+[Timer]
+OnBootSec=10
+OnUnitActiveSec=15
+Unit=pcadmin-network-status.service
+[Install]
+WantedBy=timers.target

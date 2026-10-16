@@ -45,3 +45,8 @@
 本机网络状态OK、获得地址、持久网络文件存在。allowManaged=true、allowGlobal=false、allowDefault=false、allowDNS=false；普通默认路由保留Wi-Fi600/4G2000。经虚拟网口ping手机和一台Linux成员均2/2成功，普通HTTPS200。主路由首次ICMP无响应，不能宣称所有远端LAN均通。未做Wi-Fi/4G切换后的隧道重连或重启验收。私有网络ID、成员IP、账号及截图仅在本机管理记录，不上传仓库。
 
 实施中修正了首次手工建networks.d的所有权：目录和local.conf使用软件服务账户，而非root；服务正常、网络配置已持久化。核心身份/认证令牌未导出，未新增软件源。网络面板UI、代理控制、GPS仍未部署。
+
+
+## 已批准并部署的标签版 1.2.2
+
+独立 Wi-Fi / 4G / 有线与本地 / ZeroTier / V2Ray / GPS 页面，用户显式选路，无负载均衡。ZeroTier常驻并明确显示网络授权结果；飞行模式带确认、原无线状态保存与恢复。源码见 modules/network-center，尚无通用安装器。13项测试、六页运行时检查通过；真实飞行模式断开恢复、有线硬件和熄屏网络连续性尚未实测。未提交私人网络标识、地址、日志或位置。

@@ -1,0 +1,15 @@
+[Unit]
+Description=Tablet GNSS (read-only, on demand)
+Conflicts=gpsd.service gpsd.socket
+ConditionPathExists=/dev/ttyACM0
+[Service]
+Type=simple
+ExecStart=/usr/bin/gpsd -N -n -b -S 2947 /dev/ttyACM0
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+[Install]
+WantedBy=multi-user.target

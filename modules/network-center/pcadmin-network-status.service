@@ -1,0 +1,15 @@
+[Unit]
+Description=Sanitized local network and ZeroTier status
+After=NetworkManager.service zerotier-one.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/pcadmin-radio-control refresh
+RuntimeDirectory=pcadmin-network
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+UMask=0022
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/pcadmin-network
+PrivateTmp=yes
