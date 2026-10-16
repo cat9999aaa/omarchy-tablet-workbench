@@ -1,0 +1,1 @@
+ACTION=="add", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0eef", ATTRS{idProduct}=="c003", TAG+="systemd", ENV{SYSTEMD_WANTS}+="pcadmin-touch-mode.service"

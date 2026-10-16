@@ -2,12 +2,12 @@
 
 仅本机 GTK/Wayland 测试；复用已经安装的 Python GI、GTK3、Cairo，无需管理员权限，不更改驱动/触摸模式。
 
-运行：`python tools/pen-test/pen_test.py`。点开始，放开手指等待3秒，随后只用自带笔在画板内测试30秒：点按、连续线、轻重压力与斜握。其他区域的按钮不计入画板；倒计时结束自动冻结结果。
+运行：`python modules/hardware-toolbox/pen-test/pen_test.py`。点开始，放开手指等待3秒，随后只用自带笔在画板内测试30秒：点按、连续线、轻重压力与斜握。其他区域的按钮不计入画板；倒计时结束自动冻结结果。
 
 显示实际输入来源、接触/事件数，以及主动笔事件实际提供的压力和倾斜归一值。触摸通道不能区分手指与无源笔；若混用，不能用结果认定笔正常。无压力轴时显示未提供，线宽固定，不把普通触摸伪装成笔压。30秒测试不能作为性能/精度测量。
 
 统计保存到 `$XDG_STATE_HOME/pcadmin-pen-test/latest.json`（默认 ~/.local/state），权限0600，仅含次数、来源、轴值范围和时间。笔迹只在内存，关闭窗口清除。重复测试覆盖最近统计。不记录序列号、笔迹坐标或文字。
 
-检查：`python -m unittest discover -s tools/pen-test -p 'test_metrics.py'`。已做GTK窗口/画布/轴值与摘要的合成输入冒烟验证；实物测试仍待用户。
+检查：`python -m unittest discover -s modules/hardware-toolbox/pen-test -p 'test_metrics.py'`。已做GTK窗口/画布/轴值与摘要的合成输入冒烟验证；2026-10-16实物原装无源笔在手套模式1下已用户确认正常画线，4接触1103touch事件，无压力/倾斜；用户提前结束，complete=false。模式0此前无反应。模式工具见[触摸模式](../touch-mode/README.md)。
 
 所属：启明触控笔测试台子会员，父级平板原生操作工具。与P1/P2/P3、锁屏及启动解密独立。来源任务w-0011触控笔排障。

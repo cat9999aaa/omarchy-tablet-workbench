@@ -1,0 +1,16 @@
+[Unit]
+Description=Dell 7220 original passive pen touch mode
+After=systemd-udev-trigger.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/pcadmin-touch-mode.py glove
+TimeoutStartSec=30
+ProtectSystem=strict
+ReadWritePaths=/run/lock
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
