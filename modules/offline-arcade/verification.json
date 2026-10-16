@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-16",
+  "platform": "Omarchy 4.0.4 / Arch x86_64, Wayland, Intel UHD620",
+  "scope": "single-device prototype; configuration snippets require manual merge and target-device checks",
+  "versions": {
+    "RetroArch": "1.22.2-5",
+    "FBNeo_package": "1:1.0.0.02.r8581.g074bf13-1",
+    "MAME": "0.289-1"
+  },
+  "passed": {
+    "copy": "8836 files, 28887484424 bytes, per-file SHA256 matched, original archive manifest hashes matched",
+    "mame_rom_audit": [
+      "dino",
+      "wof",
+      "mslug",
+      "kof97",
+      "1941",
+      "ddsom"
+    ],
+    "fbneo_boot_auto_state": "same six sets, 180 frames, null video and SDL2 input",
+    "offline_graphics_save_load": "dino, Wayland/OpenGL, isolated network namespace",
+    "chinese_glyphs": "main menu, quick menu and Chinese notifications visually verified",
+    "font_matching": "Chinese Sans/Serif/Mono -> Noto CJK; English monospace/emoji retained",
+    "controller": "user confirmed actual gameplay",
+    "overlay_disabled": "user preference; visual absence checked"
+  },
+  "prepared_not_fully_tested": {
+    "cheats": "installed and loaded, common labels translated, individual effects not played through",
+    "keyboard": "mapped, physical keyboard not connected",
+    "full_library": "copied completely, not every ROM boot-tested",
+    "templates_on_other_devices": "not tested"
+  },
+  "known_issues": {
+    "qt_desktop_menu": "invalid pointer in Qt settings UI; optional companion/F5 entry disabled",
+    "headless_wayland_input": "null video plus Wayland input probe crashes; SDL2 used for headless probes"
+  }
+}

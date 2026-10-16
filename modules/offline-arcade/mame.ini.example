@@ -1,0 +1,9 @@
+# Merge reviewed options into a backed-up user MAME configuration.
+# Replace this example ROM directory with your own location.
+rompath                   $HOME/Games/Arcade/roms
+language                  Chinese_Simplified
+languagepath              $HOME/.mame/language;/usr/lib/mame/language
+uifont                    "Noto Sans CJK SC"
+joystick                  1
+mouse                     1
+cheat                     1

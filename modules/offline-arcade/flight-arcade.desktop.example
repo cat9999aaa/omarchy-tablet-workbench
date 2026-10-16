@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=飞机游戏厅
+Comment=中文街机游戏菜单，使用手柄或键盘
+Exec=retroarch
+Icon=retroarch
+Terminal=false
+Categories=Game;Emulator;
