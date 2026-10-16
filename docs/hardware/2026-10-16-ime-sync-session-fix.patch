@@ -1,0 +1,22 @@
+--- a/src/engine.cpp	2026-10-16 13:15:45.061594778 +0800
++++ b/src/engine.cpp	2026-10-16 13:15:53.949547534 +0800
+@@ -41,7 +41,18 @@
+ }
+ void Engine::setLearning(bool enabled) { learning_=enabled;mode(mode_); }
+ bool Engine::forgetCandidate(size_t index) { if(index>=snapshot().candidates.size())return false;return api_->delete_candidate_on_current_page(session_,index); }
+-bool Engine::backupDictionary() { if(!api_->sync_user_data())return false;api_->join_maintenance_thread();return true; }
++bool Engine::backupDictionary() {
++    bool synced = api_->sync_user_data();
++    api_->join_maintenance_thread();
++    // User-data sync invalidates Rime sessions. Restore the input session
++    // before the next focus change or schema switch uses it.
++    if (!api_->find_session(session_)) {
++        session_ = api_->create_session();
++        if (!session_) throw std::runtime_error("Cannot recreate Rime session after sync");
++        mode(mode_);
++    }
++    return synced;
++}
+ bool Engine::key(int code) { return api_->process_key(session_, code, 0); }
+ void Engine::clear() { if (session_) api_->clear_composition(session_); }
+ void Engine::page(bool next) { api_->process_key(session_, next ? 0xff56 : 0xff55, 0); }
