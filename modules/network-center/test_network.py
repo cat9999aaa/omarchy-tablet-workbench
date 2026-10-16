@@ -40,4 +40,3 @@ class NetworkTests(unittest.TestCase):
  def test_zero_shutdown_not_available(self):
   with self.assertRaises(ValueError):action_command('zero-off')
 if __name__=='__main__':unittest.main()
-
