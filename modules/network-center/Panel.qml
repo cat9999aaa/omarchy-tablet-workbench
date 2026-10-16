@@ -213,8 +213,9 @@ Panel {
     function travelAction(op: string) { travel.act(op) }
     function travelState(): string { return JSON.stringify(travel.state) }
     function travelTab(tab: string): void { travel.selectedTab = tab }
+    function travelGeometry(): string { return JSON.stringify({width:panel.contentWidth,height:panel.contentHeight,body:travel.height,tab:travel.selectedTab}) }
     function travelSelected(): string { return travel.selectedTab }
-    function travelVersion(): string { return "1.2.2" }
+    function travelVersion(): string { return "1.3.4" }
     function open() { root.open() }
     function close() { root.close() }
     function show() { root.open() }
@@ -442,7 +443,7 @@ Panel {
   // when both are up, matching the default-route device.
   readonly property var wiredDevice: findDevice(DeviceType.Wired)
   property string travelPrimary: ""
-  Process { id: travelRoute; command:["/usr/bin/python",Quickshell.env("HOME")+"/Projects/pcadmin/tools/network-center/network.py","route"]; stdout: SplitParser { onRead: line => { try { root.travelPrimary=JSON.parse(line).primary }catch(e){} } } }
+  Process { id: travelRoute; command:["/usr/bin/python",(Quickshell.env("PCADMIN_NETWORK_HELPER") || Quickshell.env("HOME")+"/.local/lib/omarchy-tablet-workbench/network-center/network.py"),"route"]; stdout: SplitParser { onRead: line => { try { root.travelPrimary=JSON.parse(line).primary }catch(e){} } } }
   Timer { interval:8000; repeat:true; running:true; triggeredOnStart:true; onTriggered: { if(!travelRoute.running) travelRoute.running=true } }
   readonly property string kind: {
     if (travelPrimary === "4g") return "cellular"
@@ -995,7 +996,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(460))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight)
+    contentHeight: panel.fittedContentHeight(Style.space(620))
 
     // Catches all unhandled keys for keyboard navigation. AfterItem priority
     // lets the passphrase TextField (a child via focus chain) get its keys
@@ -1098,12 +1099,12 @@ Panel {
       id: column
       width: travelScroll.width
       spacing: Style.space(12)
-      TravelControls { id: travel; opened: root.opened }
-      Column { width: parent.width; spacing: Style.space(12); visible: travel.selectedTab === "wifi"
+      TravelControls { id: travel; opened: root.opened; width:parent.width; height:travelScroll.height
+      Column { width: parent.width; spacing: Style.space(12)
 
       // ---------- Hero: network icon · SSID + state · actions ----------
       Item {
-        visible: root.info.type === "wifi"
+        visible: false
         width: parent.width
         implicitHeight: Math.max(heroIcon.implicitHeight, heroLabels.implicitHeight, heroActions.implicitHeight)
 
@@ -1238,7 +1239,7 @@ Panel {
 
       // Connection details: transfer metrics first, then IP/Gateway.
       Column {
-        visible: root.info.type === "wifi" && !!root.info.iface
+        visible: false
         width: parent.width
         spacing: Style.spacing.labelGap
 
@@ -1531,7 +1532,7 @@ Panel {
               text: sectionTitle
               foreground: root.bar.foreground
               fontFamily: root.bar.fontFamily
-              height: visible ? implicitHeight : 0
+              // Hidden children are skipped by Column; keep natural text height.
             }
 
             NetworkRow {
@@ -1544,7 +1545,8 @@ Panel {
         }
       }
     }
-      } // Wi-Fi page
+      } // TravelControls
+    } // outer column
     } // travelScroll
     }
   }
@@ -1824,7 +1826,7 @@ Panel {
           // so rows without status keep a tight one-line look.
           text: row.statusText
           visible: row.statusText !== ""
-          height: visible ? implicitHeight : 0
+          // Hidden children are skipped by Column; keep natural text height.
           color: row.statusColor
           font.family: root.bar.fontFamily
           font.pixelSize: Style.font.caption

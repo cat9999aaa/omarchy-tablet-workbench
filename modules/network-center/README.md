@@ -1,27 +1,37 @@
-# 触屏网络中心原型 1.2.2
+# 触屏网络中心原型 1.3.4
 
-基于本机 Omarchy 4.0.4 的官方 `omarchy.network` 插件克隆。Panel.qml / Model.js 派生自 Omarchy，保留 MIT 许可（LICENSE.omarchy）。不修改打包源文件。
+基于 Omarchy 4.0.4 官方 omarchy.network 插件克隆，保留上游 MIT 许可，不修改打包源文件。固定顶部显示真实物理出口、直接联网和 TUN 状态；六个标签共用固定尺寸与内部滚动，切标签不修改连接。
 
-## 用户行为
+## 选网与代理
 
-六个独立页：Wi-Fi、4G、有线／本地、ZeroTier、V2Ray、GPS。切页只更改显示，只有明确点击选网按钮才调整线路。没有负载均衡或定时改路由。未选线路保留为较低优先级，遵循 NetworkManager 的正常路由行为。
+NetworkManager 自动优先级为有线100、Wi-Fi600、4G700；蜂窝计费且自动连接待命。保留 Arch 官方检测地址，间隔15秒、超时5秒。固定线路会进入手动模式；不做负载均衡。TUN 网卡不会被当成物理上网出口。
 
-ZeroTier 常驻，显示服务、服务器在线状态、网络授权结果、地址。只读状态经 root 管理的固定脚本导出到 /run/pcadmin-network/status.json；不导出认证令牌。状态超过45秒会标为过期。服务与网络授权不同，授权成功不保证所有远端服务/转发都可用。
+v2rayN 由唯一用户 systemd 实例管理，使用现有节点和127.0.0.1:10808；切网不重启GUI。policy.py 保存手动关闭意图，网络事件不会重新开启已手动关闭的代理。
 
-飞行模式二次确认后关闭 Wi-Fi / WWAN / Bluetooth 软件无线开关。原状态保存于 root 专用 /var/lib/pcadmin-network/flight.json，退出时恢复，原先关闭的 WWAN 不会自动开启。开启失败尝试恢复。GPS 接收不受影响。ZeroTier 服务仍运行，等待恢复连接。
+应用接管使用 v2rayN 自带的官方 sing-box 核心。原生GUI启用TUN在Linux下每次重启需要重新输入sudo密码；本机改为由系统级 pcadmin-v2ray-tun.service 托管其已生成的TUN前端，连接现有10808，不增加节点或第二个GUI。GUI内置TUN开关保持关闭，避免重复创建同一虚拟网卡。请使用网络面板统一开关。
 
-## 部署边界
+root拥有的 /etc/pcadmin-network/tun.json 来源于客户端生成的 configPre.json，已验证只含本地SOCKS出口与direct，不含节点凭据；规则文件改为读取打包目录，保留用户与打包Xray进程绕行，排除私有网段。服务限制文件系统写入，仅保留NET_ADMIN、NET_RAW及进程识别所需SYS_PTRACE能力；启动前等待10808就绪。不会保存sudo密码。配置属于本机外部资源，不上传仓库。
 
-这是这台平板的已部署原型，尚无通用安装器。蜂窝接口和默认 profile 对应目标设备；仓库 QML 默认读取 ~/.local/lib/omarchy-tablet-workbench/network-center/network.py，也可通过 PCADMIN_NETWORK_HELPER 设置；本机已部署版仍使用原管理目录。自定义扩展使用用户插件版本目录，root 控制器是 /usr/local/libexec/pcadmin-radio-control。系统状态 timer 每15秒刷新；界面只在打开时读取完整状态。
+面板关闭代理时先停止TUN，再关闭系统代理和GUI；退出GUI的事件也会请求停止TUN。这些系统服务操作可能需要P3系统认证。启动服务已enable，但冷启动实际效果尚未验收。更改客户端端口、TUN规则或升级核心后，需要重新核对和生成root配置；当前没有自动迁移器。
 
-必须备份旧 manifest / Panel / helper / 同名 unit，先审查和测试后以官方插件克隆方式安装，禁止覆盖 /usr/share/omarchy。不要直接运行来源不明的 root 代码。飞行模式操作经正常 Polkit 认证。
+## 其他入口
 
-## 验证与限制
+ZeroTier常驻，显示在线及授权状态，不接管默认出口或DNS。GPS按需开启，不保存位置。飞行模式需确认，保存无线状态后恢复。
 
-13项单元测试通过，覆盖授权与服务的区分、脱敏、飞行模式原状态保留和失败恢复、路由切换避免重连、有线设备目标选择。六页运行时切换和截图检查通过，Wi-Fi选路实际更新成功，ZeroTier真实网络状态OK。GPS此前真实定位通过。
+本机权威源码是管理项目 tools/network-center；仓库副本默认使用 ~/.local/lib/omarchy-tablet-workbench/network-center/network.py，可通过 PCADMIN_NETWORK_HELPER 覆盖。本模块尚无通用安装器。仓库服务模板中的 __USER__/__UID__ 必须在部署前替换，本机蜂窝接口/profile也需按目标适配。
 
-本轮未实际切断无线测试飞行模式；未测试新有线硬件；4G保持用户原来的关闭状态，没有宣称本轮重新连网成功。屏幕关闭后联网故障尚未复现。软件与实体手指测试分别记录。
+## 实际验证与边界
 
-运行测试：`python -m unittest discover -s tools/network-center -p 'test_*.py'`（源码仓库模块路径按实际位置替换）。
+30项单测通过，覆盖单实例联动、手动关闭意图、GSM重新连接、TUN退出顺序和真实物理出口识别。此前六页运行时尺寸一致。
 
-恢复 UI：把插件 manifest entryPoints.barWidget 恢复为备份的 release-1.1.4/Panel.qml，执行 omarchy-shell shell rescanPlugins。此操作不改无线连接。恢复原生面板只替换对应网络 widget，不整份重置 shell 配置。不要因为恢复UI而停止用户要求常驻的 ZeroTier。
+4G直连国内HTTPS200；开启TUN后，不指定代理的Google检测204，内置浏览器Google搜索实际刷新通过。用户随后确认体验良好。Wi-Fi恢复后四次TUN检测204，最后按用户要求关闭Wi-Fi并固定4G。先前五轮切换仅验证显式10808请求，不能当作应用接管证据。
+
+ZeroTier服务运行，但最新成员ping未通过，当前跨网段互通不能宣称通过。真实飞行模式、冷启动TUN、GUI退出/面板开关完整认证流程、Wi-Fi关联但外网断开、十分钟息屏联网未验收。不承诺切网时既有TCP会话完全无中断。
+
+运行测试：python -m unittest discover -s 模块目录 -p 'test_*.py'。verify_handover.py 必须显式 --run，会临时关闭Wi-Fi并自动恢复，仅验证链路/代理核心。
+
+## 恢复
+
+先停止并禁用 pcadmin-v2ray-tun.service，确认singbox_tun及其策略路由退出，再恢复客户端原来的系统代理模式。恢复前备份位于本机管理项目 backups/network-center-2026-10-16 和 /var/lib/pcadmin-network/recovery；TUN最初不存在的文件应按记录移除。不要同时打开GUI内置TUN与系统托管TUN。
+
+UI可回退manifest到之前release入口后执行 omarchy-shell shell rescanPlugins，不重置整个shell。NetworkManager检测配置恢复后仅reload conf，不重启网络服务。恢复UI不停止ZeroTier。不提交节点、凭据或私人网络地址。

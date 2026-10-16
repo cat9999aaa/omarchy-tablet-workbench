@@ -21,7 +21,7 @@ class NetworkTests(unittest.TestCase):
  def test_radio_and_connection_separate(self):
   self.assertIn('wwan',action_command('cell-radio-off'))
   self.assertIn('down',action_command('cell-off'))
- def test_selection_does_not_reconnect_active_cellular(self):
+ def test_changed_gsm_metrics_reconnect_once_without_reapply(self):
   calls=[]
   def fake(a,*args,**kwargs):
    calls.append(a)
@@ -30,8 +30,8 @@ class NetworkTests(unittest.TestCase):
    if a[:2]==['nmcli','-g'] and 'ipv4.route-metric,ipv6.route-metric' in a:return '600\n50'
    return ''
   with patch('network.call',side_effect=fake),patch('network.optional',side_effect=fake):preference('prefer-wifi')
-  self.assertIn(['nmcli','device','reapply','cdc-wdm0'],calls)
-  self.assertFalse(any('up' in c for c in calls))
+  self.assertNotIn(['nmcli','device','reapply','cdc-wdm0'],calls)
+  self.assertEqual(sum(1 for c in calls if c==['nmcli','--wait','25','con','up','平板蜂窝网络']),1)
  def test_wired_action_targets_only_detected_ethernet(self):
   with patch('network.call',return_value='wlp3s0:wifi\nenp0s1:ethernet'):
    self.assertEqual(wired_command('wired-on'),['nmcli','--wait','25','device','connect','enp0s1'])

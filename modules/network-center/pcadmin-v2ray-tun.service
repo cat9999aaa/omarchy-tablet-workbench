@@ -1,0 +1,23 @@
+[Unit]
+Description=Tablet V2Ray official sing-box TUN frontend
+After=NetworkManager.service user@__UID__.service
+Wants=NetworkManager.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecCondition=/usr/bin/python -c "import json,pathlib,sys; p=pathlib.Path('/home/__USER__/.config/pcadmin-network/policy.json'); sys.exit(0 if not p.exists() or json.loads(p.read_text()).get('proxy_enabled',True) else 1)"
+ExecStartPre=/usr/bin/timeout 60 /usr/bin/bash -c 'until (echo > /dev/tcp/127.0.0.1/10808) 2>/dev/null; do sleep 1; done'
+ExecStart=/opt/v2rayn-bin/bin/sing_box/sing-box run -c /etc/pcadmin-network/tun.json
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=pcadmin-v2ray-tun
+WorkingDirectory=/run/pcadmin-v2ray-tun
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_PTRACE
+
+[Install]
+WantedBy=multi-user.target

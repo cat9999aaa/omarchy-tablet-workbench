@@ -1,0 +1,11 @@
+[Unit]
+Description=Network events, persistent proxy intent and connectivity status
+After=graphical-session.target
+PartOf=graphical-session.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/python %h/.local/lib/omarchy-tablet-workbench/network-center/cell_proxy_watch.py
+Restart=on-failure
+RestartSec=5
+[Install]
+WantedBy=graphical-session.target

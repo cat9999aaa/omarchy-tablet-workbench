@@ -15,7 +15,7 @@ function wifiIconFor(strength) {
 }
 
 function connectionIcon(kind, signalStrength) {
-  if (kind === "cellular") return "󰢟"
+  if (kind === "cellular") return "4G"
   if (kind === "wifi") return wifiIconFor(signalStrength)
   if (kind === "ethernet") return "󰈀"
   return "󰤮"
