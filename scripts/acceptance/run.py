@@ -140,6 +140,7 @@ def checks_for(suite):
             ('control', 'modules/control-center', 'test_*.py'),
             ('battery', 'modules/battery-manager/recorder', 'tests/test_*.py'),
             ('remote-build', 'modules/remote-build', 'test_*.py'),
+            ('plugin-release', 'modules/plugin-release', 'test_*.py'),
             ('pen-metrics', 'modules/hardware-toolbox/pen-test', 'test_*.py'),
             ('touch-mode', 'modules/hardware-toolbox/touch-mode', 'test_*.py'),
             ('arcade-catalog', 'modules/offline-arcade/catalog', 'test_*.py'),

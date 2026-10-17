@@ -51,3 +51,5 @@
 统一的软件验收入口见 [验收工具](scripts/acceptance/README.md)，自动结果见 [GitHub Actions](https://github.com/cat9999aaa/omarchy-tablet-workbench/actions/workflows/acceptance.yml)。软件检查和真实设备验收分别记录。
 
 输入法浏览器编辑与假密码框兼容问题已修复并部署，GTK/Qt/XWayland/Chromium实际矩阵见[跨应用验收](docs/validation/2026-10-17-ime-browser.md)。
+
+现有插件的版本化打包与恢复入口见[发布工具](modules/plugin-release/README.md)。已覆盖隔离事务测试与本机只读包检查；真实自动升级/恢复仍等待后续实际版本使用。

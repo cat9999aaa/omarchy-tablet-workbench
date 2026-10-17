@@ -8,7 +8,7 @@ python3 scripts/acceptance/run.py --output /tmp/new-workbench-report
 
 输出目录必须不存在，避免覆盖旧证据。`summary.json` 保存源码摘要、逐组结果、耗时和验收类型；每组有单独日志。任何一组失败、超时、缺工具都会返回失败；不会把跳过 Qt 当作成功。`--suite models` 和 `--suite qml` 用于定向复核，正式软件门禁运行默认 `all`。
 
-覆盖网络、控制台、电池、远程构建边界、触摸模式、笔数据、离线目录、输入法控制、共享组件与几何模型。`Workbench` 的生成副本必须逐字节匹配共享权威源；缺少、过期或修改都会失败。
+覆盖网络、控制台、电池、远程构建边界、插件发布恢复边界、触摸模式、笔数据、离线目录、输入法控制、共享组件与几何模型。`Workbench` 的生成副本必须逐字节匹配共享权威源；缺少、过期或修改都会失败。
 
 依赖：Python 3.10+、Node.js、Qt 6 的 qmltestrunner 与 QtQuick/Controls/Layouts/QtTest 模块。测试权限门禁会在 `/run/user/<uid>` 创建临时请求，因此远程运行必须隔离 `/run`、`/tmp`、HOME、网络与真实桌面总线；GitHub 使用一次性托管机器。Linux 设备上的网络服务不在测试范围内。
 
