@@ -168,6 +168,8 @@ def checks_for(suite):
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('navigation-layout', 'modules/window-controls',
                             [sys.executable, 'test_navigation_layout.py']))
+        checks.append(Check('ime-layout', 'modules/touch-ime-prototype',
+                            [sys.executable, 'tests/test_layout.py']))
     return checks
 
 

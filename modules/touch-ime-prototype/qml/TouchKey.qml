@@ -26,7 +26,7 @@ Rectangle {
  border.color: Qt.rgba(foreground.r,foreground.g,foreground.b,0.12)
  color: mouse.pressed && inputActive ? accentColor : baseColor
  opacity: enabled ? 1 : 0.45
- Text { anchors.centerIn: parent; text: root.clearArmed ? "松手清空" : root.label; color: root.foreground; font.pixelSize: root.clearArmed ? 14 : root.fontSize; horizontalAlignment: Text.AlignHCenter }
+ Text { anchors.fill: parent; anchors.margins: 6; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; text: root.clearArmed ? "松手清空" : root.label; color: root.foreground; font.pixelSize: root.clearArmed ? 14 : root.fontSize; horizontalAlignment: Text.AlignHCenter }
  MouseArea {
   id: mouse; anchors.fill: parent; preventStealing: !root.triggerOnRelease
   onPressed: mouse => { if(!root.inputActive)return; root.cancelGesture();root.pressY=mouse.y;root.heldGeneration=root.inputGeneration;root.pressStarted();if(!root.triggerOnRelease){root.triggered();if(root.repeatKey)delay.start()} }

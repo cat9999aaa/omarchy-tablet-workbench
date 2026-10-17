@@ -1,6 +1,6 @@
 """Render the actual panel layout in Qt's offscreen test window."""
 from pathlib import Path
-import tempfile, subprocess, shutil, os, json
+import tempfile, subprocess, shutil, os, json, sys
 root=Path(__file__).resolve().parents[1]
 source=(root/'qml/TouchIme.qml').read_text()
 a=source.index('        ColumnLayout {'); opening=source.index('{',a);depth=1;b=opening+1
@@ -34,6 +34,31 @@ Item {
 tests='''
  TestCase {
   name:"PanelLayout"; when:windowShown
+  function test_display_matrix_data() {
+   var rows=[]
+   for(var height of [829,1501])for(var mode of ["t9","pinyin","abc","number","symbols","handwriting"])for(var panel of ["normal","voice","settings","clear"])
+    rows.push({tag:height+"-"+mode+"-"+panel,h:height,mode:mode,panel:panel})
+   return rows
+  }
+  function checkKeys(item) {
+   if(!item.visible)return
+   if(item.label!==undefined && item.triggered!==undefined) {
+    var p=item.mapToItem(inputLayout,0,0)
+    verify(item.width>0 && item.height>0,"key collapsed: "+item.label)
+    for(var child of item.children)if(child.paintedWidth!==undefined)verify(child.paintedWidth<=item.width-8,"key label overflow: "+item.label)
+    verify(p.x>=-1 && p.x+item.width<=inputLayout.width+1,"key horizontal overflow: "+item.label)
+    verify(p.y>=-1 && p.y+item.height<=inputLayout.height+1,"key vertical overflow: "+item.label)
+   }
+   for(var child of item.children)checkKeys(child)
+  }
+  function test_display_matrix(d) {
+   root.height=d.h;root.settingsOpen=d.panel==="settings";root.clearConfirmGeneration=d.panel==="clear"?1:-1
+   root.state={visible:true,focused:true,generation:1,mode:d.mode,sensitive:false,error:"",editingVoice:false,voicePhase:"idle",voiceText:d.panel==="voice"?"长语音。".repeat(300):"",preedit:(d.mode==="t9"||d.mode==="pinyin")?"64426":"",candidates:(d.mode==="t9"||d.mode==="pinyin"||d.mode==="handwriting")?["你好","你好啊","你好呀","你好世界","你好朋友","你好吗朋友们"]:[],page:0,lastPage:false,phrases:["测试常用语"]}
+   wait(50)
+   verify(inputLayout.implicitHeight<=inputLayout.height,"overflow "+d.tag+": "+inputLayout.implicitHeight+" > "+inputLayout.height)
+   checkKeys(inputLayout)
+   root.height=829;root.settingsOpen=false;root.clearConfirmGeneration=-1
+  }
   function test_modes_data() { return [{tag:"t9"},{tag:"pinyin"},{tag:"abc"},{tag:"number"},{tag:"symbols"},{tag:"handwriting"}] }
   function test_settings_fit() {
    root.settingsOpen=true;root.state={visible:true,focused:true,mode:"abc",voicePhase:"idle",candidates:[]};wait(50)
@@ -71,8 +96,13 @@ tests='''
 shot=os.environ.get('OMT_LAYOUT_SCREENSHOT')
 if shot:
     tests=tests.replace('  function test_settings_fit() {', '  function test_screenshot() {\n   root.settingsOpen=false;root.state={visible:true,focused:true,mode:"t9",voicePhase:"idle",preedit:"64426",candidates:["你好","拟稿","米高","你好啊","你好呀","你好么"],page:0,lastPage:false};wait(100)\n   var saved=false;root.grabToImage(function(result){saved=result.saveToFile('+json.dumps(shot)+');});tryVerify(function(){return saved},2000)\n  }\n  function test_settings_fit() {')
+if shot:
+    mode=os.environ.get('OMT_LAYOUT_MODE','t9')
+    if mode not in ('t9','pinyin','abc','handwriting'): raise ValueError('unsupported screenshot mode')
+    tests=tests.replace('root.settingsOpen=false;root.state={visible:true,focused:true,mode:"t9"', 'root.settingsOpen=false;root.state={visible:true,focused:true,mode:'+json.dumps(mode))
 with tempfile.TemporaryDirectory(prefix='omt-layout-') as tmp:
     tmp=Path(tmp)
     for f in (root/'qml').glob('*.qml'): shutil.copy2(f,tmp/f.name)
     (tmp/'tst_layout.qml').write_text(prefix+layout+tests)
-    subprocess.run(['/usr/lib/qt6/bin/qmltestrunner','-platform','offscreen','-input',str(tmp/'tst_layout.qml')],check=True)
+    runner = shutil.which('qmltestrunner') or next((p for p in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(p).is_file()), 'qmltestrunner')
+    subprocess.run([runner,'-platform','offscreen','-input',str(tmp/'tst_layout.qml'),*sys.argv[1:]],check=True)

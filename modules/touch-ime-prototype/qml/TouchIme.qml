@@ -42,7 +42,7 @@ Item {
         function toggle(): void { root.send({op: "toggle"}) }
         function show(): void { root.send({op: "show"}) }
         function hide(): void { root.send({op: "hide"}) }
-        function version(): string { return "0.2.4" }
+        function version(): string { return "0.2.5" }
         function voice(): void { if(!root.state.visible)root.send({op:"show"});root.send({op:"voice"}) }
         function ready(): bool { return backend.running && (root.state.generation || 0) > 0 }
     }
@@ -151,9 +151,11 @@ Item {
                     TouchKey { required property var modelData; label: modelData.label; fontSize: 15; Layout.fillWidth: true; Layout.preferredHeight: 48; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive && !root.state.preedit && !root.state.editingVoice && !root.state.editingPhrase && (!root.state.sensitive || modelData.key==="Control+v" || modelData.key==="Left" || modelData.key==="Right"); onTriggered: root.key(modelData.key) }
                 }
             }
-            ColumnLayout {
-                objectName: "candidateArea"; Layout.fillWidth: true; spacing: 4; visible: !root.settingsOpen
-                Text { Layout.fillWidth: true; color: root.fg; font.pixelSize: 20; elide: Text.ElideLeft; text: root.state.preedit ? (root.state.mode==="t9" ? "拼音组合 · " : "")+root.state.preedit : root.state.mode==="t9" ? "九键拼音 · 点字母组，再选字" : ""; visible: !!text }
+            RowLayout {
+                objectName: "candidateArea"; Layout.fillWidth: true; spacing: 6; visible: !root.settingsOpen
+                ColumnLayout {
+                    Layout.fillWidth: true; spacing: 4
+                Text { Layout.fillWidth: true; color: root.fg; font.pixelSize: 20; elide: Text.ElideLeft; text: root.state.preedit ? (root.state.mode==="t9" ? "拼音组合 · " : "")+root.state.preedit : root.state.mode==="t9" ? "九键拼音 · 点字母组，再选字" : "长按退格上滑清空 · 滑回取消"; visible: !!text }
                     GridLayout {
                         visible: !root.settingsOpen && (root.state.candidates||[]).length>0
                         Layout.fillWidth: true; columns: 3; columnSpacing: 5; rowSpacing: 5
@@ -176,6 +178,8 @@ Item {
                         Text { text: String((root.state.page||0)+1); color: root.fg }
                         TouchKey { label: "下一页"; Layout.fillWidth: true; Layout.preferredHeight: 34; fontSize: 15; foreground: root.fg; baseColor: root.bg; accentColor: root.accent; enabled: !root.state.lastPage; onTriggered: root.send({op:"page",next:true}) }
                     }
+                }
+                TouchKey { visible: root.state.mode!=="t9"; Layout.alignment: Qt.AlignTop; label: "⌫"; repeatKey: true; clearGesture: !root.state.sensitive; property bool localDeleteScope: false; onPressStarted: localDeleteScope=root.hasLocalDraft(); onClearTriggered: root.requestClear(localDeleteScope); inputGeneration: root.state.generation||0; objectName: "otherBackspace"; Layout.preferredWidth: 74; Layout.preferredHeight: 64; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.backspace(localDeleteScope) }
             }
             GridLayout {
                 objectName: "t9Keys"
@@ -194,12 +198,6 @@ Item {
                 }
                 TouchKey { objectName: "t9Backspace"; label: "⌫"; fontSize: 28; repeatKey: true; clearGesture: !root.state.sensitive; property bool localDeleteScope: false; onPressStarted: localDeleteScope=root.hasLocalDraft(); onClearTriggered: root.requestClear(localDeleteScope); inputGeneration: root.state.generation||0; Layout.row: 0; Layout.column: 3; Layout.rowSpan: 2; Layout.preferredWidth: 74; Layout.fillHeight: true; Layout.minimumHeight: 134; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.backspace(localDeleteScope) }
                 TouchKey { label: "回车"; Layout.row: 2; Layout.column: 3; Layout.preferredWidth: 74; Layout.preferredHeight: 64; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.key("Return") }
-            }
-            RowLayout {
-                visible: !root.settingsOpen && root.state.mode!=="t9"
-                Layout.fillWidth:true
-                Text {Layout.fillWidth:true;text:"长按退格上滑清空 · 滑回取消";color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
-                TouchKey { label: "⌫"; repeatKey: true; clearGesture: !root.state.sensitive; property bool localDeleteScope: false; onPressStarted: localDeleteScope=root.hasLocalDraft(); onClearTriggered: root.requestClear(localDeleteScope); inputGeneration: root.state.generation||0; objectName: "otherBackspace"; Layout.preferredWidth: 74; Layout.preferredHeight: 64; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.backspace(localDeleteScope) }
             }
             ColumnLayout {
                 visible: !root.settingsOpen && (root.state.mode==="abc"||root.state.mode==="pinyin")
