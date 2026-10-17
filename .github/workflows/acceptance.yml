@@ -40,7 +40,7 @@ jobs:
           python3 scripts/acceptance/run.py --output "$RUNNER_TEMP/workbench-acceptance"
       - name: Keep software acceptance evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: software-acceptance-${{ github.sha }}
           path: ${{ runner.temp }}/workbench-acceptance
@@ -68,7 +68,7 @@ jobs:
           (cd modules/map-gps-adapter && python3 -m unittest -v test_launch)
       - name: Keep adapter test results
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: map-gps-acceptance-${{ github.sha }}
           path: |
