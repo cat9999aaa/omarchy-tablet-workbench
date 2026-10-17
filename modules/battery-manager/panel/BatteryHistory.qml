@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "Details.js" as Details
+import "Workbench" as WB
 
 Item {
   id: view
@@ -149,13 +150,10 @@ Item {
     width:parent.width;color:view.foreground;font.family:view.fontFamily;font.pixelSize:13
     textFormat:Text.PlainText;wrapMode:Text.Wrap
   }
-  component Choice:Rectangle {
+  component Choice:WB.TouchButton {
     property string label:""
     property bool chosen:false
-    signal clicked()
-    height:44;radius:8;color:chosen ? Qt.rgba(view.foreground.r,view.foreground.g,view.foreground.b,0.18) : "transparent"
-    border.width:1;border.color:Qt.rgba(view.foreground.r,view.foreground.g,view.foreground.b,0.3)
-    Text {anchors.centerIn:parent;text:parent.label;color:view.foreground;font.family:view.fontFamily;font.pixelSize:13}
-    MouseArea {anchors.fill:parent;onClicked:parent.clicked()}
+    text:label;selected:chosen;foreground:view.foreground;accent:view.foreground
+    font.family:view.fontFamily;font.pixelSize:13
   }
 }

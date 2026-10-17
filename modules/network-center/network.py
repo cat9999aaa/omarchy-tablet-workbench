@@ -106,6 +106,10 @@ def route_status():
  kind='wifi' if (Path('/sys/class/net')/iface/'wireless').exists() else classify(iface,{},CELL) if iface else 'none'
  return {'primary':kind,'interface':iface}
 
+def radio_state(raw):
+ value=raw.strip()
+ return True if value=="enabled" else False if value=="disabled" else None
+
 def status():
  devices=[]
  for line in optional(['nmcli','-t','-f','DEVICE,TYPE,STATE','dev']).splitlines():
@@ -144,7 +148,7 @@ def status():
   health=json.loads((Path.home()/'.local/state/pcadmin-network/health.json').read_text())
   if health.get('interface')!=iface or time.time()-health.get('observed_at',0)>65:health={}
  except (OSError,ValueError):pass
- return {**cache,'flight_saved':flight_requested(),'health':health,'policy':read_policy(),'cell_proxy':linkage,'local_addresses':local,'wifi_enabled':optional(['nmcli','-t','-f','WIFI','radio'])=='enabled','wifi_state':wifi[2] if wifi else '未发现设备','wifi_connection':optional(['nmcli','-g','GENERAL.CONNECTION','dev','show',wifi[0]]) if wifi else '','wired':wired,'primary':classify(iface,types,CELL) if iface else 'none','interface':iface,'cell':cell[2] if cell else '未发现设备','cell_connected':bool(cell and cell[2]=='connected'),'wwan':radios=='enabled','signal':signal,'traffic':traffic,'zero_enabled':optional(['systemctl','is-active','zerotier-one.service'])=='active','zero_ips':zero,'proxy_available':proxy_port,'proxy_tun':optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active','proxy_system':proxy_mode=='manual','gps':gps_status()}
+ return {**cache,'flight_saved':flight_requested(),'health':health,'policy':read_policy(),'cell_proxy':linkage,'local_addresses':local,'wifi_enabled':radio_state(optional(['nmcli','-t','-f','WIFI','radio'])),'wifi_state':wifi[2] if wifi else '未发现设备','wifi_connection':optional(['nmcli','-g','GENERAL.CONNECTION','dev','show',wifi[0]]) if wifi else '','wired':wired,'primary':classify(iface,types,CELL) if iface else 'none','interface':iface,'cell':cell[2] if cell else '未发现设备','cell_connected':bool(cell and cell[2]=='connected'),'wwan':radio_state(radios),'signal':signal,'traffic':traffic,'zero_enabled':optional(['systemctl','is-active','zerotier-one.service'])=='active','zero_ips':zero,'proxy_available':proxy_port,'proxy_tun':optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active','proxy_system':proxy_mode=='manual','gps':gps_status()}
 def auto_metric(kind):
  return {'802-3-ethernet':100,'802-11-wireless':600,'gsm':700}.get(kind)
 

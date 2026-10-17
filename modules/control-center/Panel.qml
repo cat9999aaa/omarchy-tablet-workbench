@@ -9,6 +9,9 @@ import Quickshell.Services.UPower
 import qs.Ui as Ui
 import qs.Commons
 import "ControlModel.js" as Model
+import "Workbench" as WB
+import "Workbench/Layout.js" as LayoutModel
+import "Workbench/State.js" as SharedState
 
 Ui.Panel {
  id: root
@@ -22,11 +25,11 @@ Ui.Panel {
  property var confirmation: null
  property bool allowed: false
  readonly property string helper: Quickshell.env("PCADMIN_CONTROL_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/control-center/control_center.py"
- readonly property color bg: "#181b24"
- readonly property color fg: "#e7e9f0"
- readonly property color purple: "#b59cf5"
- readonly property color green: "#a6dd83"
- readonly property color orange: "#f0b875"
+ readonly property color bg: Color.popups.background
+ readonly property color fg: Color.foreground
+ readonly property color purple: Color.accent
+ readonly property color green: Color.accent
+ readonly property color orange: Color.urgent
  readonly property var sink: Pipewire.defaultAudioSink
  readonly property var source: Pipewire.defaultAudioSource
  property string resolvedSink: ""
@@ -44,8 +47,8 @@ Ui.Panel {
   return result
  }
  PwObjectTracker { objects: [root.sink,root.source,root.volumeSink].filter(x=>!!x) }
- function f(key) { return Model.displayField(data[key],Date.now()/1000) }
- function b(key) { return Model.booleanState(data[key],Date.now()/1000) }
+ function f(key) { const f=SharedState.fieldState(data[key],Date.now()/1000);return f.known?String(f.value):f.label }
+ function b(key) { return SharedState.fieldState(data[key],Date.now()/1000) }
  function labelNetwork() {return ({"4g":"中国电信 4G",wifi:"Wi-Fi",ethernet:"有线网络",none:"未连接"})[f("physical_uplink")] || f("physical_uplink")}
  function batteryText() {
   return batteries.map((x,i)=>"电池"+(i+1)+" "+Math.round(x.percentage*100)+"%"+(x.state===UPowerDeviceState.Charging?" ↑":"")).join("  ·  ") || "电池状态未知"
@@ -79,7 +82,7 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({version:"0.1.5",flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({uiRevision:3,version:"0.1.6",flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
@@ -120,19 +123,19 @@ Ui.Panel {
   MouseArea {anchors.fill:parent;onPressed:root.close()}
   Rectangle {
    id:card;anchors.top:parent.top;anchors.topMargin:12;anchors.horizontalCenter:parent.horizontalCenter
-   width:Model.layout(window.width,window.height).width
-   height:Model.layout(window.width,Math.max(1,window.height-(barButton.QsWindow.window?barButton.QsWindow.window.height:32))).height
+   width:LayoutModel.panelSize(window.width,window.height).width
+   height:LayoutModel.panelSize(window.width,window.height).height
    color:root.bg;radius:14;border.color:root.purple;border.width:2
    opacity:root.opened?1:0
    Behavior on opacity {NumberAnimation {duration:120}}
    MouseArea {anchors.fill:parent}
    ColumnLayout {
     anchors.fill:parent;anchors.margins:16;spacing:10
-    RowLayout {
-     Layout.fillWidth:true
-     Text {Layout.fillWidth:true;Layout.minimumWidth:0;elide:Text.ElideRight;text:root.flight.entertainment?"飞行娱乐":"启明 · 随身控制台";color:root.fg;font.pixelSize:22;font.bold:true}
-     CButton {visible:!root.flight.entertainment;text:root.expanded?"简洁":"详情";onClicked:root.expanded=!root.expanded}
-     CButton {text:"收起 ↑";onClicked:root.close()}
+    WB.PanelHeader {
+     Layout.fillWidth:true;Layout.preferredHeight:implicitHeight
+     title:root.flight.entertainment?"飞行娱乐":"启明 · 随身控制台"
+     foreground:root.fg;accent:root.purple;fontFamily:Style.font.family
+     onCloseRequested:root.close()
     }
     Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:15;wrapMode:Text.Wrap}
     Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+root.f("temperature")+(root.data.temperature&&root.data.temperature.available?" °C":"");color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
@@ -140,6 +143,7 @@ Ui.Panel {
      Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentWidth:width;contentHeight:body.implicitHeight;boundsBehavior:Flickable.StopAtBounds
      ColumnLayout {
       id:body;width:parent.width;spacing:10
+      CButton {visible:!root.flight.entertainment;Layout.fillWidth:true;text:root.expanded?"返回快捷控制":"查看全部功能";onClicked:root.expanded=!root.expanded}
       ColumnLayout {
        visible:root.flight.entertainment;Layout.fillWidth:true;spacing:12
        Text {Layout.fillWidth:true;text:"离线时间，随你安排";font.pixelSize:22;font.bold:true;color:root.fg}
@@ -199,13 +203,13 @@ Ui.Panel {
        }
       }
       Text {Layout.fillWidth:true;color:root.fg;text:"亮度 "+(root.data.brightness===null||root.data.brightness===undefined?"不可用":Math.round(brightness.value)+"%");font.pixelSize:15}
-      Slider {id:brightness;Layout.fillWidth:true;Layout.minimumHeight:42;from:0;to:100;stepSize:1;value:root.data.brightness||0;enabled:root.data.brightness!==null&&root.data.brightness!==undefined&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("brightness",{percent:Math.round(value)})}
+      Slider {id:brightness;Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.data.brightness||0;enabled:root.data.brightness!==null&&root.data.brightness!==undefined&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("brightness",{percent:Math.round(value)})}
       RowLayout {
        Layout.fillWidth:true
        Text {Layout.fillWidth:true;color:root.fg;text:"音量 "+(root.audioAvailable?Math.round(volumeSlider.value)+"%":"无输出设备");font.pixelSize:15}
        CButton {text:root.muted?"取消静音":"静音";enabled:root.audioAvailable&&!actionProcess.running;onClicked:root.act("mute",{})}
       }
-      Slider {id:volumeSlider;Layout.fillWidth:true;Layout.minimumHeight:42;from:0;to:100;stepSize:1;value:root.volume;enabled:root.audioAvailable&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("volume",{percent:Math.round(value)})}
+      Slider {id:volumeSlider;Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.volume;enabled:root.audioAvailable&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("volume",{percent:Math.round(value)})}
       Text {Layout.fillWidth:true;color:root.fg;opacity:.65;font.pixelSize:13;wrapMode:Text.Wrap;text:"麦克风："+(root.source&&root.source.audio?(root.source.audio.muted?"已静音":"可用 · 静音关闭"):"未知")+"  ·  "+(root.data.observed_at?new Date(root.data.observed_at*1000).toLocaleTimeString():"读取中")}
       Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:14;wrapMode:Text.Wrap;visible:root.feedback!=="";text:root.feedback}
      }
@@ -220,9 +224,7 @@ Ui.Panel {
    Keys.onEscapePressed:root.close()
   }
  }
- component CButton: Button {
-  implicitHeight:46;implicitWidth:100
-  background:Rectangle {color:parent.down?"#44395b":parent.enabled?"#292c39":"#20222c";border.width:1;border.color:parent.enabled?root.purple:"#454653";radius:8}
-  contentItem:Text {text:parent.text;color:parent.enabled?root.fg:"#7e8190";font.pixelSize:15;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter;wrapMode:Text.Wrap}
+ component CButton: WB.TouchButton {
+  foreground:root.fg;accent:root.purple;font.family:Style.font.family;font.pixelSize:15
  }
 }

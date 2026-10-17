@@ -6,6 +6,8 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 import "Details.js" as Details
+import "Workbench" as WB
+import "Workbench/Layout.js" as LayoutModel
 
 Panel {
   id: root
@@ -125,7 +127,7 @@ Panel {
   readonly property bool rotatingPhrases: false
 
   readonly property string heroStatusText: {
-    if (fullyCharged) return "Fully charged"
+    if (fullyCharged) return "已充满"
     if (rotatingPhrases) return activePhrases[phraseIndex % activePhrases.length]
     return modeLabel()
   }
@@ -183,6 +185,7 @@ Panel {
     function togglePercentage() { root.togglePercentage() }
     function history() { batteryHistory.selected = 2; root.open() }
     function activity() { batteryHistory.selected = 1; root.open() }
+    function workbenchState(): string {return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,version:"1.2.0",opened:root.opened,width:panel.contentWidth,height:panel.contentHeight,tab:batteryHistory.selected})}
     function timing() { batteryHistory.selected = 0; root.open() }
   }
 
@@ -297,8 +300,8 @@ Panel {
     bar: root.bar
     open: root.opened && root.batteryPresent
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(380))
-    contentHeight: panel.fittedContentHeight(column.implicitHeight)
+    contentWidth: panel.fittedContentWidth(LayoutModel.panelSize(panel.screenW,panel.screenH).width)
+    contentHeight: panel.cappedContentHeight(LayoutModel.panelSize(panel.screenW,panel.screenH).height)
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -312,11 +315,9 @@ Panel {
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
-      Flickable {
-        anchors.fill: parent
-        contentHeight: column.implicitHeight
-        clip: true
-        boundsBehavior: Flickable.StopAtBounds
+      WB.PanelBody {
+        anchors.fill:parent;title:"电池与电源";foreground:Color.foreground;accent:Color.accent;fontFamily:Style.font.family
+        onCloseRequested:root.close()
       Column {
         id: column
         width: parent.width

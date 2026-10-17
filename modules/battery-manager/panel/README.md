@@ -11,3 +11,7 @@ UPower事件驱动提供独立BAT0/BAT1电量、状态、预计时间、净功�
 恢复面板：备份backups/power-panel-2026-10-16/shell.json；或将bar.layout.right中的cat9999sss.power换回omarchy.power（只修改该项，保留后续其他配置），移除本机克隆。首次官方clone过程中IPC重载超时，脚本清理了目录但留下配置；已从原生源码按克隆清单重建，真实面板验证通过。
 
 2026-10-17新增电池管理1.1.3（release-7）：BatteryHistory.qml接入本地每分钟记录器，三个页签提供本次计时、程序CPU活动和7天历史。整体面板可滚动，内部排行/历史可单独滚动。使用原Omarchy打开入口；额外IPC `timing`、`activity`、`history`可直达对应页，仅用于查看。数据不可读时独立降级，原UPower区域继续显示。源码../battery-manager；管理任务w-0025，恢复备份backups/battery-manager-2026-10-17。测试/软件截图已验，新增页签真实手指点击和完整电池周期未验。
+
+## 共享界面 1.2.0
+
+固定标题和收起按钮，长内容在内部滚动；采用共享触屏按钮与固定外框。三个页签实测切换不改变外框尺寸。完整电池周期和实体手感仍待验。

@@ -7,6 +7,7 @@ import Quickshell.Networking
 import qs.Ui
 import qs.Commons
 import "Model.js" as Model
+import "Workbench/Layout.js" as LayoutModel
 
 Panel {
   id: root
@@ -213,9 +214,9 @@ Panel {
     function travelAction(op: string) { travel.act(op) }
     function travelState(): string { return JSON.stringify(travel.state) }
     function travelTab(tab: string): void { travel.selectedTab = tab }
-    function travelGeometry(): string { return JSON.stringify({width:panel.contentWidth,height:panel.contentHeight,body:travel.height,tab:travel.selectedTab}) }
+    function travelGeometry(): string { return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,width:panel.contentWidth,height:panel.contentHeight,body:travel.height,tab:travel.selectedTab}) }
     function travelSelected(): string { return travel.selectedTab }
-    function travelVersion(): string { return "1.3.6" }
+    function travelVersion(): string { return "1.3.7" }
     function travelDiagnostics(): string { return JSON.stringify({proxy:travel.pageData("proxy",travel.state),zero:travel.pageData("zero",travel.state)}) }
     function open() { root.open() }
     function close() { root.close() }
@@ -996,8 +997,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(460))
-    contentHeight: panel.fittedContentHeight(Style.space(620))
+    contentWidth: panel.fittedContentWidth(LayoutModel.panelSize(panel.screenW,panel.screenH).width)
+    contentHeight: panel.cappedContentHeight(LayoutModel.panelSize(panel.screenW,panel.screenH).height)
 
     // Catches all unhandled keys for keyboard navigation. AfterItem priority
     // lets the passphrase TextField (a child via focus chain) get its keys
@@ -1100,7 +1101,7 @@ Panel {
       id: column
       width: travelScroll.width
       spacing: Style.space(12)
-      TravelControls { id: travel; opened: root.opened; width:parent.width; height:travelScroll.height
+      TravelControls { id: travel; onCloseRequested:root.close(); opened: root.opened; width:parent.width; height:travelScroll.height
       Column { width: parent.width; spacing: Style.space(12)
 
       // ---------- Hero: network icon · SSID + state · actions ----------

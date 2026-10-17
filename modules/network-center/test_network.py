@@ -40,3 +40,12 @@ class NetworkTests(unittest.TestCase):
  def test_zero_shutdown_not_available(self):
   with self.assertRaises(ValueError):action_command('zero-off')
 if __name__=='__main__':unittest.main()
+
+class RadioReadbackTests(unittest.TestCase):
+ def test_failed_radio_read_is_unknown_not_off(self):
+  import network
+  self.assertTrue(hasattr(network,'radio_state'),'tri-state radio parser missing')
+  self.assertIsNone(network.radio_state(''))
+  self.assertIsNone(network.radio_state('unavailable'))
+  self.assertIs(network.radio_state('enabled\n'),True)
+  self.assertIs(network.radio_state('disabled'),False)
