@@ -33,5 +33,6 @@
 3. 前端适配横竖屏、手指操作和中文；正常动画遵循上游默认，性能调整应有测量依据。
 4. 用 Superpowers 进行需求梳理、设计、计划、实现、评审和验证。仓库初始化不代表产品设计已审批。
 5. 单机能力先做好；其他电脑的部署属于后续独立范围。
+6. 编译、打包与批量软件测试优先使用授权的远程构建机；平板保留真实硬件验收。见[远程构建原则](docs/design/2026-10-17-remote-build-policy.md)。
 
 路线见 [ROADMAP](ROADMAP.md)，界面方向见 [设计简报](docs/design-brief.md)，贡献流程见 [CONTRIBUTING](CONTRIBUTING.md)。
