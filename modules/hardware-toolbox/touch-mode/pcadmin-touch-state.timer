@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh sanitized tablet touch state
+[Timer]
+OnBootSec=15
+OnUnitActiveSec=30
+Unit=pcadmin-touch-state.service
+[Install]
+WantedBy=timers.target

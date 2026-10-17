@@ -1,0 +1,14 @@
+[Unit]
+Description=Read verified tablet TouchMode into a sanitized status cache
+After=pcadmin-touch-mode.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python /usr/local/libexec/pcadmin-touch-mode.py export
+TimeoutStartSec=20
+RuntimeDirectory=pcadmin-touch-mode
+RuntimeDirectoryPreserve=yes
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/pcadmin-touch-mode /run/lock
+PrivateTmp=yes

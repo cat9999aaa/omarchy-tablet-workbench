@@ -7,6 +7,26 @@ import os
 from pathlib import Path
 import select
 import time
+import tempfile
+
+
+def state_payload(mode, verified, error, now):
+    valid = verified is True and mode in (0, 1, 2)
+    return {'mode': mode if valid else None, 'verified': valid, 'error': error,
+            'observed_at': now, 'boot_default': 1}
+
+
+def export_state(mode, verified, error=''):
+    directory = Path('/run/pcadmin-touch-mode')
+    directory.mkdir(mode=0o755, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=directory, prefix='.state-')
+    try:
+        with os.fdopen(fd, 'w') as out:
+            os.fchmod(out.fileno(), 0o644)
+            json.dump(state_payload(mode, verified, error, time.time()), out)
+        os.replace(name, directory / 'state.json')
+    finally:
+        if os.path.exists(name):os.unlink(name)
 
 
 def find_device():
@@ -37,10 +57,7 @@ def query(fd, selector, value=0):
     raise TimeoutError('No matching TouchMode response')
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('mode', choices=['status', 'glove', 'normal'])
-    args = parser.parse_args()
+def read_apply(mode):
     with open('/run/lock/pcadmin-touch-mode.lock', 'w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         device = None
@@ -56,7 +73,7 @@ def main():
             before = query(fd, 0)
             if before not in (0, 1, 2):
                 raise RuntimeError('Unknown current mode; no writes')
-            desired = {'normal': 0, 'glove': 1}.get(args.mode, before)
+            desired = {'normal': 0, 'glove': 1}.get(mode, before)
             if desired != before:
                 try:
                     query(fd, 1, desired)
@@ -68,11 +85,24 @@ def main():
             actual = query(fd, 0)
             if actual != desired:
                 raise RuntimeError('Final mode readback mismatch')
-            print(json.dumps({'device': device, 'before': before, 'actual': actual,
-                              'mode': args.mode, 'verified': True}), flush=True)
+            return {'device': device, 'before': before, 'actual': actual,
+                    'mode': mode, 'verified': True}
         finally:
             os.close(fd)
 
 
-if __name__ == '__main__':
-    main()
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('mode', choices=['status', 'glove', 'normal', 'export'])
+    args = parser.parse_args()
+    if os.geteuid() != 0:raise PermissionError('Requires the existing authorized root helper')
+    try:
+        result = read_apply(args.mode)
+        export_state(result['actual'], True)
+        print(json.dumps(state_payload(result['actual'], True, '', time.time()) if args.mode == 'export' else result), flush=True)
+    except Exception:
+        export_state(None, False, 'TouchMode query or readback failed')
+        raise
+
+
+if __name__ == '__main__':main()
