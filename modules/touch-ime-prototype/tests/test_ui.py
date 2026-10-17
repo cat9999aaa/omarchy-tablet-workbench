@@ -5,9 +5,13 @@ Does not emulate a physical fingertip. Production overlay must be disabled.
 from pathlib import Path
 import json, os, shutil, subprocess, tempfile, time
 
+assert subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True).strip()=='false', 'Unlock desktop before real UI acceptance'
 root=Path(__file__).resolve().parents[1]
 active=json.loads(subprocess.check_output(['hyprctl','activewindow','-j']))
-assert active['class']=='touch_editor.py', 'Refuse to test against a user application'
+expected_pid=int(os.environ['OMT_TEST_EDITOR_PID'])
+assert active['pid']==expected_pid, 'Refuse to test against a user application'
+assert str(root/'tests/touch_editor.py').encode() in Path(f'/proc/{expected_pid}/cmdline').read_bytes().split(b'\0'), 'Target must be the disposable editor'
+target_address=active['address']
 # Disposable editor starts empty; no keyboard injection is needed.
 with tempfile.TemporaryDirectory(prefix='omt-ui-test-') as tmp:
     tmp=Path(tmp)
@@ -16,13 +20,17 @@ with tempfile.TemporaryDirectory(prefix='omt-ui-test-') as tmp:
     (tmp/'Ui').symlink_to('/usr/share/omarchy/shell/Ui',target_is_directory=True)
     qml=(root/'qml/TouchIme.qml').read_text()
     qml=qml.replace('Quickshell.env("HOME") + "/.local/share/pcadmin-touch-ime/rime"', json.dumps(str(tmp/'rime')))
+    qml=qml.replace('id: root', 'id: root; property int testGeneration: -1', 1)
     qml=qml.replace('target: "omtInput"', '''target: "omtTest"
         function testState(): string { return JSON.stringify(root.state) }
+        function pinTarget(generation: int): void { root.testGeneration = generation }
         function drawSample(): bool {
+            if (root.state.generation !== root.testGeneration) return false
             handPad.strokes=[[{x:35,y:40},{x:35,y:105}],[{x:35,y:40},{x:125,y:40},{x:125,y:105}],[{x:35,y:105},{x:125,y:105}],[{x:80,y:15},{x:80,y:140}]];
             handPad.inkChanged();return true
         }
         function tap(label: string): bool {
+            if (root.state.generation !== root.testGeneration) return false
             function find(item) {
                 if (item.label === label && item.enabled && item.visible && item.triggered) { item.triggered(); return true }
                 if (!item.children) return false
@@ -47,9 +55,13 @@ with tempfile.TemporaryDirectory(prefix='omt-ui-test-') as tmp:
             except (subprocess.CalledProcessError,json.JSONDecodeError): pass
             time.sleep(.05)
         log.seek(0);raise AssertionError(log.read())
-    def tap(label): assert ipc('tap',label)=='true', 'Button unavailable: '+label
+    def tap(label):
+        current=json.loads(subprocess.check_output(['hyprctl','activewindow','-j']))
+        assert current.get('address')==target_address, 'Test target lost focus; abort without typing'
+        assert ipc('tap',label)=='true', 'Button unavailable or target changed: '+label
     try:
-        wait(lambda s:s['focused'] and not s['visible'])
+        initial=wait(lambda s:s['focused'] and not s['visible'])
+        ipc('pinTarget',str(initial['generation']))
         ipc('toggle')
         wait(lambda s:s['visible'])
         for label in ['MNO','GHI','GHI','ABC','MNO']: tap(label)

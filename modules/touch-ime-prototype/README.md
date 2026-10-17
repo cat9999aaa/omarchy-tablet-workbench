@@ -1,4 +1,4 @@
-# 本机 Omarchy 触屏输入法 v0.2.1
+# 本机 Omarchy 触屏输入法 v0.2.2
 
 仅用于本机 Omarchy 4.0.4 / Fcitx5 / Quickshell。右侧独立面板，仅P1或应用入口手动呼出，点输入框不会自动弹出。失焦仍隐藏。
 
@@ -12,7 +12,13 @@
 - P1只控制这套桌面输入法，旧wvkbd不会自动回退。旧桌面入口和原型已归档，兼容旧隐藏调用的名称不再启动旧键盘。
 - 锁屏键盘、首次开机LUKS触屏键盘独立保留；P2听写/P3授权保持原用途。
 
+## 性能改造
+
+焦点改为Fcitx事件通知，启动和重连异步读取初始状态；稳定空闲不再每100ms查询。唯一服务所有者与独立UI代次隔离旧请求。详细协议、测量边界及恢复见[事件驱动说明](docs/v022-event-driven.md)。此版本仍依赖Fcitx，原生Wayland后端尚未实现。
+
 ## 构建与验证
+
+优先使用本项目[远程构建工具](../remote-build/README.md)，把编译和完整测试交给已授权构建主机。下面命令仅说明构建接口：
 
 ```bash
 cmake -S tools/omarchy-touch-ime -B tools/omarchy-touch-ime/build -G Ninja
@@ -25,7 +31,9 @@ omarchy plugin validate tools/omarchy-touch-ime
 
 ## 部署与恢复
 
-源码权威为本目录；部署插件 `~/.config/omarchy/plugins/pcadmin.touchime` 使用 `qml/release-0.2.1/TouchIme.qml`，避免旧QML缓存。焦点桥配置 `~/.local/share/fcitx5/addon/omtbridge.conf` 指向本目录构建库。更新库后需重启用户omarchy-fcitx5服务。
+这是已运行原型的公开源码快照，尚未提供通用安装器。本机权威开发目录仍为`tools/omarchy-touch-ime`；请勿直接复制硬编码路径到其他机器。
+
+源码权威为本目录；部署插件 `~/.config/omarchy/plugins/pcadmin.touchime` 使用 `qml/release-0.2.2/TouchIme.qml`，避免旧QML缓存。焦点桥配置 `~/.local/share/fcitx5/addon/omtbridge.conf` 指向本目录构建库。更新库后需重启用户omarchy-fcitx5服务。
 
 本次备份 `backups/touch-ime-20261017-reach`：旧QML/C++/入口及清单、retired-keyboard/retired-wvkbd。旧方案不在工作入口中；恢复须明确重新部署，不能只恢复旧清单造成版本混用。
 用户词库 `~/.local/share/pcadmin-touch-ime/rime` 和短语配置保持原样，未覆盖。临时录音使用运行时目录，结束后删除。

@@ -18,19 +18,36 @@ bus = dbus.SessionBus()
 name = dbus.service.BusName('org.fcitx.Fcitx5', bus)
 
 class Bridge(dbus.service.Object):
-    def __init__(self):
-        super().__init__(bus, '/omt')
+    def __init__(self, connection=bus):
+        super().__init__(connection, '/omt')
         self.generation = 7
         self.context = 7
         self.focused = True
         self.sensitive = False
         self.commits = []
         self.keys = []
+        self.state_calls = 0
+        self.state_delay = 0
 
-    @dbus.service.method('org.pcadmin.TouchIme1', in_signature='', out_signature='s')
-    def State(self):
-        return json.dumps(dict(generation=self.generation, context=self.context, focused=self.focused,
+    def snapshot(self):
+        return json.dumps(dict(protocol=2, generation=self.generation, context=self.context, focused=self.focused,
                                sensitive=self.sensitive, noKeyboard=False))
+
+    @dbus.service.method('org.pcadmin.TouchIme1', in_signature='', out_signature='s', async_callbacks=('reply','error'))
+    def State(self, reply, error):
+        self.state_calls += 1
+        snapshot=self.snapshot()
+        if self.state_delay:
+            def deliver(): reply(snapshot);return False
+            GLib.timeout_add(self.state_delay,deliver)
+        else: reply(snapshot)
+
+    @dbus.service.signal('org.pcadmin.TouchIme1', signature='s')
+    def StateChanged(self, value):
+        pass
+
+    def notify(self):
+        self.StateChanged(self.snapshot())
 
     @dbus.service.method('org.pcadmin.TouchIme1', in_signature='us', out_signature='b')
     def Commit(self, generation, text):
@@ -51,6 +68,7 @@ loop = GLib.MainLoop()
 threading.Thread(target=loop.run, daemon=True).start()
 root = Path(__file__).resolve().parents[1]
 states = queue.Queue()
+latest_generation = 0
 with tempfile.TemporaryDirectory(prefix='omt-backend-test-') as tmp:
     binaries=Path(tmp)/'bin'; binaries.mkdir()
     (binaries/'pw-record').write_text("""#!/usr/bin/python3
@@ -65,8 +83,9 @@ while True: time.sleep(.05)
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, text=True, env=env)
     def reader():
+        global latest_generation
         for line in process.stdout:
-            states.put(json.loads(line))
+            state=json.loads(line);latest_generation=state['generation'];states.put(state)
     threading.Thread(target=reader, daemon=True).start()
     def wait(predicate):
         end = time.monotonic()+20
@@ -77,11 +96,15 @@ while True: time.sleep(.05)
                 return state
         raise AssertionError('Expected state not received')
     def action(op, **kw):
-        process.stdin.write(json.dumps(dict(op=op, generation=bridge.generation, **kw))+'\n')
+        process.stdin.write(json.dumps(dict(op=op, generation=latest_generation, **kw))+'\n')
         process.stdin.flush()
     try:
         initial=wait(lambda s: s['focused'] and not s['visible'])
         assert initial['learning'] is True
+        stale_generation=initial['generation']
+        calls=bridge.state_calls;time.sleep(.65)
+        assert bridge.state_calls==calls, 'Idle backend must not periodically query State'
+        assert states.empty(), 'Stable idle must not publish redundant state'
         action('learning',enabled=False);wait(lambda s:s['learning'] is False)
         action('learning',enabled=True);wait(lambda s:s['learning'] is True)
         action('toggle'); wait(lambda s: s['visible'])
@@ -113,16 +136,16 @@ while True: time.sleep(.05)
         action('hide'); wait(lambda s: not s['visible'])
         time.sleep(.3)
         assert states.empty(), 'Manual hide must persist on unchanged focus'
-        bridge.generation += 1
-        wait(lambda s: s['generation']==8 and not s['visible'])
-        bridge.context += 1; bridge.generation += 1
-        wait(lambda s: s['generation']==9 and not s['visible'])
+        bridge.generation += 1;bridge.notify()
+        wait(lambda s: s['generation']>stale_generation and not s['visible'])
+        bridge.context += 1; bridge.generation += 1;bridge.notify()
+        wait(lambda s: not s['visible'])
         action('toggle'); wait(lambda s: s['visible'])
         action('toggle'); wait(lambda s: not s['visible'])
-        bridge.context += 1; bridge.generation += 1
-        wait(lambda s: s['generation']==10 and not s['visible'])
+        bridge.context += 1; bridge.generation += 1;bridge.notify()
+        wait(lambda s: not s['visible'])
         action('toggle'); wait(lambda s: s['visible'])
-        process.stdin.write(json.dumps(dict(op='text', generation=7, text='stale'))+'\n'); process.stdin.flush()
+        process.stdin.write(json.dumps(dict(op='text', generation=stale_generation, text='stale'))+'\n'); process.stdin.flush()
         wait(lambda s: bool(s['error']))
         assert bridge.commits == ['你好', '你好测a'], repr(bridge.commits)
         # A phrase draft must not type into the actual application.
@@ -159,23 +182,47 @@ while True: time.sleep(.05)
         for char in 'abc123@x.com':action('text',text=char)
         action('dictionaryBackup');wait(lambda s:'词库已备份' in s['notice'] or '词库备份未完成' in s['notice'])
         assert ''.join(bridge.commits[len(before):])=='abc123@x.com'
-        bridge.generation += 1
-        wait(lambda s:s.get('generation')==bridge.generation)
+        bridge.generation += 1;bridge.notify()
+        wait(lambda s:not s['preedit'] and s['mode']=='t9')
         action('mode',mode='pinyin');wait(lambda s:s.get('mode')=='pinyin')
         for char in 'nihao':action('key',key=char)
         wait(lambda s:'你好' in s['candidates'])
         action('clear');wait(lambda s:not s['preedit'])
-        bridge.generation += 1; bridge.sensitive=True
+        bridge.generation += 1; bridge.sensitive=True;bridge.notify()
         wait(lambda s: s['sensitive'] and s['mode']=='abc')
         action('mode', mode='t9'); action('mode',mode='handwriting'); action('voice'); action('key', key='a')
         deadline=time.monotonic()+3
         while bridge.commits[-1]!='a' and time.monotonic()<deadline: time.sleep(.01)
         assert bridge.commits[-1]=='a'
         assert bridge.sensitive
-        bridge.generation += 1; bridge.focused=False
+        bridge.generation += 1; bridge.focused=False;bridge.notify()
         wait(lambda s: not s['focused'] and not s['visible'])
         action('text', text='unfocused'); wait(lambda s: bool(s['error']))
         assert 'unfocused' not in bridge.commits
+        # A restarted bridge may reuse its old counter; UI generations must not.
+        before_restart=latest_generation
+        bus.release_name('org.fcitx.Fcitx5')
+        wait(lambda s: not s['focused'] and bool(s['error']))
+        old_bridge=bridge
+        new_bus=dbus.SessionBus(private=True)
+        bridge=Bridge(new_bus);bridge.focused=False;bridge.state_delay=300
+        new_bus.request_name('org.fcitx.Fcitx5')
+        deadline=time.monotonic()+3
+        while bridge.state_calls==0 and time.monotonic()<deadline:time.sleep(.005)
+        assert bridge.state_calls>0, 'Replacement owner must receive startup query'
+        bridge.generation=8;bridge.focused=True;bridge.notify()
+        restarted=wait(lambda s:s['focused'] and not s['error'])
+        assert restarted['generation']>before_restart
+        time.sleep(.4)
+        assert states.empty(), 'Delayed initial snapshot must not overwrite newer signal'
+        old_bridge.generation=999;old_bridge.notify()
+        time.sleep(.15)
+        assert states.empty(), 'Old unique owner notifications must be ignored'
+        process.stdin.write(json.dumps(dict(op='text',generation=stale_generation,text='stale-after-restart'))+'\n');process.stdin.flush()
+        wait(lambda s:bool(s['error']))
+        assert 'stale-after-restart' not in bridge.commits
+        calls=bridge.state_calls;time.sleep(.65)
+        assert bridge.state_calls==calls, 'Reconnect must return to event-only idle'
         print('PASS backend: T9 commit, hide, focus change, stale requests, sensitive fields, focus loss')
     finally:
         process.stdin.close()

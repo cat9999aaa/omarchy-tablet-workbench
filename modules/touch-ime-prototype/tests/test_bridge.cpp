@@ -4,6 +4,18 @@
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/addonloader.h>
 #include <QTemporaryDir>
+#include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
+#include <QElapsedTimer>
+#include <QThread>
+class SignalProbe : public QObject {
+    Q_OBJECT
+public:
+    int count=0; QJsonObject last;
+public slots:
+    void received(const QString &value) { ++count;last=QJsonDocument::fromJson(value.toUtf8()).object(); }
+};
 class TestKeyboard : public fcitx::InputMethodEngine {
 public:
     std::vector<fcitx::InputMethodEntry> listInputMethods() override {
@@ -30,6 +42,7 @@ public:
     void updatePreeditImpl() override {}
 };
 int main(int argc, char **argv) {
+    QCoreApplication app(argc,argv);
     QTemporaryDir config;
     setenv("XDG_CONFIG_HOME", config.path().toUtf8().constData(), 1);
     fcitx::Instance instance(argc, argv);
@@ -39,10 +52,20 @@ int main(int argc, char **argv) {
     instance.initialize();
     fcitx::dbus::Bus bus(fcitx::dbus::BusType::Session);
     FocusBridge bridge(&instance.addonManager(), &bus);
+    SignalProbe probe;
+    auto subscriber=QDBusConnection::sessionBus();
+    assert(subscriber.connect(QString::fromStdString(bus.uniqueName()),"/omt","org.pcadmin.TouchIme1","StateChanged",&probe,SLOT(received(QString))));
+    subscriber.interface()->registeredServiceNames(); // subscription ordering barrier
+    auto receive=[&](int expected) {
+        bus.flush();QElapsedTimer timer;timer.start();
+        while(probe.count<expected && timer.elapsed()<1000) {QCoreApplication::processEvents();QThread::msleep(1);}
+        assert(probe.count==expected);
+        assert(probe.last["protocol"].toInt()==2);
+    };
     auto state = [&] { return QJsonDocument::fromJson(QByteArray::fromStdString(bridge.state())).object(); };
     assert(!state()["focused"].toBool());
     auto a = std::make_unique<TestContext>(instance.inputContextManager());
-    a->focusIn();
+    a->focusIn();receive(1);assert(probe.last["focused"].toBool());
     auto generation=uint32_t(state()["generation"].toInt());
     assert(state()["focused"].toBool());
     assert(bridge.commit(generation,"你好") && a->text=="你好");
@@ -54,16 +77,19 @@ int main(int argc, char **argv) {
     a->setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
     assert(uint32_t(state()["generation"].toInt())==generation);
     a->setCapabilityFlags(fcitx::CapabilityFlag::Password);
+    receive(2);assert(probe.last["sensitive"].toBool());
     assert(state()["sensitive"].toBool());
     assert(!bridge.commit(generation,"stale"));
     assert(!bridge.key(uint32_t(state()["generation"].toInt()),"Control+c"));
     generation=uint32_t(state()["generation"].toInt());
-    a->focusOut();
+    a->focusOut();receive(3);assert(!probe.last["focused"].toBool());
     assert(!bridge.commit(generation,"unfocused"));
-    a->focusIn();
+    a->focusIn();receive(4);
     generation=uint32_t(state()["generation"].toInt());
-    a.reset();
+    a.reset();receive(5);assert(!probe.last["focused"].toBool());
     assert(!state()["focused"].toBool());
     assert(!bridge.commit(generation,"destroyed"));
     std::cout << "PASS real Fcitx contexts: commit, allowed keys, capability change, focus loss, destruction\n";
 }
+
+#include "test_bridge.moc"

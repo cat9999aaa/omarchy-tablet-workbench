@@ -30,7 +30,7 @@ Item {
         function toggle(): void { root.send({op: "toggle"}) }
         function show(): void { root.send({op: "show"}) }
         function hide(): void { root.send({op: "hide"}) }
-        function version(): string { return "0.2.1" }
+        function version(): string { return "0.2.2" }
         function ready(): bool { return backend.running && (root.state.generation || 0) > 0 }
     }
     Process {

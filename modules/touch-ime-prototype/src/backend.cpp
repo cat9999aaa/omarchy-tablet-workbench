@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "target_gate.h"
+#include "focus_link.h"
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -39,17 +40,15 @@ class Backend : public QObject {
     bool editingVoice_ = false;
     QString mode_ = "t9", error_, voiceText_, voicePhase_ = "idle";
     QProcess recorder_, recognizer_;
-    QTimer poll_, voiceLimit_, recognitionLimit_, stopLimit_;
+    FocusLink focusLink_;
+    uint32_t bridgeGeneration_ = 0;
+    quint64 ownerEpoch_ = 0;
+    QTimer voiceLimit_, recognitionLimit_, stopLimit_;
     std::unique_ptr<QTemporaryDir> audioDir_;
     QByteArray input_, lastState_;
-    QDBusMessage call(const QString &method, const QVariantList &args = {}) {
-        auto m = QDBusMessage::createMethodCall("org.fcitx.Fcitx5", "/omt", "org.pcadmin.TouchIme1", method);
-        m.setArguments(args);
-        return QDBusConnection::sessionBus().call(m, QDBus::Block, 300);
-    }
     bool current(uint32_t expected) const { return omt::validTarget(expected, generation_, focused_); }
     bool commitTarget(const QString &text) {
-        auto r = call("Commit", {generation_, text});
+        auto r = focusLink_.call("Commit", {bridgeGeneration_, text});
         bool ok = r.type() == QDBusMessage::ReplyMessage && !r.arguments().isEmpty() && r.arguments().first().toBool();
         if (!ok) error_ = "输入位置已改变，请重新点输入框";
         return ok;
@@ -60,7 +59,7 @@ class Backend : public QObject {
         return commitTarget(text);
     }
     void editingKey(const QString &key) {
-        auto r = call("Key", {generation_, key});
+        auto r = focusLink_.call("Key", {bridgeGeneration_, key});
         if (r.type()!=QDBusMessage::ReplyMessage || r.arguments().isEmpty() || !r.arguments().first().toBool())
             error_ = "当前没有可用的输入位置";
     }
@@ -106,8 +105,7 @@ public:
         });
         connect(&handwriting_,&QProcess::errorOccurred,this,[this](QProcess::ProcessError){if(handwritingStopping_)return;handwritingLimit_.stop();error_="手写识别器不可用，可继续使用拼音";publish();});
         connect(&handwriting_,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,[this](int code,QProcess::ExitStatus){if(!handwritingStopping_&&code!=0&&mode_=="handwriting"){handwritingLimit_.stop();handwritingCandidates_.clear();error_="手写识别器已停止，请重新选择手写";publish();}});
-        poll_.setInterval(100);
-        connect(&poll_, &QTimer::timeout, this, [this]{ pollFocus(); });
+        connect(&focusLink_, &FocusLink::changed, this, [this](const QJsonObject &s, quint64 epoch){ applyFocus(s, epoch); });
         voiceLimit_.setSingleShot(true); recognitionLimit_.setSingleShot(true);
         stopLimit_.setSingleShot(true);
         connect(&stopLimit_, &QTimer::timeout,this,[this]{cancelVoice();error_="录音未能正常停止，已取消并清理";publish();});
@@ -146,7 +144,7 @@ public:
             int end;
             while((end=input_.indexOf('\n'))>=0) {auto line=input_.left(end);input_.remove(0,end+1);auto d=QJsonDocument::fromJson(line);if(d.isObject()) action(d.object());}
         });
-        poll_.start();pollFocus();
+        focusLink_.start();
     }
     void clearHandwriting(bool stopWorker=false) {
         handwritingRevision_++;handwritingCandidates_.clear();handwritingLimit_.stop();
@@ -155,23 +153,22 @@ public:
     }
     ~Backend() override {cancelVoice();clearHandwriting(true);}
 
-    void pollFocus() {
-        auto r=call("State");QJsonObject s;
-        if(r.type()==QDBusMessage::ReplyMessage && !r.arguments().isEmpty()) s=QJsonDocument::fromJson(r.arguments().first().toString().toUtf8()).object();
-        uint32_t next=uint32_t(s.value("generation").toInt());
-        bool focus=s.value("focused").toBool();
-        if(next!=generation_ || focus!=focused_) {
-            uint32_t context=uint32_t(s.value("context").toInt(int(next)));
-            editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);engine_.clear();generation_=next;focused_=focus;
-            context_=context;
+    void applyFocus(const QJsonObject &s, quint64 epoch) {
+        const auto next=uint32_t(s.value("generation").toInt());
+        const bool focus=s.value("focused").toBool();
+        if(next!=bridgeGeneration_ || focus!=focused_ || epoch!=ownerEpoch_
+           || sensitive_!=s.value("sensitive").toBool() || noKeyboard_!=s.value("noKeyboard").toBool()) {
+            editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);engine_.clear();
+            ++generation_;bridgeGeneration_=next;focused_=focus;ownerEpoch_=epoch;
+            context_=uint32_t(s.value("context").toInt());
             sensitive_=s.value("sensitive").toBool();noKeyboard_=s.value("noKeyboard").toBool();
-            // Visibility is opened only by explicit P1/manual actions, never by focus.
+            // Only explicit P1/manual actions open the panel.
             if(!focused_ || noKeyboard_) visible_=false;
             error_.clear();
             if(sensitive_) mode_="abc";
             else {mode_="t9";engine_.mode("t9");}
         }
-        if(s.isEmpty()) error_="等待输入服务连接；可继续使用原键盘";
+        if(s.isEmpty()) error_="等待输入服务连接，请稍后按 P1 重试";
         publish();
     }
     void publish() {
@@ -188,7 +185,7 @@ public:
     void action(const QJsonObject &a) {
         auto op=a.value("op").toString();error_.clear();
         if(op=="hide") {visible_=false;editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);publish();return;}
-        if(op=="show" || op=="toggle") {visible_=op=="show"?true:!visible_;if(!visible_){editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);}publish();return;}
+        if(op=="show" || op=="toggle") {if(!focused_)focusLink_.refresh();visible_=op=="show"?true:!visible_;if(!visible_){editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);}publish();return;}
         if(!current(uint32_t(a.value("generation").toInt()))) {error_="请先点选输入框";publish();return;}
         if(voicePhase_!="idle" && op!="voice") {error_="请先结束语音识别";publish();return;}
         if(op=="phraseStart" && !sensitive_) {engine_.clear();cancelVoice();editingPhrase_=true;phraseDraft_.clear();}

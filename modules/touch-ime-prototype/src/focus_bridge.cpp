@@ -34,6 +34,7 @@ public:
                           fcitx::EventType::InputContextDestroyed, fcitx::EventType::InputContextCapabilityChanged}) {
             watchers_.push_back(instance_->watchEvent(type, fcitx::EventWatcherPhase::PostInputMethod,
                 [this, type](fcitx::Event &event) {
+                    auto previous = generation_;
                     auto *ic = static_cast<fcitx::InputContextEvent &>(event).inputContext();
                     if (type == fcitx::EventType::InputContextFocusIn) { active_ = ic; capabilities_=ic->capabilityFlags(); ++generation_; ++context_; }
                     else if (ic == active_) {
@@ -47,6 +48,7 @@ public:
                         ++generation_;
                         if (type != fcitx::EventType::InputContextCapabilityChanged) active_ = nullptr;
                     }
+                    if (previous != generation_) stateChanged(state());
                 }));
         }
     }
@@ -54,7 +56,7 @@ public:
         bool focused = active_ && active_->hasFocus();
         bool sensitive = focused && bool(active_->capabilityFlags() & fcitx::CapabilityFlag::PasswordOrSensitive);
         bool noKeyboard = focused && active_->capabilityFlags().test(fcitx::CapabilityFlag::NoOnScreenKeyboard);
-        QJsonObject o{{"generation", int(generation_)}, {"context",int(context_)}, {"focused", focused},
+        QJsonObject o{{"protocol", 2}, {"generation", int(generation_)}, {"context",int(context_)}, {"focused", focused},
                       {"program", focused ? QString::fromStdString(active_->program()) : QString()},
                       {"frontend",focused ? QString(active_->frontend()) : QString()},
                       {"sensitive", sensitive}, {"noKeyboard", noKeyboard}};
@@ -75,6 +77,7 @@ public:
         active_->forwardKey(k, true);
         return true;
     }
+    FCITX_OBJECT_VTABLE_SIGNAL(stateChanged, "StateChanged", "s");
     FCITX_OBJECT_VTABLE_METHOD(state, "State", "", "s");
     FCITX_OBJECT_VTABLE_METHOD(commit, "Commit", "us", "b");
     FCITX_OBJECT_VTABLE_METHOD(key, "Key", "us", "b");
