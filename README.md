@@ -52,4 +52,6 @@
 
 输入法浏览器编辑与假密码框兼容问题已修复并部署，GTK/Qt/XWayland/Chromium实际矩阵见[跨应用验收](docs/validation/2026-10-17-ime-browser.md)。
 
-现有插件的版本化打包与恢复入口见[发布工具](modules/plugin-release/README.md)。已覆盖隔离事务测试与本机只读包检查；真实自动升级/恢复仍等待后续实际版本使用。
+现有插件的版本化打包与恢复入口见[发布工具](modules/plugin-release/README.md)。已覆盖隔离事务测试、本机只读包检查，以及网络面板1.3.7↔1.3.8真实更新/恢复；其他插件与系统服务的恢复不在这次实机范围。
+
+地图按需GPS适配器与网络入口见[模块](modules/map-gps-adapter/README.md)和[验收](docs/validation/2026-10-17-map-gps-adapter.md)。软件及隔离地图订阅已验，真实卫星定位、居中及触屏另验。

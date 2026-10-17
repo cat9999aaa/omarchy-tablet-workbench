@@ -28,6 +28,7 @@ def traffic_totals(data,interface):
   return latest.get('rx',0)+latest.get('tx',0)
  return {'day':total('day'),'month':total('month')}
 def action_command(op):
+ if op=='gps-map':return [str(Path.home()/'.local/bin/pcadmin-map')]
  commands={'cell-on':['nmcli','--wait','25','con','up',PROFILE], 'cell-off':['nmcli','--wait','15','con','down',PROFILE], 'cell-radio-off':['nmcli','radio','wwan','off'], 'cell-radio-on':['nmcli','radio','wwan','on'], 'zero-on':['pkexec','/usr/bin/systemctl','start','zerotier-one.service'], 'gps-on':['pkexec','/usr/bin/systemctl','start','pcadmin-gps.service'], 'gps-off':['pkexec','/usr/bin/systemctl','stop','pcadmin-gps.service'], 'wifi-on':['nmcli','radio','wifi','on'], 'wifi-off':['nmcli','radio','wifi','off'], 'flight-on':['pkexec','/usr/local/libexec/pcadmin-radio-control','flight-on'], 'flight-off':['pkexec','/usr/local/libexec/pcadmin-radio-control','flight-off'], 'zero-refresh':['pkexec','/usr/local/libexec/pcadmin-radio-control','refresh'], 'gps-details':['/usr/bin/xgps','127.0.0.1:2947'], 'proxy-open':['/opt/v2rayn-bin/v2rayN']}
  if op not in commands:raise ValueError('不支持的操作')
  return commands[op]
@@ -308,7 +309,8 @@ def action(op):
  if op=='cell-on':
   call(['nmcli','radio','wwan','on'])
   if status()['cell_connected']:ensure_proxy();return
- if op in ('proxy-open','gps-details'):subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True);return
+ if op=='gps-map':call(args+['--check'])
+ if op in ('proxy-open','gps-details','gps-map'):subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True);return
  call(args,90 if args[0]=='pkexec' else 35)
  if op=='cell-on':ensure_proxy()
 if __name__=='__main__':

@@ -46,3 +46,33 @@ jobs:
           path: ${{ runner.temp }}/workbench-acceptance
           if-no-files-found: error
           retention-days: 14
+
+  map-gps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+      - name: Install native adapter build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cmake ninja-build qt6-base-dev qt6-positioning-dev
+      - name: Build and check private GPS adapter
+        run: |
+          unset DBUS_SESSION_BUS_ADDRESS DISPLAY WAYLAND_DISPLAY
+          cmake -S modules/map-gps-adapter -B "$RUNNER_TEMP/map-gps" -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/map-gps" --parallel 2
+          ctest --test-dir "$RUNNER_TEMP/map-gps" --no-tests=error --output-on-failure --timeout 45 --output-junit "$RUNNER_TEMP/map-gps/results.xml"
+          ctest --test-dir "$RUNNER_TEMP/map-gps" -R '^plugin_factory$' --no-tests=error --repeat until-fail:30 --output-on-failure
+          (cd modules/map-gps-adapter && python3 -m unittest -v test_launch)
+      - name: Keep adapter test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: map-gps-acceptance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/map-gps/results.xml
+            ${{ runner.temp }}/map-gps/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+          retention-days: 14
