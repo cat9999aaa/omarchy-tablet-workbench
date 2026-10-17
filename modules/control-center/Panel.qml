@@ -77,9 +77,9 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({version:"0.1.3",opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({version:"0.1.4",opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
- Ui.BarIconButton { anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
+ Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
   id: opener;command:["python",root.helper,"prepare-open"]
   stdout: StdioCollector { onStreamFinished: {
@@ -119,7 +119,7 @@ Ui.Panel {
   Rectangle {
    id:card;anchors.top:parent.top;anchors.topMargin:12;anchors.horizontalCenter:parent.horizontalCenter
    width:Model.layout(window.width,window.height).width
-   height:Model.layout(window.width,window.height).height
+   height:Model.layout(window.width,Math.max(1,window.height-(barButton.QsWindow.window?barButton.QsWindow.window.height:32))).height
    color:root.bg;radius:14;border.color:root.purple;border.width:2
    opacity:root.opened?1:0
    Behavior on opacity {NumberAnimation {duration:120}}

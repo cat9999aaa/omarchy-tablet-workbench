@@ -118,6 +118,6 @@
 - 用户批准直接实施并补齐真实三指下滑。权威源码在非Git管理项目，便携源码在既有工作台feature分支提交；本机部署前备份。
 - 新增gesture_model/gesture_daemon/gesture_receiver：核对过名称和USB身份的触摸屏只读观察，Type-B多点解码，恰好三指下滑松手提交；2/4指、横向/上划/点按/换指/长按/SYN_DROPPED拒绝。无grab、虚拟输入和坐标日志。root只发固定事件，用户核对内核凭据，再检查锁屏。
 - 授权等待监测锁屏、root授权后再核对、TouchMode写前guard、飞行修改前guard。音量/静音及电源模式使用共享资源锁。普通命令只反馈submitted，亮度读sysfs实际值；未知代理状态禁用开关。
-- 控制台0.1.3、底栏入口、顶部旧入口回退及三指服务已部署。31项控制台Python、4项TouchMode、44项网络回归与JS通过。root observer connected，TouchMode实际1 verified，默认1；控制台IPC版本0.1.3，锁屏实际拒绝打开。
+- 控制台0.1.4、底栏入口、顶部旧入口回退及三指服务已部署。31项控制台Python、4项TouchMode、44项网络回归与JS通过。root observer connected，TouchMode实际1 verified，默认1；控制台IPC版本0.1.4，锁屏实际拒绝打开。
 - 未锁屏界面几何/焦点/滑杆实调、实体三指和手感、重启保持仍未验收。当前电脑锁屏，不能通过测试绕过锁屏。此处不将Phase A标为完全验收。
 - 独立代码审查的4项Important均已修并回归；报告与逐项证据写入启明evidence和执行ledger。跨设备统一安装器不在首版。

@@ -1,4 +1,4 @@
-# 启明 · 随身控制台 0.1.3
+# 启明 · 随身控制台 0.1.4
 
 面向本机 Omarchy 平板的用户插件。沿用官方 bar-widget 注册方式，不修改打包文件，不添加 Hyprland 二进制插件。
 
@@ -26,7 +26,7 @@
 
 权威源码是本机管理项目tools/control-center；便携源码在工作台modules/control-center。只保留一份TouchMode工具：modules/hardware-toolbox/touch-mode。便携副本需设置 `PCADMIN_CONTROL_HELPER` 到部署的适配器；network-center、IME及窗口菜单路径需按目标实例核对，不能沿用其他项目的启明身份。本模块没有跨设备通用安装器。
 
-用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.3`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
+用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.4`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
 
 root安装只读触摸状态导出timer，以及只观察触屏的pcadmin-three-finger.service；后者recipient UID必须在安装时替换，不可复制本机UID到其他设备。用户服务pcadmin-control-gesture负责会话入口。既有TouchMode开机服务和udev默认不变。
 
