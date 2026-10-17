@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pcadmin.touchime",
   "name": "Omarchy 触屏中文输入法",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "pcadmin",
   "description": "本机原生九宫格、面板内候选与离线语音输入",
   "kinds": [

@@ -1,6 +1,6 @@
 # 本机双电池原生面板
 
-归本机电池系统，来源任务w-0014。基于已安装Omarchy官方omarchy.power克隆；源文件/usr/share/omarchy只读。用户配置插件cat9999sss.power；源码在此，部署release-1/Panel.qml。调用官方omarchy-shell omarchy.power open。
+归本机电池系统，来源任务w-0014。基于已安装Omarchy官方omarchy.power克隆；源文件/usr/share/omarchy只读。用户配置插件cat9999sss.power；源码在此，当前版本1.2.0；版本化入口以插件manifest为准（release-1为首次部署历史）。调用官方omarchy-shell omarchy.power open。
 
 UPower事件驱动提供独立BAT0/BAT1电量、状态、预计时间、净功率、能量及综合电量。保持原生省电/均衡/性能切换。合计电量与独立电量明确区分，避免原生首块电池百分比混入合计面板。循环次数不可靠则未知；PendingCharge不代表达到充电阈值，八小时以上ETA不作为限充证据。等待充电不显示旧的预计充满时间。功率来自电池端，并非充电器/墙上功率；时间受负载、分时充电、温度等影响。
 

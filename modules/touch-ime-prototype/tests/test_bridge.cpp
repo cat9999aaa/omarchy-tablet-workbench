@@ -1,5 +1,7 @@
 #include "../src/focus_bridge.cpp"
+#include "../src/hypr_shortcut.h"
 #include <cassert>
+#include <algorithm>
 #include <iostream>
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/addonloader.h>
@@ -43,6 +45,64 @@ public:
 };
 int main(int argc, char **argv) {
     QCoreApplication app(argc,argv);
+    {
+        using omt::CommandResult;
+        // A restored Fcitx focus cannot authorize text before compositor target validation.
+        assert(!omt::validTarget(7,7,true,true));
+        assert(omt::validTarget(7,7,true,false));
+        assert(!omt::validTarget(6,7,true,false));
+        QStringList commands;
+        const omt::ShortcutTarget expected{"0x123abc",123};
+        assert(omt::holdPasswordPanel(true,true,true,0,expected));
+        assert(omt::holdPasswordPanel(true,true,true,99,expected));
+        assert(!omt::holdPasswordPanel(false,true,true,0,expected));
+        assert(!omt::holdPasswordPanel(true,false,true,0,expected));
+        assert(!omt::holdPasswordPanel(true,true,false,0,expected));
+        assert(!omt::holdPasswordPanel(true,true,true,-1,expected));
+        assert(!omt::holdPasswordPanel(true,true,true,100,expected));
+        assert(!omt::holdPasswordPanel(true,true,true,0,{}));
+        auto window=QByteArray("{\"address\":\"0x123abc\",\"pid\":123}");
+        bool locked=false, allowed=true, evalOk=true;
+        auto runner=[&](const QString &program,const QStringList &args) {
+            commands.append(program+" "+args.join(" "));
+            if(program=="/usr/bin/omarchy-shell")return CommandResult{true,locked?QByteArray("true"):QByteArray("false")};
+            if(args.first()=="-j")return CommandResult{true,window};
+            return CommandResult{evalOk,evalOk?QByteArray("ok"):QByteArray("error")};
+        };
+        auto permission=[&]{return allowed;};
+        assert(omt::sendHyprShortcut("Control+c",expected,runner,permission));
+        assert(commands.last().contains("state=\"down\"") && commands.last().contains("state=\"up\""));
+        assert(commands.last().contains("window=w") && commands.last().contains("w.pid==123"));
+        assert(commands.last().contains("timeout=50"));
+        commands.clear();assert(!omt::sendHyprShortcut("Control+c;exec bad",expected,runner,permission));assert(commands.empty());
+        for(const auto &bad : {QByteArray("{}"),QByteArray("{\"address\":\"0x0\",\"pid\":123}"),
+             QByteArray("{\"address\":\"0x123;bad\",\"pid\":123}"),QByteArray("{\"address\":\"0x123\",\"pid\":0}")}) {
+            window=bad;commands.clear();assert(!omt::sendHyprShortcut("Control+v",expected,runner,permission));
+            assert(std::none_of(commands.begin(),commands.end(),[](const auto &s){return s.contains(" eval ");}));
+        }
+        window="{\"address\":\"0x456def\",\"pid\":456}";
+        commands.clear();assert(!omt::sendHyprShortcut("Control+v",expected,runner,permission));
+        assert(commands.size()==1); // Fcitx may still say A: never send to new window B.
+        window="{\"address\":\"0x123abc\",\"pid\":123}";locked=true;
+        commands.clear();assert(!omt::sendHyprShortcut("Control+a",expected,runner,permission));assert(!commands.last().contains(" eval "));
+        locked=false;allowed=false;commands.clear();assert(!omt::sendHyprShortcut("Control+x",expected,runner,permission));assert(!commands.last().contains(" eval "));
+        allowed=true;evalOk=false;assert(!omt::sendHyprShortcut("Control+v",expected,runner,permission));
+        assert(!omt::sendHyprShortcut("Control+v",expected,[](const auto &,const auto &){return CommandResult{false,{}};},permission));
+    }
+    {
+        QJsonObject fresh{{"protocol",2},{"generation",7},{"focused",true},{"sensitive",false}};
+        auto allowed=[&](QString key="Control+c",quint32 current=7,quint64 epoch=3,bool focus=true){
+            return omt::shortcutStateAllowed(fresh,7,current,3,epoch,focus,key);
+        };
+        assert(allowed());assert(!allowed("Control+c",8));assert(!allowed("Control+c",7,4));
+        assert(!allowed("Control+c",7,3,false));
+        fresh["generation"]=6;assert(!allowed());fresh["generation"]=7;
+        fresh["sensitive"]=true;
+        for(const auto &key:{"Control+a","Control+c","Control+x"})assert(!allowed(key));
+        assert(allowed("Control+v"));
+        fresh.remove("sensitive");assert(!allowed("Control+v"));
+        fresh=QJsonObject{};assert(!allowed());
+    }
     QTemporaryDir config;
     setenv("XDG_CONFIG_HOME", config.path().toUtf8().constData(), 1);
     fcitx::Instance instance(argc, argv);

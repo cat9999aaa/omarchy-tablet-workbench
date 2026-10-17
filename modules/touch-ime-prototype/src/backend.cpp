@@ -1,6 +1,7 @@
 #include "engine.h"
 #include "target_gate.h"
 #include "focus_link.h"
+#include "hypr_shortcut.h"
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -14,6 +15,9 @@
 #include <QTimer>
 #include <QSettings>
 #include <QFileInfo>
+#include <QThread>
+#include <QPointer>
+#include <QElapsedTimer>
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
@@ -43,11 +47,41 @@ class Backend : public QObject {
     FocusLink focusLink_;
     uint32_t bridgeGeneration_ = 0;
     quint64 ownerEpoch_ = 0;
+    QString frontend_;
+    omt::ShortcutTarget shortcutTarget_, heldPasswordTarget_;
+    QElapsedTimer sensitiveCommit_;
+    QTimer focusLossHide_;
+    QPointer<QProcess> targetProbe_;
+    quint64 targetTicket_ = 0;
+    void captureShortcutTarget() {
+        shortcutTarget_={};const auto ticket=++targetTicket_;
+        if(targetProbe_){targetProbe_->kill();targetProbe_->deleteLater();targetProbe_=nullptr;}
+        if(!visible_ || !focused_ || !frontend_.startsWith("wayland"))return;
+        const auto generation=bridgeGeneration_;const auto epoch=ownerEpoch_;
+        auto *probe=new QProcess(this);targetProbe_=probe;
+        connect(probe,qOverload<int,QProcess::ExitStatus>(&QProcess::finished),this,
+            [this,probe,ticket,generation,epoch](int code,QProcess::ExitStatus status){
+                if(ticket==targetTicket_ && generation==bridgeGeneration_ && epoch==ownerEpoch_
+                    && visible_ && focused_ && code==0 && status==QProcess::NormalExit)
+                {
+                    shortcutTarget_=omt::ShortcutTarget::parse(probe->readAllStandardOutput());
+                    if(focusLossHide_.isActive()) {
+                        focusLossHide_.stop();
+                        if(!shortcutTarget_.valid() || shortcutTarget_!=heldPasswordTarget_)visible_=false;
+                        heldPasswordTarget_={};publish();
+                    }
+                }
+                probe->deleteLater();
+            });
+        QTimer::singleShot(250,probe,[probe]{if(probe->state()!=QProcess::NotRunning)probe->kill();});
+        probe->start("/usr/bin/hyprctl",{"-j","activewindow"});
+    }
     QTimer voiceLimit_, recognitionLimit_, stopLimit_;
     std::unique_ptr<QTemporaryDir> audioDir_;
     QByteArray input_, lastState_;
-    bool current(uint32_t expected) const { return omt::validTarget(expected, generation_, focused_); }
+    bool current(uint32_t expected) const { return omt::validTarget(expected, generation_, focused_, focusLossHide_.isActive()); }
     bool commitTarget(const QString &text) {
+        if(visible_ && sensitive_ && frontend_.startsWith("wayland"))sensitiveCommit_.start();
         auto r = focusLink_.call("Commit", {bridgeGeneration_, text});
         bool ok = r.type() == QDBusMessage::ReplyMessage && !r.arguments().isEmpty() && r.arguments().first().toBool();
         if (!ok) error_ = "输入位置已改变，请重新点输入框";
@@ -59,6 +93,27 @@ class Backend : public QObject {
         return commitTarget(text);
     }
     void editingKey(const QString &key) {
+        if (frontend_.startsWith("wayland") && key.startsWith("Control+")) {
+            const auto expected = bridgeGeneration_;
+            const auto epoch = ownerEpoch_;
+            auto allowed = [&] {
+                const auto reply=focusLink_.call("State", {});
+                if(reply.type()!=QDBusMessage::ReplyMessage || reply.arguments().isEmpty())return false;
+                const auto fresh=QJsonDocument::fromJson(reply.arguments().first().toString().toUtf8()).object();
+                return omt::shortcutStateAllowed(fresh,expected,bridgeGeneration_,epoch,ownerEpoch_,focused_,key);
+            };
+            auto run=[](const QString &program,const QStringList &args) {
+                QProcess child;child.start(program,args);
+                if(!child.waitForFinished(250)) {child.kill();child.waitForFinished(250);return omt::CommandResult{false,{}};}
+                return omt::CommandResult{child.exitStatus()==QProcess::NormalExit && child.exitCode()==0,child.readAllStandardOutput()};
+            };
+            const bool ok=omt::sendHyprShortcut(key,shortcutTarget_,run,allowed);
+            // Only these low-frequency edit chords wait for the official 50 ms
+            // release. No timer/polling is added to idle, focus or text paths.
+            if(ok)QThread::msleep(70);
+            else error_="编辑快捷键未完成，请重新点输入框后重试";
+            return; // Never fall back to sending a bare letter through Wayland.
+        }
         auto r = focusLink_.call("Key", {bridgeGeneration_, key});
         if (r.type()!=QDBusMessage::ReplyMessage || r.arguments().isEmpty() || !r.arguments().first().toBool())
             error_ = "当前没有可用的输入位置";
@@ -87,6 +142,8 @@ class Backend : public QObject {
     }
 public:
     Backend(const std::string &data, const std::string &user) : engine_(data,user), settings_(QString::fromStdString(user)+"/ime-settings.ini",QSettings::IniFormat) {
+        focusLossHide_.setSingleShot(true);focusLossHide_.setInterval(150);
+        connect(&focusLossHide_,&QTimer::timeout,this,[this]{visible_=false;heldPasswordTarget_={};captureShortcutTarget();publish();});
         phrases_=settings_.value("phrases",QStringList{"谢谢","好的","你好"}).toStringList();
         learning_=settings_.value("learning",true).toBool();engine_.setLearning(learning_);
         handwritingModel_=QFileInfo(QString::fromStdString(data)+"/../vendor/handwriting/models/handwriting-zh_CN.model").absoluteFilePath();
@@ -154,6 +211,11 @@ public:
     ~Backend() override {cancelVoice();clearHandwriting(true);}
 
     void applyFocus(const QJsonObject &s, quint64 epoch) {
+        const bool mayHold=!s.value("focused").toBool() && epoch==ownerEpoch_
+            && omt::holdPasswordPanel(visible_,sensitive_,frontend_.startsWith("wayland"),
+                sensitiveCommit_.isValid()?sensitiveCommit_.elapsed():-1,shortcutTarget_);
+        const auto previousTarget=shortcutTarget_;
+        frontend_=s.value("frontend").toString();
         const auto next=uint32_t(s.value("generation").toInt());
         const bool focus=s.value("focused").toBool();
         if(next!=bridgeGeneration_ || focus!=focused_ || epoch!=ownerEpoch_
@@ -163,10 +225,16 @@ public:
             context_=uint32_t(s.value("context").toInt());
             sensitive_=s.value("sensitive").toBool();noKeyboard_=s.value("noKeyboard").toBool();
             // Only explicit P1/manual actions open the panel.
-            if(!focused_ || noKeyboard_) visible_=false;
+            if(!focused_ || noKeyboard_) {
+                if(mayHold && !noKeyboard_) {heldPasswordTarget_=previousTarget;focusLossHide_.start();}
+                else {visible_=false;focusLossHide_.stop();heldPasswordTarget_={};}
+            } else if(focusLossHide_.isActive() && (!sensitive_ || !frontend_.startsWith("wayland"))) {
+                visible_=false;focusLossHide_.stop();heldPasswordTarget_={};
+            }
             error_.clear();
-            if(sensitive_) mode_="abc";
+            if(sensitive_ || focusLossHide_.isActive()) mode_="abc";
             else {mode_="t9";engine_.mode("t9");}
+            captureShortcutTarget();
         }
         if(s.isEmpty()) error_="等待输入服务连接，请稍后按 P1 重试";
         publish();
@@ -176,7 +244,7 @@ public:
         if(mode_=="handwriting"){for(auto &c:handwritingCandidates_)candidates.append(c);e.preedit="";}
         else for(auto &c:e.candidates)candidates.append(QString::fromStdString(c));
         QJsonArray phraseArray;for(auto &p:phrases_)phraseArray.append(p);
-        QJsonObject s{{"editingPhrase",editingPhrase_},{"phraseDraft",phraseDraft_},{"phrases",phraseArray},{"learning",learning_},{"notice",notice_},{"handwritingRevision",handwritingRevision_},{"generation",int(generation_)},{"focused",focused_},{"sensitive",sensitive_},
+        QJsonObject s{{"editingPhrase",editingPhrase_},{"phraseDraft",phraseDraft_},{"phrases",phraseArray},{"learning",learning_},{"notice",notice_},{"handwritingRevision",handwritingRevision_},{"generation",int(generation_)},{"focused",focused_ && !focusLossHide_.isActive()},{"sensitive",sensitive_ || focusLossHide_.isActive()},
             {"visible",visible_},{"mode",mode_},{"preedit",QString::fromStdString(e.preedit)},
             {"candidates",candidates},{"page",e.page},{"lastPage",e.lastPage},{"error",error_},{"voicePhase",voicePhase_},{"voiceText",voiceText_},{"editingVoice",editingVoice_}};
         auto data=QJsonDocument(s).toJson(QJsonDocument::Compact);
@@ -184,8 +252,8 @@ public:
     }
     void action(const QJsonObject &a) {
         auto op=a.value("op").toString();error_.clear();
-        if(op=="hide") {visible_=false;editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);publish();return;}
-        if(op=="show" || op=="toggle") {if(!focused_)focusLink_.refresh();visible_=op=="show"?true:!visible_;if(!visible_){editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);}publish();return;}
+        if(op=="hide") {visible_=false;focusLossHide_.stop();heldPasswordTarget_={};captureShortcutTarget();editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);publish();return;}
+        if(op=="show" || op=="toggle") {if(!focused_)focusLink_.refresh();visible_=op=="show"?true:!visible_;focusLossHide_.stop();heldPasswordTarget_={};captureShortcutTarget();if(!visible_){editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);}publish();return;}
         if(!current(uint32_t(a.value("generation").toInt()))) {error_="请先点选输入框";publish();return;}
         if(voicePhase_!="idle" && op!="voice") {error_="请先结束语音识别";publish();return;}
         if(op=="phraseStart" && !sensitive_) {engine_.clear();cancelVoice();editingPhrase_=true;phraseDraft_.clear();}

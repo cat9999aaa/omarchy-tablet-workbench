@@ -15,7 +15,7 @@
 
 | 方向 | 本机已有基础 | 本仓库状态 |
 | --- | --- | --- |
-| 触屏输入 | 九宫格、全拼、内部候选、实体键呼出；离线中文听写 | [v0.2.2源码原型](modules/touch-ime-prototype/README.md)已同步；远程完整构建与平板隔离兼容已验，通用安装器待完成 |
+| 触屏输入 | 九宫格、全拼、内部候选、实体键呼出；离线中文听写 | [v0.2.3源码原型](modules/touch-ime-prototype/README.md)已同步；远程完整构建与平板隔离兼容已验，通用安装器待完成 |
 | 桌面操作 | 固定底栏、实体键窗口菜单、上下边缘菜单 | 菜单动作通过；真实上下滑动尚待验收 |
 | 解锁 | 锁屏触屏键盘、冷启动触屏解密已实测 | 设备与引导高度相关，暂不提供通用安装器 |
 | 工作台 | DeepSeek Harness 本地服务已安装 | 真实模型会话、规则读取与插件尚待验收 |
@@ -49,3 +49,5 @@
 首个完整远程构建基线已通过：输入法9项CTest、12项构建边界测试、平板4项隔离兼容检查。见[构建入口](modules/remote-build/README.md)和[脱敏验证记录](docs/validation/2026-10-17-remote-ime-build.json)。没有用这批Debug产物替换运行输入法。共享UI首批已部署并通过远程回归与实机尺寸检查，见[验收记录](docs/validation/2026-10-17-shared-ui.md)。
 
 统一的软件验收入口见 [验收工具](scripts/acceptance/README.md)，自动结果见 [GitHub Actions](https://github.com/cat9999aaa/omarchy-tablet-workbench/actions/workflows/acceptance.yml)。软件检查和真实设备验收分别记录。
+
+输入法浏览器编辑与假密码框兼容问题已修复并部署，GTK/Qt/XWayland/Chromium实际矩阵见[跨应用验收](docs/validation/2026-10-17-ime-browser.md)。
