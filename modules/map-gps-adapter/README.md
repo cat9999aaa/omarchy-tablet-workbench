@@ -36,3 +36,13 @@ python3 launch.py --release /path/to/verified-release
 来源依据：[Marble26.08.0](https://github.com/KDE/marble/blob/v26.08.0/src/apps/marble-maps/MainScreen.qml)、[Qt6定位扩展](https://doc.qt.io/qt-6/position-plugin-nmea.html)、[gpsd JSON协议](https://gpsd.io/gpsd_json.html)。原创GPL-3.0-only；Qt/Marble/gpsd为外部依赖，未复制其实现。
 
 插件优先级2000高于当前Qt内置GeoClue2的1000，仅对本地图进程可见。使用干净构建目录发布，工厂探针校验实际二进制中的优先级，并连续30次独立启动确认默认源。Qt升级后启动器拒绝旧ABI，需重新远程构建验收。
+
+## 地图启动器0.1.1：中文搜索栏
+
+Omarchy4.0.4的Marble26.08/Kirigami6.29组合中，真实SearchField的初始占位文字仍是英文，而稍后qsTranslate能返回中文；同一组件试验通过只在地图进程预加载已安装的`/usr/lib/libKirigami.so.6`恢复中文。此为应用入口兼容处理，不是确认了具体上游C++缺陷。语言仍沿用用户环境；不写系统库、全局环境或其他应用配置。
+
+启动器复制环境，保留既有LD_PRELOAD，识别空格/冒号分隔避免重复；缺少依赖明确失败。0.1.1目录沿用0.1.0已验GPS二进制和Qt版本校验。新增3项启动器回归，共7项通过；本机真实地图搜索栏“搜索…”已截图确认，GPS服务保持关闭。真实定位居中、底图地名语言和触屏体验不能由该结果推定。
+
+恢复：用户入口重新指向保留的0.1.0版本目录，私有GPS插件仍可使用；不必改变系统GPS服务。系统Kirigami/Qt更新后重验该兼容处理是否仍需要。
+
+最小中文组件回归保留在`tests/tst_locale.qml`，在匹配的已安装Kirigami环境比较普通启动与仅本进程LD_PRELOAD启动；此依赖版本复现未纳入Ubuntu通用CI，CI覆盖启动器7项和原定位接口。

@@ -1,6 +1,7 @@
 import hashlib,json,tempfile,unittest
 from pathlib import Path
 from launch import checked_environment
+import launch
 class Launcher(unittest.TestCase):
  def setUp(self):
   d=tempfile.TemporaryDirectory();self.addCleanup(d.cleanup);self.root=Path(d.name);self.binary=self.root/'plugins/position/libworkbench_gpsd.so';self.binary.parent.mkdir(parents=True);self.binary.write_bytes(b'fixture')
@@ -20,4 +21,13 @@ class Launcher(unittest.TestCase):
   with self.assertRaises(ValueError):checked_environment(self.root,{},self.meta['qt_versions'])
   self.binary.unlink();self.binary.write_bytes(b'fixture');self.meta['schema']=2;self.save()
   with self.assertRaises(ValueError):checked_environment(self.root,{},self.meta['qt_versions'])
+ def test_localization_preload_is_process_local(self):
+  library=self.root/'libKirigami.so.6';library.write_bytes(b'fixture');original={'LD_PRELOAD':'/existing.so','LANG':'zh_CN.UTF-8'}
+  out=launch.localized_environment(original,library)
+  self.assertEqual(original['LD_PRELOAD'],'/existing.so');self.assertEqual(out['LD_PRELOAD'],str(library)+' /existing.so');self.assertEqual(out['LANG'],original['LANG'])
+ def test_existing_localization_preload_is_not_duplicated(self):
+  library=self.root/'libKirigami.so.6';library.write_bytes(b'fixture');previous='/existing.so:'+str(library)
+  self.assertEqual(launch.localized_environment({'LD_PRELOAD':previous},library)['LD_PRELOAD'],previous)
+ def test_missing_localization_dependency_fails_clearly(self):
+  with self.assertRaises(ValueError):launch.localized_environment({},self.root/'missing-library')
 if __name__=='__main__':unittest.main()
