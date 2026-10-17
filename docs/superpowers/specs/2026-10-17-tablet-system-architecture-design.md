@@ -80,7 +80,7 @@
 
 远程依赖优先通过Arch干净构建环境隔离；对齐Qt、Fcitx、glibc及目标架构，不使用构建机的`-march=native`。按源码版本保存产物、依赖清单、日志和校验值，回传后再安装。每次安装保留上一个可用版本。
 
-连接、tmux、断线后小型C程序编译执行及产物回传已经验证。Rust/Qt完整构建环境、自动队列、重启恢复和统一发布器仍待实现。详情见[远程构建原则](../../design/2026-10-17-remote-build-policy.md)。
+连接、tmux及产物回传已验证。阶段1进一步完成现有Qt/C++/Rime输入法完整远程构建，9项CTest、12项边界测试、回传与平板4项隔离兼容通过；有手动prepare/submit/status/fetch入口。Rust构建、自动队列、重启恢复和统一发布器仍待实现。详情见[远程构建原则](../../design/2026-10-17-remote-build-policy.md)。
 
 ## 电源与AI
 
@@ -123,3 +123,5 @@ Jev可作为低频的策略建议来源。其API、延迟与收益尚未实测�
 - [Arch makechrootpkg](https://man.archlinux.org/man/extra/devtools/makechrootpkg.1.en)：在独立chroot中构建软件包。
 - [TypeSafe Jev](https://docs.typesafe.ai/introduction/quickstart)：Choice、Score、Noul是结构化判断能力，是否适合本机节能需实测。
 - Omarchy扩展方式以设备上已安装版本的官方命令与源码为准，升级后重新核对接口。
+
+2026-10-17阶段1验收见[构建基线记录](../../validation/2026-10-17-remote-ime-build.json)。本轮未迁移运行源码、安装产物或改变设备策略；下一步为阶段2共享UI/状态。
