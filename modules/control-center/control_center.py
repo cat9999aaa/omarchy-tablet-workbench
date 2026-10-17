@@ -11,7 +11,7 @@ import re
 import signal
 from privileged_control import process_start
 from pathlib import Path
-from adapters import snapshot, read_touch_state, thermal_values
+from adapters import snapshot, read_touch_state, thermal_values, field
 
 ROOT=Path(__file__).resolve().parents[1]
 NETWORK=ROOT/'network-center/network.py'
@@ -36,6 +36,7 @@ def prepare(action, params, locked):
           'keyboard':['python',str(IME)],
           'proxy-on':['python',str(NETWORK),'proxy-on'],'proxy-off':['python',str(NETWORK),'proxy-off'],
           **{a:['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py',a] for a in ['flight-on','flight-off','touch-glove','touch-normal','touch-refresh']},
+          'nightlight':['omarchy','toggle','nightlight'],
           'screen-off':['hyprctl','dispatch','hl.dsp.dpms({enabled=false})'],
           'lock':['omarchy','system','lock'],
           'windows':['python',str(ROOT/'window-controls/physical_window_menu.py')],
@@ -123,6 +124,20 @@ def prepare_open():
         time.sleep(.05)
     return False
 
+def nightlight_status(now=None):
+    now=time.time() if now is None else now
+    temperature=None
+    try:
+        value=json.loads(subprocess.check_output(['omarchy','toggle','nightlight','--status'],text=True,timeout=3))
+        temp=value.get('temperature')
+        if type(temp) in (int,float) and 1000<=temp<=20000:
+            temperature=temp
+    except (OSError,ValueError,TypeError,AttributeError,subprocess.SubprocessError):pass
+    # Native status reports false even when its IPC is unavailable; don't present that as off.
+    state=field('nightlight',True,None if temperature is None else temperature<6000,now,15,'Omarchy nightlight / hyprsunset',now=now)
+    state['temperature']=temperature
+    return state
+
 def status():
     now=time.time();network={};monitor={}
     try:network=json.loads(subprocess.check_output(['python',str(NETWORK),'status'],text=True,timeout=12))
@@ -131,6 +146,7 @@ def status():
     except (OSError,ValueError,subprocess.SubprocessError):pass
     network['flight_saved']=Path('/var/lib/pcadmin-network/flight.json').exists()
     d=snapshot(now,network,read_touch_state('/run/pcadmin-touch-mode/state.json',now),thermal_values())
+    d['nightlight']=nightlight_status()
     d['brightness']=None
     if monitor.get('brightnessAvailable'):
         for p in Path('/sys/class/backlight').glob('*'):

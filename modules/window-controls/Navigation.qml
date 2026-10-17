@@ -10,10 +10,10 @@ import "Workbench/Layout.js" as LayoutModel
 Item {
  id:root
  property bool opened:false
- property string page:"开始"
+ property string page:"窗口"
  property var data:({})
  property string feedback:""
- property string nextPage:"开始"
+ property string nextPage:"窗口"
  readonly property string helper:Quickshell.env("PCADMIN_NAVIGATION_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/window-controls/navigation.py"
  readonly property color fg:Color.foreground
  readonly property color bg:Color.popups.background
@@ -30,7 +30,7 @@ Item {
   function toggle(page:string):void {if(root.opened)root.close();else root.openPage(page)}
   function open(page:string):void {root.openPage(page)}
   function close():void {root.close()}
-  function state():string{return JSON.stringify({version:"0.1.0",opened:root.opened,page:root.page,width:card.width,height:card.height})}
+  function state():string{return JSON.stringify({version:"0.1.1",opened:root.opened,page:root.page,width:card.width,height:card.height})}
  }
  Process {
   id:loader;command:["python",root.helper,"snapshot"]
@@ -95,19 +95,26 @@ Item {
          WB.TouchButton{required property var modelData;Layout.fillWidth:true;Layout.minimumHeight:66;text:(root.data.current===modelData.id?"✓ ":"")+"桌面 "+modelData.id+" · "+modelData.count+" 个窗口";foreground:root.fg;accent:Color.accent;enabled:!command.running;onClicked:root.act("switch",{workspace:modelData.id})}
         }
        }
-      }
-      ColumnLayout {
-       visible:root.page==="窗口";Layout.fillWidth:true;spacing:12
-       Text{Layout.fillWidth:true;text:root.data.windowLabel||"当前窗口";elide:Text.ElideRight;color:root.fg;font.pixelSize:18}
-       GridLayout{Layout.fillWidth:true;columns:2;rowSpacing:10;columnSpacing:10
-        Repeater{model:[{label:"放大 / 还原",action:"maximize"},{label:"浮动 / 平铺",action:"float"},{label:"暂存窗口",action:"hide"},{label:"找回暂存",action:"restore"},{label:"浮动窗口居中",action:"center"},{label:"关闭当前窗口",action:"close"}]
-         WB.TouchButton{required property var modelData;Layout.fillWidth:true;Layout.minimumHeight:60;text:modelData.label;foreground:root.fg;accent:modelData.action==="close"?Color.urgent:Color.accent;enabled:!command.running;onClicked:root.act(modelData.action)}
-        }
-       }
+
        Text{Layout.fillWidth:true;text:"移动当前窗口到桌面";color:root.fg;font.pixelSize:16}
        GridLayout{Layout.fillWidth:true;columns:5;rowSpacing:8;columnSpacing:8
         Repeater{model:10
          WB.TouchButton{required property int index;Layout.fillWidth:true;text:String(index+1);foreground:root.fg;accent:Color.accent;enabled:!command.running;onClicked:root.act("move",{workspace:index+1})}
+        }
+       }
+      }
+      ColumnLayout {
+       visible:root.page==="窗口";Layout.fillWidth:true;spacing:12
+       Text{Layout.fillWidth:true;text:root.data.windowLabel||"当前窗口";elide:Text.ElideRight;color:root.fg;font.pixelSize:18}
+       GridLayout{Layout.fillWidth:true;columns:3;rowSpacing:10;columnSpacing:10
+        Repeater{model:[{label:"放大 / 还原",action:"maximize"},{label:"浮动 / 平铺",action:"float"},{label:"暂存窗口",action:"hide"},{label:"找回暂存",action:"restore"},{label:"浮动窗口居中",action:"center"},{label:"关闭当前窗口",action:"close"}]
+         WB.TouchButton{required property var modelData;Layout.fillWidth:true;Layout.minimumHeight:60;text:modelData.label;foreground:root.fg;accent:modelData.action==="close"?Color.urgent:Color.accent;enabled:!command.running;onClicked:root.act(modelData.action)}
+        }
+       }
+       Text{Layout.fillWidth:true;text:"切换桌面";color:root.fg;font.pixelSize:16}
+       GridLayout{Layout.fillWidth:true;columns:width>=550?9:5;rowSpacing:8;columnSpacing:6
+        Repeater{model:9
+         WB.TouchButton{required property int index;objectName:"quickDesktop"+(index+1);Layout.fillWidth:true;Layout.minimumHeight:52;text:String(index+1);selected:root.data.current===index+1;foreground:root.fg;accent:Color.accent;enabled:!command.running;onClicked:root.act("switch",{workspace:index+1})}
         }
        }
       }

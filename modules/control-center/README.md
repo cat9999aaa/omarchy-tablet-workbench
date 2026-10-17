@@ -1,4 +1,4 @@
-# 启明 · 随身控制台 0.1.5
+# 启明 · 随身控制台 0.1.7
 
 面向本机 Omarchy 平板的用户插件。沿用官方 bar-widget 注册方式，不修改打包文件，不添加 Hyprland 二进制插件。
 
@@ -8,7 +8,7 @@
 - 底栏“控制台”图标、原顶部边缘下拉也可唤起。点右上角收起、外侧或 Esc 关闭。
 - 九个快捷磁贴、亮度和音量；详情分连接／设备／工作／旅途。亮度和音量在松手后提交，不逐像素启动进程。
 - 关闭代理、飞行模式、切到普通触摸先确认。普通触摸仅本次生效，原装无源笔可能失效；开机和重连仍恢复手套模式。
-- 显示方向尚未适配，保持禁用；AI任务和场景编排未接入，不提供假按钮。电池详情接现有充放电记录工具。
+- 快捷区原显示方向占位改为可用的夜间模式；显示方向仍未适配。AI任务和场景编排未接入，不提供假按钮。电池详情接现有充放电记录工具。
 
 ## 状态与权限
 
@@ -26,7 +26,7 @@
 
 权威源码是本机管理项目tools/control-center；便携源码在工作台modules/control-center。只保留一份TouchMode工具：modules/hardware-toolbox/touch-mode。便携副本需设置 `PCADMIN_CONTROL_HELPER` 到部署的适配器；network-center、IME及窗口菜单路径需按目标实例核对，不能沿用其他项目的启明身份。本模块没有跨设备通用安装器。
 
-用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.5`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
+用户插件 `pcadmin.control-center` 的当前versioned entry在 `release-0.1.7`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
 
 root安装只读触摸状态导出timer，以及只观察触屏的pcadmin-three-finger.service；后者recipient UID必须在安装时替换，不可复制本机UID到其他设备。用户服务pcadmin-control-gesture负责会话入口。既有TouchMode开机服务和udev默认不变。
 
@@ -47,3 +47,9 @@ Python适配器/调度/手势协议/入口回退、JS几何/状态、TouchMode�
 ## 共享界面 0.1.6
 
 已接入工作台共享触屏按钮、固定标题和尺寸模型；颜色沿Omarchy当前主题。状态时间无效/过期显示待读取。实际界面已打开检查，物理手势与手感仍需分别验收。
+
+## 夜间模式 0.1.7
+
+快捷九宫格的“夜间模式”、设备详情和飞行娱乐页调用同一个 Omarchy 官方 `omarchy toggle nightlight`，没有另起色温控制器。有效色温小于 6000 K 显示暖色开启，6000 K 及以上显示关闭；状态读取失败或温度为 null 显示待确认，按钮仍明确执行“切换”。沿用同类动作互斥、锁屏复查和请求后刷新。
+
+本机已通过实际 4000 K 开启、6500 K 关闭及控制台状态读回；38 项远程 Python、JS 和独立代码审查通过。新按钮的实体触屏手感、自动时段和冷启动不在此次验收范围。

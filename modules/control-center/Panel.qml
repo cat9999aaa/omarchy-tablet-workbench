@@ -50,6 +50,7 @@ Ui.Panel {
  function f(key) { const f=SharedState.fieldState(data[key],Date.now()/1000);return f.known?String(f.value):f.label }
  function b(key) { return SharedState.fieldState(data[key],Date.now()/1000) }
  function labelNetwork() {return ({"4g":"中国电信 4G",wifi:"Wi-Fi",ethernet:"有线网络",none:"未连接"})[f("physical_uplink")] || f("physical_uplink")}
+ function nightlightLabel() {const n=b("nightlight");return n.known?(n.value?"已开启 · 暖色":"已关闭 · 原色"):"状态待确认 · 点按切换"}
  function batteryText() {
   return batteries.map((x,i)=>"电池"+(i+1)+" "+Math.round(x.percentage*100)+"%"+(x.state===UPowerDeviceState.Charging?" ↑":"")).join("  ·  ") || "电池状态未知"
  }
@@ -82,7 +83,7 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({uiRevision:3,version:"0.1.6",flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({uiRevision:3,version:"0.1.7",nightlight:root.data.nightlight,flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
@@ -160,6 +161,7 @@ Ui.Panel {
         CButton {Layout.fillWidth:true;text:"输入法";onClicked:root.act("keyboard",{})}
         CButton {Layout.fillWidth:true;text:"锁屏";onClicked:root.act("lock",{})}
        }
+       CButton {Layout.fillWidth:true;text:"夜间模式 · "+root.nightlightLabel();enabled:!actionProcess.running;onClicked:root.act("nightlight",{})}
        CButton {Layout.fillWidth:true;visible:!root.flight.verified;text:"重试关闭无线";enabled:!actionProcess.running;onClicked:root.act("flight-on",{})}
        CButton {Layout.fillWidth:true;text:"退出飞行娱乐 · 恢复原网络开关";enabled:!actionProcess.running;onClicked:root.act("flight-off",{})}
       }
@@ -171,15 +173,17 @@ Ui.Panel {
           {name:"ZeroTier",sub:root.b("zero").known?(root.b("zero").value?"服务在线":"等待连接"):root.b("zero").label,action:"zero"},
           {name:"触摸模式",sub:root.touchLabel(),action:root.f("touch")==="1"?"touch-normal":root.f("touch")==="0"?"touch-glove":"touch-refresh"},
           {name:"输入法",sub:"P1 同一入口",action:"keyboard"},
-          {name:"显示方向",sub:"尚未适配旋转",action:"rotation"},
+          {name:"夜间模式",sub:root.nightlightLabel(),action:"nightlight"},
           {name:"飞行模式",sub:typeof root.data.flight_active!=="boolean"?"待读取":"关闭无线 · 离线娱乐",action:root.data.flight_saved?"flight-off":"flight-on",available:typeof root.data.flight_active==="boolean"},
           {name:"电源模式",sub:root.data.power_profile||"读取中",action:"power-mode"},
           {name:"仅熄屏",sub:"任务继续 · 不挂起",action:"screen-off"}]
         CButton {
          required property var modelData
          Layout.fillWidth:true;Layout.minimumHeight:68
+         objectName:"quick-"+modelData.action
+         selected:modelData.action==="nightlight"&&root.b("nightlight").value===true
          text:modelData.name+"\n"+modelData.sub
-         enabled:!actionProcess.running&&modelData.action!=="rotation"&&modelData.available!==false
+         enabled:!actionProcess.running&&modelData.available!==false
          onClicked:{if(modelData.action==="zero"){root.expanded=true;root.page="连接"}else if(modelData.action==="power-mode"){root.expanded=true;root.page="设备"}else root.act(modelData.action,{})}
         }
        }
@@ -196,7 +200,7 @@ Ui.Panel {
         Layout.fillWidth:true;columns:2;columnSpacing:8;rowSpacing:8
         Repeater {
          model:root.page==="连接"?[{label:"网络与 GPS 详情",op:"network"},{label:"蓝牙",op:"bluetooth"}]:
-          root.page==="设备"?[{label:"双电池与充放电记录",op:"power"},{label:"显示设置",op:"monitor"},{label:"省电",op:"power-saver"},{label:"均衡",op:"balanced"},{label:"手套／原装笔",op:"touch-glove"},{label:"普通触摸（本次）",op:"touch-normal"},{label:"刷新触摸模式",op:"touch-refresh"},{label:"锁屏",op:"lock"}]:
+          root.page==="设备"?[{label:"双电池与充放电记录",op:"power"},{label:"夜间模式 · "+root.nightlightLabel(),op:"nightlight"},{label:"显示设置",op:"monitor"},{label:"省电",op:"power-saver"},{label:"均衡",op:"balanced"},{label:"手套／原装笔",op:"touch-glove"},{label:"普通触摸（本次）",op:"touch-normal"},{label:"刷新触摸模式",op:"touch-refresh"},{label:"锁屏",op:"lock"}]:
           root.page==="工作"?[{label:"输入法",op:"keyboard"},{label:"声音设置",op:"audio"},{label:"当前窗口操作",op:"windows"}]:[{label:"视频播放器",op:"player"},{label:"音乐播放器",op:"music"},{label:"小说阅读器",op:"reader"},{label:"离线街机",op:"games"},{label:"飞行模式…",op:"flight-on"}]
          CButton {required property var modelData;Layout.fillWidth:true;text:modelData.label;enabled:!actionProcess.running&&modelData.op!=="unavailable";onClicked:root.act(modelData.op,{})}
         }

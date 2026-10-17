@@ -46,3 +46,22 @@ class ActionsTests(unittest.TestCase):
   with patch('control_center.read_lock',return_value=True):
    self.assertEqual(run([sys.executable,'-c','import time; time.sleep(30)']),126)
   self.assertLess(time.monotonic()-start,4)
+
+ def test_nightlight_uses_native_toggle_and_shared_guard(self):
+  r=prepare('nightlight',{},False)
+  self.assertEqual(r['argv'],['omarchy','toggle','nightlight'])
+  self.assertFalse(r['requires_confirmation'])
+  for locked in (True,None):
+   with self.assertRaises(PermissionError):prepare('nightlight',{},locked)
+  calls=[]
+  self.assertEqual(execute(r,False,lambda:True,lambda cmd:calls.append(cmd))['stage'],'locked')
+  self.assertEqual(calls,[])
+ def test_nightlight_readback_does_not_guess_off(self):
+  from control_center import nightlight_status
+  from unittest.mock import patch
+  import json
+  for temp,expected in [(4000,True),(6500,False),(6000,False),(None,None),('4000',None),(False,None)]:
+   with patch('control_center.subprocess.check_output',return_value=json.dumps({'enabled':False,'temperature':temp})):
+    self.assertIs(nightlight_status(100)['actual'],expected)
+  with patch('control_center.subprocess.check_output',side_effect=OSError()):
+   self.assertIsNone(nightlight_status(100)['actual'])

@@ -4,6 +4,10 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('navigation',Path(__file__).with_name('navigation.py'))
 n=importlib.util.module_from_spec(spec);spec.loader.exec_module(n)
 class NavigationTests(unittest.TestCase):
+ def test_rotation_opens_window_actions_directly(self):
+  with patch.object(n,'unlocked',return_value=True),patch.object(n,'load_bindings',return_value=n.DEFAULTS),patch.object(n,'run',return_value=True) as run:
+   self.assertTrue(n.key_action('rotation'))
+   self.assertEqual(run.call_args.args[0], ['omarchy-shell','pcadmin.navigation','toggle','窗口'])
  def test_defaults(self):
   with tempfile.TemporaryDirectory() as d:self.assertEqual(n.load_bindings(Path(d)/'keys.json'),n.DEFAULTS)
  def test_roundtrip_and_reset(self):

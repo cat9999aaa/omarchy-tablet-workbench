@@ -36,6 +36,11 @@ tests='''
   }
   function test_pages(d){
    root.width=d.w;root.height=d.h;root.page=d.page;root.actions=[];root.snapshot={current:1,workspaces:Array.from({length:10},(_,i)=>({id:i+1,count:i})),windowLabel:"用于测试超长标题的窗口".repeat(20),bindings:{P1:"keyboard",P2:"voice",P3:"authorize",rotation:"navigation"},labels:{keyboard:"输入法",voice:"语音",authorize:"授权",navigation:"开始",desktops:"桌面",windows:"窗口",disabled:"不执行操作"}};wait(50)
+   if(d.page==="窗口") {
+    var found=[];buttons(body,found)
+    var quick=found.filter(b=>b.objectName.indexOf("quickDesktop")===0);compare(quick.length,9)
+    for(var q of quick){var qp=q.mapToItem(root,0,0);verify(qp.y>=0 && qp.y+q.height<=root.height,"quick desktop requires scrolling");var prior=root.actions.length;mouseClick(q,q.width/2,q.height/2);compare(root.actions.length,prior+1);compare(root.actions[prior].action,"switch");compare(root.actions[prior].value.workspace,Number(q.text))}
+   }
    var list=[];buttons(body,list);verify(list.length>0,"page needs actual buttons")
    var scroll=body.parent.parent;verify(scroll.contentHeight>=body.implicitHeight,"content must be scrollable")
    for(var b of list) {

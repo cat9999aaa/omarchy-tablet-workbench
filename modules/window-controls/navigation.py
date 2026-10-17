@@ -2,7 +2,7 @@
 """Tablet navigation and key actions. Fixed actions only, no shell evaluation."""
 import json,os,re,subprocess,sys,tempfile
 from pathlib import Path
-DEFAULTS={'P1':'keyboard','P2':'voice','P3':'authorize','rotation':'navigation'}
+DEFAULTS={'P1':'keyboard','P2':'voice','P3':'authorize','rotation':'windows'}
 LABELS={'keyboard':'输入法开关','voice':'语音开始 / 停止','authorize':'系统窗口授权','navigation':'开始菜单','desktops':'选择桌面','windows':'当前窗口操作','control-center':'随身控制台','disabled':'不执行操作'}
 CONFIG=Path.home()/'.config/omarchy-tablet-workbench/buttons.json'
 COMMANDS={'keyboard':['omarchy-shell','omtInput','toggle'],'voice':['omarchy-shell','omtInput','voice'],'authorize':['omarchy-shell','pcadminAuth','authorize'],'navigation':['omarchy-shell','pcadmin.navigation','toggle','开始'],'desktops':['omarchy-shell','pcadmin.navigation','toggle','桌面'],'windows':['omarchy-shell','pcadmin.navigation','toggle','窗口'],'control-center':['omarchy-shell','pcadmin.controlCenter','toggle']}
