@@ -15,7 +15,7 @@
 
 | 方向 | 本机已有基础 | 本仓库状态 |
 | --- | --- | --- |
-| 触屏输入 | 九宫格、全拼、内部候选、实体键呼出；离线中文听写 | [v0.2.1源码原型](modules/touch-ime-prototype/README.md)已同步；远程完整构建与平板隔离兼容已验，通用安装器待完成 |
+| 触屏输入 | 九宫格、全拼、内部候选、实体键呼出；离线中文听写 | [v0.2.2源码原型](modules/touch-ime-prototype/README.md)已同步；远程完整构建与平板隔离兼容已验，通用安装器待完成 |
 | 桌面操作 | 固定底栏、实体键窗口菜单、上下边缘菜单 | 菜单动作通过；真实上下滑动尚待验收 |
 | 解锁 | 锁屏触屏键盘、冷启动触屏解密已实测 | 设备与引导高度相关，暂不提供通用安装器 |
 | 工作台 | DeepSeek Harness 本地服务已安装 | 真实模型会话、规则读取与插件尚待验收 |
@@ -46,4 +46,6 @@
 
 仓库公开的是源码、设计和脱敏验证资料。私人运行数据、账号、密钥、个人词库、代理节点和设备身份不属于发布内容。目前仍是开发中的原型集合，不能视为已经完成通用安装与整机兼容验证的发行版。
 
-首个完整远程构建基线已通过：输入法9项CTest、12项构建边界测试、平板4项隔离兼容检查。见[构建入口](modules/remote-build/README.md)和[脱敏验证记录](docs/validation/2026-10-17-remote-ime-build.json)。没有用这批Debug产物替换运行输入法；下一阶段先统一控制台、网络、电池的共享UI与状态。
+首个完整远程构建基线已通过：输入法9项CTest、12项构建边界测试、平板4项隔离兼容检查。见[构建入口](modules/remote-build/README.md)和[脱敏验证记录](docs/validation/2026-10-17-remote-ime-build.json)。没有用这批Debug产物替换运行输入法。共享UI首批已部署并通过远程回归与实机尺寸检查，见[验收记录](docs/validation/2026-10-17-shared-ui.md)。
+
+统一的软件验收入口见 [验收工具](scripts/acceptance/README.md)，自动结果见 [GitHub Actions](https://github.com/cat9999aaa/omarchy-tablet-workbench/actions/workflows/acceptance.yml)。软件检查和真实设备验收分别记录。
