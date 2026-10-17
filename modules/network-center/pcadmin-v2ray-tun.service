@@ -1,4 +1,5 @@
 [Unit]
+ConditionPathExists=!/var/lib/pcadmin-network/flight.json
 Description=Tablet V2Ray official sing-box TUN frontend
 After=NetworkManager.service user@__UID__.service
 Wants=NetworkManager.service

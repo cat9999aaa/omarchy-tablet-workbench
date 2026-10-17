@@ -36,7 +36,8 @@ def snapshot(now, network, touch, thermal):
             'network_mode':network.get('policy',{}).get('mode','unknown'),
             'zero':live('zero',network.get('zero_online'),'zero_online' in network and not network.get('zero_error')),
             'zero_online':network.get('zero_online'), 'zero_peers':network.get('zero_peers',{}),
-            'flight_saved':network.get('flight_saved'),'flight_active':network.get('flight_active'),
+            'flight_saved':network.get('flight_saved'),'flight_active':network.get('flight_active') if 0<=now-network.get('flight_observed_at',0)<=45 else None,
+            'flight_observed_at':network.get('flight_observed_at',0),'flight_error':network.get('flight_error',''),'flight_checks':network.get('flight_checks',{}),
             'observed_at':now}
 
 

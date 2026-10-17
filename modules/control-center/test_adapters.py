@@ -19,3 +19,13 @@ class StateTests(unittest.TestCase):
    self.assertEqual(read_touch_state(p,100)['actual'],0)
    self.assertEqual(read_touch_state(p,100)['boot_default'],1)
    self.assertEqual(read_touch_state(p,200)['health'],'stale')
+
+ def test_expired_radio_confirmation_does_not_show_flight_success(self):
+  s=snapshot(100,{'flight_saved':True,'flight_active':True,'flight_observed_at':10},{},[])
+  self.assertIsNone(s['flight_active']);self.assertTrue(s['flight_saved'])
+ def test_network_timeout_keeps_entertainment_and_restore_entry(self):
+  import control_center as cc
+  from unittest.mock import patch
+  with patch.object(cc.subprocess,'check_output',side_effect=OSError('unavailable')),patch.object(cc.Path,'exists',return_value=True):
+   s=cc.status()
+  self.assertIs(s['flight_saved'],True);self.assertIsNone(s['flight_active'])

@@ -51,3 +51,15 @@ ZeroTier服务运行，但最新成员ping未通过，当前跨网段互通不�
 先停止并禁用 pcadmin-v2ray-tun.service，确认singbox_tun及其策略路由退出，再恢复客户端原来的系统代理模式。恢复前备份位于本机管理项目 backups/network-center-2026-10-16 和 /var/lib/pcadmin-network/recovery；TUN最初不存在的文件应按记录移除。不要同时打开GUI内置TUN与系统托管TUN。
 
 UI可回退manifest到之前release入口后执行 omarchy-shell shell rescanPlugins，不重置整个shell。NetworkManager检测配置恢复后仅reload conf，不重启网络服务。恢复UI不停止ZeroTier。不提交节点、凭据或私人网络地址。
+
+## 严格飞行模式（网络面板1.3.6）
+
+同一 `radio_control.py` 控制器关闭 NetworkManager 网络和无线、全部 rfkill 设备，显式禁用 ModemManager 模块并请求低功耗。读取模块 disabled 与 low/off、原无线设备仍可确认且 blocked、NM 总开关和无线关闭后才确认成功。不是简单断开4G数据连接。
+
+进入前原状态保存在root拥有的 `/var/lib/pcadmin-network/flight.json`（0600）；父目录0711只允许判断已知文件是否存在，不允许列目录或读取内容。状态失效不删除恢复入口。失败保留关闭部分与恢复记录；重试进入不覆盖最初状态。退出逐设备读回后才删除记录。模块重新枚举或硬件改变时可能需要进一步恢复处理，不自动猜测模块映射。
+
+代理自动拉起与网络探测暂停；保留原代理意图、现有TUN和ZeroTier服务配置。`pcadmin-v2ray-tun-flight.conf` 可安装为systemd服务drop-in，授权等待后启动也重新核对飞行标记。部署后daemon-reload即可，不要为此重启正在用的TUN。
+
+控制台0.1.5切换离线娱乐入口。GPS为接收设备，本版不修改其电源策略，不声称控制未知的外挂无线发射设备。新插入设备、重启早期射频时序、真实断网与恢复尚需实机验证。其他系统程序仍可改无线；状态读回发现不符后撤销“已确认”，本版不是系统级无线访问沙箱。
+
+开发回归测试使用硬件边界fixture；不得自动在用户当前网络执行flight-on。部署应保留原root工具、systemd drop-in和两个用户插件manifest，恢复时只撤销本次文件，不重置网络配置。

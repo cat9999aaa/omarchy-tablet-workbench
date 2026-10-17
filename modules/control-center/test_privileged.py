@@ -24,3 +24,10 @@ class PrivilegeTests(unittest.TestCase):
   calls=[]
   with self.assertRaises(PermissionError):dispatch_guarded('tun-stop',1000,lambda uid:True,lambda cmd:calls.append(cmd),request_valid=lambda:False)
   self.assertEqual(calls,[])
+
+class FlightGateTests(unittest.TestCase):
+ def test_authorized_tun_start_rechecks_flight_after_auth(self):
+  from unittest.mock import patch
+  import privileged_control as pc
+  with patch.object(pc.Path,'exists',return_value=True):
+   with self.assertRaises(PermissionError):pc.dispatch_guarded('tun-start',1000,lambda uid:True,lambda a:0,request_valid=lambda:True)

@@ -50,6 +50,7 @@ def dispatch_guarded(action,uid,is_unlocked,runner,token=None,request_valid=None
     commands={'tun-start':['/usr/bin/systemctl','start','pcadmin-v2ray-tun.service'],
               'tun-stop':['/usr/bin/systemctl','stop','pcadmin-v2ray-tun.service'],
               'touch-refresh':['/usr/bin/systemctl','start','pcadmin-touch-state.service']}
+    if action=='tun-start' and Path('/var/lib/pcadmin-network/flight.json').exists():raise PermissionError('Flight mode is active; TUN start denied')
     if action in commands:return runner(commands[action])
     if action in ('touch-glove','touch-normal'):
         tool=load_owned('/usr/local/libexec/pcadmin-touch-mode.py','touch_controller')

@@ -47,6 +47,7 @@ Item {
     Timer { interval:4000;repeat:true;running:hub.opened;triggeredOnStart:true;onTriggered:hub.refresh() }
     Process { id:poll;command:["/usr/bin/python",hub.helper,"status"];stdout:SplitParser {onRead:line=>{try{hub.state=JSON.parse(line)}catch(e){}}} }
     Process { id:action;stdout:SplitParser {onRead:line=>{try{let d=JSON.parse(line);hub.feedback=d.message || "检测已更新"}catch(e){hub.feedback="操作未完成"}}}onExited:hub.refresh() }
+    Process {id:entertainment;command:["omarchy-shell","pcadmin.controlCenter","open"]}
     component Label: Text {color:Color.foreground;font.family:Style.font.family;font.pixelSize:14;wrapMode:Text.Wrap;width:parent.width}
     Column {
         id:header;anchors.top:parent.top;anchors.left:parent.left;anchors.right:parent.right;spacing:8
@@ -58,18 +59,19 @@ Item {
             }
         }
         GridLayout {width:parent.width;columns:3;columnSpacing:6
-            Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;enabled:!hub.busy;text:"自动选网";selected:(hub.state.policy || {}).mode==="auto";onClicked:hub.act("auto-mode")}
+            Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;enabled:!hub.busy&&!hub.state.flight_saved;text:"自动选网";selected:(hub.state.policy || {}).mode==="auto";onClicked:hub.act("auto-mode")}
             Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;enabled:!hub.busy;text:hub.state.flight_saved?"退出飞行模式":"飞行模式…";onClicked:{if(hub.state.flight_saved)hub.act("flight-off");else hub.confirmFlight=!hub.confirmFlight}}
-            Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;enabled:!hub.busy;text:"检测网络";onClicked:hub.act("health")}
+            Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;enabled:!hub.busy&&!hub.state.flight_saved;text:"检测网络";onClicked:hub.act("health")}
         }
         Column {width:parent.width;visible:hub.confirmFlight;spacing:6
-            Label {text:"关闭 Wi-Fi、4G、蓝牙；ZeroTier 暂时离线。退出后恢复原无线开关。"}
+            Label {text:"关闭 Wi-Fi、4G 射频、蓝牙和网络连接，进入离线娱乐。蓝牙外设断开；退出后恢复原开关。"}
             GridLayout {width:parent.width;columns:2;columnSpacing:6
                 Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;text:"确认开启";onClicked:{hub.confirmFlight=false;hub.act("flight-on")}}
                 Ui.Button {Layout.fillWidth:true;implicitHeight:44;bordered:true;text:"取消";onClicked:hub.confirmFlight=false}
             }
         }
-        Label {visible:!!hub.state.flight_active;text:"飞行模式已开启";color:Color.accent}
+        Label {visible:!!hub.state.flight_saved;text:hub.state.flight_active===true?"飞行娱乐 · 无线关闭已确认":(hub.state.flight_error || "无线状态待确认");color:Color.accent}
+        Ui.Button {visible:!!hub.state.flight_saved;width:parent.width;implicitHeight:46;bordered:true;text:"打开离线娱乐";onClicked:entertainment.running=true}
         GridLayout {width:parent.width;columns:3;columnSpacing:6;rowSpacing:6
             Repeater {model:[{key:"wifi",name:"Wi-Fi"},{key:"cell",name:"4G"},{key:"local",name:"有线／本地"},{key:"zero",name:"ZeroTier"},{key:"proxy",name:"V2Ray"},{key:"gps",name:"GPS"}]
                 Ui.Button {required property var modelData;Layout.fillWidth:true;implicitHeight:44;bordered:true;selected:hub.selectedTab===modelData.key;text:modelData.name;onClicked:{hub.selectedTab=modelData.key;hub.feedback="";body.contentY=0}}
@@ -87,12 +89,12 @@ Item {
             Label {text:hub.page.info}
             GridLayout {width:parent.width;columns:2;columnSpacing:8;rowSpacing:8
                 Repeater {model:hub.page.actions
-                    Ui.Button {required property var modelData;Layout.fillWidth:true;implicitHeight:46;bordered:true;enabled:!hub.busy && modelData.enabled;text:modelData.text;onClicked:hub.act(modelData.op)}
+                    Ui.Button {required property var modelData;Layout.fillWidth:true;implicitHeight:46;bordered:true;enabled:!hub.busy && !hub.state.flight_saved && modelData.enabled;text:modelData.text;onClicked:hub.act(modelData.op)}
                 }
             }
             Label {text:hub.page.hint;opacity:0.7}
             Label {visible:hub.feedback!=="";text:hub.feedback;color:Color.accent}
-            Column {id:wifiSlot;width:parent.width;visible:hub.selectedTab==="wifi"}
+            Column {id:wifiSlot;width:parent.width;visible:hub.selectedTab==="wifi"&&!hub.state.flight_saved}
         }
     }
 }

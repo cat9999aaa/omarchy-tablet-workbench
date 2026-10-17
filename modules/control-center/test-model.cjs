@@ -10,3 +10,7 @@ assert.equal(M.commitSlider(20.8),21);assert.equal(M.commitSlider(NaN),null);
 console.log('layout/state/input guards passed');
 assert.deepEqual(M.booleanState({available:true,actual:true,observed_at:1,stale_after:45},100),{known:false,label:"待读取",value:null});
 assert.equal(M.booleanState({available:true,actual:false,observed_at:100,stale_after:45},100).value,false);
+
+assert.equal(M.flightView({flight_saved:true,flight_active:true,flight_observed_at:99},100).verified,true);
+assert.equal(M.flightView({flight_saved:true,flight_active:true,flight_observed_at:10},100).verified,false);
+assert.equal(M.flightView({flight_saved:true,flight_active:false,flight_observed_at:99},100).entertainment,true);

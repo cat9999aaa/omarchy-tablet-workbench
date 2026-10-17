@@ -1,4 +1,4 @@
-# 启明 · 随身控制台 0.1.4
+# 启明 · 随身控制台 0.1.5
 
 面向本机 Omarchy 平板的用户插件。沿用官方 bar-widget 注册方式，不修改打包文件，不添加 Hyprland 二进制插件。
 
@@ -26,7 +26,7 @@
 
 权威源码是本机管理项目tools/control-center；便携源码在工作台modules/control-center。只保留一份TouchMode工具：modules/hardware-toolbox/touch-mode。便携副本需设置 `PCADMIN_CONTROL_HELPER` 到部署的适配器；network-center、IME及窗口菜单路径需按目标实例核对，不能沿用其他项目的启明身份。本模块没有跨设备通用安装器。
 
-用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.4`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
+用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.5`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
 
 root安装只读触摸状态导出timer，以及只观察触屏的pcadmin-three-finger.service；后者recipient UID必须在安装时替换，不可复制本机UID到其他设备。用户服务pcadmin-control-gesture负责会话入口。既有TouchMode开机服务和udev默认不变。
 
@@ -37,3 +37,9 @@ root安装只读触摸状态导出timer，以及只观察触屏的pcadmin-three-
 Python适配器/调度/手势协议/入口回退、JS几何/状态、TouchMode导出均有测试。锁屏时实际IPC打开被拒绝，当前插件加载与触摸屏observer连接已验证。实体三指、未锁屏面板手感、音量亮度实调、冷启动/睡眠保持分别需要实际验证，软件测试不能代替触屏验收。测试不自动切网络、飞行、熄屏或重启。
 
 运行：`python -m unittest discover -s tools/control-center -p 'test_*.py'`、`node tools/control-center/test-model.cjs`，并回归touch-mode与edge-gestures原测试。
+
+## 飞行娱乐模式（0.1.5）
+
+飞行请求存在时只呈现离线游戏、视频、音乐、阅读入口及必要的电池/输入/音量/亮度/锁屏控制。退出恢复原网络开关；未知或部分关闭状态保留重试和恢复入口。它是控制台场景，不会杀死应用或限制整个系统的程序运行。
+
+复用网络中心严格飞行控制器。软件故障回归与运行IPC已验；实机关闭/恢复、真实触屏及冷启动待验。安装更新不会自动启用飞行模式。蓝牙外设在飞行模式中断开。

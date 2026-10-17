@@ -40,6 +40,7 @@ def prepare(action, params, locked):
           'lock':['omarchy','system','lock'],
           'windows':['python',str(ROOT/'window-controls/physical_window_menu.py')],
           'player':['gtk-launch','io.github.celluloid_player.Celluloid'],
+          'music':['gtk-launch','io.github.quodlibet.QuodLibet'],
           'reader':['gtk-launch','rocks.koreader.KOReader'],
           'games':['gtk-launch','pcadmin-flight-arcade'],
           'power-saver':['omarchy','powerprofiles','set',power_context(),'power-saver'],
@@ -128,6 +129,7 @@ def status():
     except (OSError,ValueError,subprocess.SubprocessError):pass
     try:monitor=json.loads(subprocess.check_output(['omarchy-shell','omarchy.monitor','state'],text=True,timeout=2))
     except (OSError,ValueError,subprocess.SubprocessError):pass
+    network['flight_saved']=Path('/var/lib/pcadmin-network/flight.json').exists()
     d=snapshot(now,network,read_touch_state('/run/pcadmin-touch-mode/state.json',now),thermal_values())
     d['brightness']=None
     if monitor.get('brightnessAvailable'):

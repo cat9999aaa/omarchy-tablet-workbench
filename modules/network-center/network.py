@@ -65,16 +65,28 @@ def parse_probe(raw,codes,body=None):
  valid=code in codes and (body is None or text.strip()==body)
  return {'state':'ok' if valid else 'failed','latency_ms':round(seconds*1000)}
 
+def flight_requested():
+ # Existence is public; saved radio configuration remains root-only.
+ return Path('/var/lib/pcadmin-network/flight.json').exists()
+
+def flight_health():
+ return {'observed_at':time.time(),'interface':'','internet':'flight','proxy':'paused','tun':'paused','latency_ms':{}}
+
 def health_check():
+ if flight_requested():return flight_health()
  route=route_status();iface=route['interface'];out={'observed_at':time.time(),'interface':iface,'internet':'unavailable','proxy':'off'}
  out['latency_ms']={}
+ if flight_requested():return flight_health()
  if iface:
   answer=optional(['curl','--noproxy','*','--interface',iface,'-4','-sS','--max-time','4','-w','\n%{http_code}\t%{time_total}','http://ping.archlinux.org/nm-check.txt'],timeout=6)
   probe=parse_probe(answer,('200',),'NetworkManager is online');out['internet']=probe['state'];out['latency_ms']['internet']=probe['latency_ms']
+ if flight_requested():return flight_health()
  if read_policy()['proxy_enabled']:
   answer=optional(['curl','--proxy','http://127.0.0.1:10808','-sS','-o','/dev/null','-w','\n%{http_code}\t%{time_total}','--max-time','5','https://www.google.com/generate_204'],timeout=7)
   probe=parse_probe(answer,('204',));out['proxy']=probe['state'];out['latency_ms']['proxy']=probe['latency_ms']
+ if flight_requested():return flight_health()
  if optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active':
+  if flight_requested():return flight_health()
   answer=optional(['curl','--noproxy','*','-sS','-o','/dev/null','-w','\n%{http_code}\t%{time_total}','--max-time','5','https://www.google.com/generate_204'],timeout=7)
   probe=parse_probe(answer,('204',));out['tun']=probe['state'];out['latency_ms']['tun']=probe['latency_ms']
  out['observed_at']=time.time()
@@ -120,7 +132,7 @@ def status():
  try:cache=json.loads(Path('/run/pcadmin-network/status.json').read_text())
  except (OSError,ValueError):pass
  if cache and time.time()-Path('/run/pcadmin-network/status.json').stat().st_mtime>45:
-  cache.update(zero_online=False,zero_networks=[],zero_peers={},zero_peer_error='连接数据已过期',zero_error='授权状态已过期，请重新核对')
+  cache.update(flight_active=None,flight_error='无线状态已过期，请等待更新',zero_online=False,zero_networks=[],zero_peers={},zero_peer_error='连接数据已过期',zero_error='授权状态已过期，请重新核对')
  linkage={}
  try:linkage=json.loads((Path.home()/'.local/state/pcadmin-network/cell-proxy.json').read_text())
  except (OSError,ValueError):pass
@@ -132,7 +144,7 @@ def status():
   health=json.loads((Path.home()/'.local/state/pcadmin-network/health.json').read_text())
   if health.get('interface')!=iface or time.time()-health.get('observed_at',0)>65:health={}
  except (OSError,ValueError):pass
- return {**cache,'health':health,'policy':read_policy(),'cell_proxy':linkage,'local_addresses':local,'wifi_enabled':optional(['nmcli','-t','-f','WIFI','radio'])=='enabled','wifi_state':wifi[2] if wifi else '未发现设备','wifi_connection':optional(['nmcli','-g','GENERAL.CONNECTION','dev','show',wifi[0]]) if wifi else '','wired':wired,'primary':classify(iface,types,CELL) if iface else 'none','interface':iface,'cell':cell[2] if cell else '未发现设备','cell_connected':bool(cell and cell[2]=='connected'),'wwan':radios=='enabled','signal':signal,'traffic':traffic,'zero_enabled':optional(['systemctl','is-active','zerotier-one.service'])=='active','zero_ips':zero,'proxy_available':proxy_port,'proxy_tun':optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active','proxy_system':proxy_mode=='manual','gps':gps_status()}
+ return {**cache,'flight_saved':flight_requested(),'health':health,'policy':read_policy(),'cell_proxy':linkage,'local_addresses':local,'wifi_enabled':optional(['nmcli','-t','-f','WIFI','radio'])=='enabled','wifi_state':wifi[2] if wifi else '未发现设备','wifi_connection':optional(['nmcli','-g','GENERAL.CONNECTION','dev','show',wifi[0]]) if wifi else '','wired':wired,'primary':classify(iface,types,CELL) if iface else 'none','interface':iface,'cell':cell[2] if cell else '未发现设备','cell_connected':bool(cell and cell[2]=='connected'),'wwan':radios=='enabled','signal':signal,'traffic':traffic,'zero_enabled':optional(['systemctl','is-active','zerotier-one.service'])=='active','zero_ips':zero,'proxy_available':proxy_port,'proxy_tun':optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active','proxy_system':proxy_mode=='manual','gps':gps_status()}
 def auto_metric(kind):
  return {'802-3-ethernet':100,'802-11-wireless':600,'gsm':700}.get(kind)
 
@@ -201,6 +213,7 @@ def cell_connected():
  return any(line.split(':',2)[1:]==['gsm','connected'] for line in optional(['nmcli','-t','-f','DEVICE,TYPE,STATE','dev']).splitlines())
 
 def set_system_proxy(enabled):
+ if flight_requested():return
  if enabled:
   for protocol in ('http','https','socks'):
    call(['gsettings','set','org.gnome.system.proxy.'+protocol,'host','127.0.0.1'])
@@ -216,6 +229,7 @@ def close_extra_clients(keep):
   except (OSError,ProcessLookupError):pass
 
 def start_proxy_client():
+ if flight_requested():return
  call(['systemctl','--user','start','app-v2rayN@autostart.service'],20)
  pid=int(call(['systemctl','--user','show','app-v2rayN@autostart.service','-p','MainPID','--value']))
  if not pid:raise RuntimeError('V2Ray 客户端未启动')
@@ -223,9 +237,11 @@ def start_proxy_client():
 
 def tun_control(op):
  if op not in ('start','stop'):raise ValueError('不支持的 TUN 操作')
+ if flight_requested():return
  active=optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active'
  if (op=='start' and active) or (op=='stop' and not active):return
  args=['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py','tun-'+op,os.environ.get('PCADMIN_CONTROL_REQUEST','')] if os.environ.get('PCADMIN_NETWORK_GUARDED')=='1' else ['pkexec','/usr/bin/systemctl',op,'pcadmin-v2ray-tun.service']
+ if flight_requested():return
  call(args,90)
 
 def ensure_proxy():
@@ -233,7 +249,7 @@ def ensure_proxy():
  with (directory/'cell-proxy.lock').open('w') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX)
   try:
-   if not read_policy()["proxy_enabled"]:return
+   if flight_requested() or not read_policy()["proxy_enabled"]:return
    def available():
     try:
      with socket.create_connection(('127.0.0.1',10808),timeout=.25):return True
@@ -242,16 +258,24 @@ def ensure_proxy():
    if not available():
     end=time.monotonic()+15
     while not available():
+     if flight_requested():return
      if time.monotonic()>=end:raise RuntimeError('本地代理端口尚未就绪')
      time.sleep(.25)
+   if flight_requested():return
    set_system_proxy(True)
    tun_control('start')
+   if flight_requested():return
    (directory/'cell-proxy.json').write_text(json.dumps({'state':'ready','message':'V2Ray 单实例与 TUN 应用接管已开启'},ensure_ascii=False))
   except Exception as e:
+   if flight_requested():return
    (directory/'cell-proxy.json').write_text(json.dumps({'state':'failed','message':'4G 联动失败，请检查 V2Ray 节点或启动状态'},ensure_ascii=False))
    raise RuntimeError('4G 已连接，但 V2Ray 联动失败：'+str(e)[:120]) from e
 
 def action(op):
+ if flight_requested():
+  if op in ('proxy-auto-on','cell-proxy-on','proxy-user-exit'):return
+  if op not in ('flight-on','flight-off','zero-refresh','cell-off','cell-radio-off','wifi-off','wired-off','gps-off'):
+   raise RuntimeError('飞行娱乐模式中，请先退出飞行模式再连接网络')
  if op=='auto-mode':auto_mode();return
  if op in ('prefer-cell','prefer-wifi','prefer-wired'):
   preference(op)
@@ -264,6 +288,7 @@ def action(op):
  if op=='proxy-auto-on':ensure_proxy();return
  if op=='proxy-user-exit':
   if optional(['systemctl','--user','is-active','app-v2rayN@autostart.service'])!='active':
+   if flight_requested():return
    update_policy(proxy_enabled=False);tun_control('stop');set_system_proxy(False)
   return
  if op=='proxy-on':update_policy(proxy_enabled=True);ensure_proxy();return

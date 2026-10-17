@@ -13,4 +13,10 @@ function booleanState(f,now) {
  const label=displayField(f,now),known=label==="true"||label==="false";
  return {known:known,label:known?(label==="true"?"运行":"关闭"):label,value:known?f.actual:null};
 }
-if(typeof module!=="undefined")module.exports={layout,displayField,canOpen,commitSlider,booleanState};
+function flightView(data,now) {
+ const entertainment=data.flight_saved===true;
+ const fresh=Number.isFinite(data.flight_observed_at)&&now-data.flight_observed_at<=45&&now>=data.flight_observed_at-5;
+ const verified=entertainment&&fresh&&data.flight_active===true;
+ return {entertainment:entertainment,verified:verified,label:verified?"无线关闭已确认":entertainment?(data.flight_error||"无线状态待确认") : "尚未开启"};
+}
+if(typeof module!=="undefined")module.exports={layout,displayField,canOpen,commitSlider,booleanState,flightView};

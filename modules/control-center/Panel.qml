@@ -15,12 +15,13 @@ Ui.Panel {
  moduleName: "pcadmin.control-center"
  manageIpc: false
  property var data: ({})
+ readonly property var flight: Model.flightView(data,Date.now()/1000)
  property bool expanded: false
  property string page: "连接"
  property string feedback: ""
  property var confirmation: null
  property bool allowed: false
- readonly property string helper: Quickshell.env("PCADMIN_CONTROL_HELPER") || Quickshell.env("HOME")+"/.local/lib/omarchy-tablet-workbench/control-center/control_center.py"
+ readonly property string helper: Quickshell.env("PCADMIN_CONTROL_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/control-center/control_center.py"
  readonly property color bg: "#181b24"
  readonly property color fg: "#e7e9f0"
  readonly property color purple: "#b59cf5"
@@ -62,10 +63,11 @@ Ui.Panel {
   feedback="正在处理…"
   actionProcess.request=JSON.stringify({action:name,params:params||{},confirmed:confirmed===true})
   actionProcess.running=true
-  if(["network","power","audio","monitor","bluetooth","keyboard","windows","player","reader","games","screen-off","lock"].indexOf(name)>=0)close()
+  if(["network","power","audio","monitor","bluetooth","keyboard","windows","player","music","reader","games","screen-off","lock"].indexOf(name)>=0)close()
  }
  function touchLabel() {const v=f("touch");return v==="1"?"手套／原装笔":v==="0"?"普通触摸":v==="2"?"笔模式":v}
  function summary() {
+  if(flight.entertainment)return "飞行娱乐 · "+flight.label+"\n"+(flight.verified?"Wi-Fi / 4G / 蓝牙已关 · 联网已停":"请检查关闭结果，或重试关闭无线")
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
     "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
@@ -77,7 +79,7 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({version:"0.1.4",opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({version:"0.1.5",flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
@@ -128,8 +130,8 @@ Ui.Panel {
     anchors.fill:parent;anchors.margins:16;spacing:10
     RowLayout {
      Layout.fillWidth:true
-     Text {Layout.fillWidth:true;Layout.minimumWidth:0;elide:Text.ElideRight;text:"启明 · 随身控制台";color:root.fg;font.pixelSize:22;font.bold:true}
-     CButton {text:root.expanded?"简洁":"详情";onClicked:root.expanded=!root.expanded}
+     Text {Layout.fillWidth:true;Layout.minimumWidth:0;elide:Text.ElideRight;text:root.flight.entertainment?"飞行娱乐":"启明 · 随身控制台";color:root.fg;font.pixelSize:22;font.bold:true}
+     CButton {visible:!root.flight.entertainment;text:root.expanded?"简洁":"详情";onClicked:root.expanded=!root.expanded}
      CButton {text:"收起 ↑";onClicked:root.close()}
     }
     Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:15;wrapMode:Text.Wrap}
@@ -138,8 +140,27 @@ Ui.Panel {
      Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentWidth:width;contentHeight:body.implicitHeight;boundsBehavior:Flickable.StopAtBounds
      ColumnLayout {
       id:body;width:parent.width;spacing:10
+      ColumnLayout {
+       visible:root.flight.entertainment;Layout.fillWidth:true;spacing:12
+       Text {Layout.fillWidth:true;text:"离线时间，随你安排";font.pixelSize:22;font.bold:true;color:root.fg}
+       Text {Layout.fillWidth:true;text:"使用已下载的内容和本地存档。此模式会关闭蓝牙，请准备触屏、USB 手柄或有线耳机。";font.pixelSize:15;color:root.fg;wrapMode:Text.Wrap}
+       GridLayout {
+        columns:2;Layout.fillWidth:true;columnSpacing:10;rowSpacing:10
+        Repeater {model:[{label:"游戏\n离线街机与存档",op:"games"},{label:"视频\n打开本地影片",op:"player"},{label:"音乐\n本地音乐库",op:"music"},{label:"阅读\n继续读书",op:"reader"}]
+         CButton {required property var modelData;Layout.fillWidth:true;Layout.minimumHeight:90;text:modelData.label;enabled:!actionProcess.running;onClicked:root.act(modelData.op,{})}
+        }
+       }
+       RowLayout {
+        Layout.fillWidth:true
+        CButton {Layout.fillWidth:true;text:"电池与续航";onClicked:root.act("power",{})}
+        CButton {Layout.fillWidth:true;text:"输入法";onClicked:root.act("keyboard",{})}
+        CButton {Layout.fillWidth:true;text:"锁屏";onClicked:root.act("lock",{})}
+       }
+       CButton {Layout.fillWidth:true;visible:!root.flight.verified;text:"重试关闭无线";enabled:!actionProcess.running;onClicked:root.act("flight-on",{})}
+       CButton {Layout.fillWidth:true;text:"退出飞行娱乐 · 恢复原网络开关";enabled:!actionProcess.running;onClicked:root.act("flight-off",{})}
+      }
       GridLayout {
-       id:tiles;Layout.fillWidth:true;columns:Model.layout(window.width,window.height).columns;columnSpacing:8;rowSpacing:8;visible:!root.expanded
+       id:tiles;Layout.fillWidth:true;columns:Model.layout(window.width,window.height).columns;columnSpacing:8;rowSpacing:8;visible:!root.expanded&&!root.flight.entertainment
        Repeater {
         model:[{name:"Wi-Fi／4G",sub:root.labelNetwork(),action:"network"},
           {name:"代理",sub:"TUN · "+root.b("tun").label,action:root.b("tun").value===true?"proxy-off":"proxy-on",available:root.b("tun").known&&root.b("proxy_core").known},
@@ -147,7 +168,7 @@ Ui.Panel {
           {name:"触摸模式",sub:root.touchLabel(),action:root.f("touch")==="1"?"touch-normal":root.f("touch")==="0"?"touch-glove":"touch-refresh"},
           {name:"输入法",sub:"P1 同一入口",action:"keyboard"},
           {name:"显示方向",sub:"尚未适配旋转",action:"rotation"},
-          {name:"飞行模式",sub:typeof root.data.flight_active!=="boolean"?"待读取":root.data.flight_active?"已开启":"关闭无线需确认",action:root.data.flight_saved?"flight-off":"flight-on",available:typeof root.data.flight_active==="boolean"},
+          {name:"飞行模式",sub:typeof root.data.flight_active!=="boolean"?"待读取":"关闭无线 · 离线娱乐",action:root.data.flight_saved?"flight-off":"flight-on",available:typeof root.data.flight_active==="boolean"},
           {name:"电源模式",sub:root.data.power_profile||"读取中",action:"power-mode"},
           {name:"仅熄屏",sub:"任务继续 · 不挂起",action:"screen-off"}]
         CButton {
@@ -160,11 +181,11 @@ Ui.Panel {
        }
       }
       GridLayout {
-       visible:root.expanded;Layout.fillWidth:true;columns:window.width<620?2:4;columnSpacing:8;rowSpacing:8
+       visible:root.expanded&&!root.flight.entertainment;Layout.fillWidth:true;columns:window.width<620?2:4;columnSpacing:8;rowSpacing:8
        Repeater {model:["连接","设备","工作","旅途"];CButton {required property string modelData;Layout.fillWidth:true;text:modelData;onClicked:root.page=modelData}}
       }
       ColumnLayout {
-       Layout.fillWidth:true;visible:root.expanded;spacing:8
+       Layout.fillWidth:true;visible:root.expanded&&!root.flight.entertainment;spacing:8
        Text {Layout.fillWidth:true;color:root.purple;font.pixelSize:18;text:root.page;wrapMode:Text.Wrap}
        Text {Layout.fillWidth:true;color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap;text:root.page==="连接"?"网络详情保留 Wi-Fi、4G、有线、代理、ZeroTier 和 GPS。打开详情不会切网。":root.page==="设备"?"触摸模式仅影响本次。重启或触屏重连后默认恢复手套／原装笔模式。":root.page==="工作"?"输入法、声音与窗口操作沿用已有入口。AI 对话与任务编排尚未接入。":"已有离线播放器、阅读器和游戏。飞行模式会关闭 Wi-Fi、4G 和蓝牙，后台任务继续但网络会断开。"}
        GridLayout {
@@ -172,7 +193,7 @@ Ui.Panel {
         Repeater {
          model:root.page==="连接"?[{label:"网络与 GPS 详情",op:"network"},{label:"蓝牙",op:"bluetooth"}]:
           root.page==="设备"?[{label:"双电池与充放电记录",op:"power"},{label:"显示设置",op:"monitor"},{label:"省电",op:"power-saver"},{label:"均衡",op:"balanced"},{label:"手套／原装笔",op:"touch-glove"},{label:"普通触摸（本次）",op:"touch-normal"},{label:"刷新触摸模式",op:"touch-refresh"},{label:"锁屏",op:"lock"}]:
-          root.page==="工作"?[{label:"输入法",op:"keyboard"},{label:"声音设置",op:"audio"},{label:"当前窗口操作",op:"windows"}]:[{label:"视频播放器",op:"player"},{label:"小说阅读器",op:"reader"},{label:"离线街机",op:"games"},{label:"飞行模式…",op:"flight-on"}]
+          root.page==="工作"?[{label:"输入法",op:"keyboard"},{label:"声音设置",op:"audio"},{label:"当前窗口操作",op:"windows"}]:[{label:"视频播放器",op:"player"},{label:"音乐播放器",op:"music"},{label:"小说阅读器",op:"reader"},{label:"离线街机",op:"games"},{label:"飞行模式…",op:"flight-on"}]
          CButton {required property var modelData;Layout.fillWidth:true;text:modelData.label;enabled:!actionProcess.running&&modelData.op!=="unavailable";onClicked:root.act(modelData.op,{})}
         }
        }
@@ -191,7 +212,7 @@ Ui.Panel {
     }
     ColumnLayout {
      visible:root.confirmation!==null;Layout.fillWidth:true
-     Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:15;wrapMode:Text.Wrap;text:root.confirmation&&root.confirmation.name==="touch-normal"?"切换普通模式后，原装无源笔可能不能使用；重启仍恢复手套模式。":root.confirmation&&root.confirmation.name==="proxy-off"?"关闭代理可能中断 ChatGPT 等应用的联网。":"将关闭 Wi-Fi、4G 和蓝牙，网络会中断。"}
+     Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:15;wrapMode:Text.Wrap;text:root.confirmation&&root.confirmation.name==="touch-normal"?"切换普通模式后，原装无源笔可能不能使用；重启仍恢复手套模式。":root.confirmation&&root.confirmation.name==="proxy-off"?"关闭代理可能中断 ChatGPT 等应用的联网。":"进入离线娱乐：关闭 Wi-Fi、4G 射频和蓝牙，停止网络连接。蓝牙手柄和耳机也会断开；现有工作保留。退出后恢复原开关。"}
      RowLayout {Layout.fillWidth:true;CButton {Layout.fillWidth:true;text:"取消";onClicked:root.confirmation=null}CButton {Layout.fillWidth:true;text:"确认执行";onClicked:{const c=root.confirmation;root.confirmation=null;if(c)root.act(c.name,c.params,true)}}}
     }
    }

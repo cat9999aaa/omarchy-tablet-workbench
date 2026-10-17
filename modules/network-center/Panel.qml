@@ -215,7 +215,7 @@ Panel {
     function travelTab(tab: string): void { travel.selectedTab = tab }
     function travelGeometry(): string { return JSON.stringify({width:panel.contentWidth,height:panel.contentHeight,body:travel.height,tab:travel.selectedTab}) }
     function travelSelected(): string { return travel.selectedTab }
-    function travelVersion(): string { return "1.3.5" }
+    function travelVersion(): string { return "1.3.6" }
     function travelDiagnostics(): string { return JSON.stringify({proxy:travel.pageData("proxy",travel.state),zero:travel.pageData("zero",travel.state)}) }
     function open() { root.open() }
     function close() { root.close() }
