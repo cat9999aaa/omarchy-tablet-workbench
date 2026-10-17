@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import uuid
+import re
 from pathlib import Path
 from adapters import snapshot, read_touch_state, thermal_values
 
@@ -23,9 +24,9 @@ def read_lock():
 def prepare(action, params, locked):
     if locked is not False:raise PermissionError('锁屏中或无法确认锁屏状态')
     if not isinstance(params,dict):raise ValueError('参数无效')
-    if action=='brightness':
+    if action in ('brightness','volume'):
         if set(params)!={'percent'} or type(params['percent']) is not int or not 0<=params['percent']<=100:raise ValueError('亮度须为0–100整数')
-        argv=['omarchy-shell','omarchy.monitor','brightness',str(params['percent'])];resource='brightness'
+        argv=['omarchy-shell','omarchy.monitor','brightness',str(params['percent'])] if action=='brightness' else ['pactl','set-sink-volume',audio_sink(),str(params['percent'])+'%'];resource=action
     else:
         if params:raise ValueError('该操作不接受参数')
         details={x:['omarchy-shell','omarchy.'+x,'open'] for x in ['network','power','audio','monitor','bluetooth']}
@@ -41,6 +42,7 @@ def prepare(action, params, locked):
           'windows':['python',str(ROOT/'window-controls/physical_window_menu.py')],
           'power-saver':['omarchy','powerprofiles','set',power_context(),'power-saver'],
           'balanced':['omarchy','powerprofiles','set',power_context(),'balanced']}
+        if action=='mute':actions['mute']=['pactl','set-sink-mute',audio_sink(),'toggle']
         if action not in actions:raise ValueError('未知操作')
         argv=actions[action];resource='network' if action.startswith(('proxy','flight')) else 'touch' if action.startswith('touch') else action
     return {'request_id':str(uuid.uuid4()),'action':action,'resource':resource,'argv':argv,
@@ -52,6 +54,11 @@ def power_context():
             if p.read_text().strip() in ('Mains','USB','USB_C') and (p.parent/'online').read_text().strip()=='1':return 'ac'
         except OSError:pass
     return 'battery'
+
+def audio_sink():
+    sink=subprocess.check_output(['omarchy','audio','output','sink'],text=True,timeout=3).strip()
+    if not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.:-]*',sink):raise ValueError('没有有效输出设备')
+    return sink
 
 def execute(request, confirmed, read_lock, run):
     def result(stage,ok=False):return {'request_id':request['request_id'],'stage':stage,'ok':ok}

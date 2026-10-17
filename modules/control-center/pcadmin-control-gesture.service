@@ -1,0 +1,12 @@
+[Unit]
+Description=Tablet gesture entry into native control center
+After=graphical-session.target
+PartOf=graphical-session.target
+[Service]
+ExecStart=/usr/bin/python __SOURCE__/gesture_receiver.py
+Restart=on-failure
+RestartSec=3
+RuntimeDirectory=pcadmin-control-center
+RuntimeDirectoryMode=0700
+[Install]
+WantedBy=graphical-session.target
