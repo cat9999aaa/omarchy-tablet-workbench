@@ -1,0 +1,160 @@
+{
+  "commit": "50dec1a8389fbdd6667a66872f2dc1edf24d4902",
+  "run_url": "https://github.com/cat9999aaa/omarchy-tablet-workbench/actions/runs/39020852994",
+  "result": {
+    "schema": 1,
+    "kind": "software-acceptance",
+    "observed_at": "2026-10-17T09:22:26.105908+00:00",
+    "source_sha256": "3766bc0ed5e1a5f30409ef593ab51ecfbc8fbfa87bb8814c22291e2c434e68f8",
+    "checks": [
+      {
+        "name": "shared-copies",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.064
+      },
+      {
+        "name": "acceptance-runner",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.214,
+        "test_result": {
+          "tests": 6,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "network",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.164,
+        "test_result": {
+          "tests": 54,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "control",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.114,
+        "test_result": {
+          "tests": 36,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "battery",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 2.32,
+        "test_result": {
+          "tests": 27,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "remote-build",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.164,
+        "test_result": {
+          "tests": 12,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "pen-metrics",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.114,
+        "test_result": {
+          "tests": 3,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "touch-mode",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.114,
+        "test_result": {
+          "tests": 4,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "arcade-catalog",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.114,
+        "test_result": {
+          "tests": 3,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "ime-control",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.114,
+        "test_result": {
+          "tests": 3,
+          "skipped": 0,
+          "passed": true
+        }
+      },
+      {
+        "name": "control-model",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.165
+      },
+      {
+        "name": "battery-history",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "battery-icon",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "shared-model",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "edge-gesture",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.032
+      },
+      {
+        "name": "shared-qml",
+        "status": "passed",
+        "returncode": 0,
+        "seconds": 0.465,
+        "test_result": {
+          "tests": 5,
+          "skipped": 0,
+          "passed": true
+        }
+      }
+    ],
+    "passed": true,
+    "hardware_acceptance": "not-run"
+  }
+}
