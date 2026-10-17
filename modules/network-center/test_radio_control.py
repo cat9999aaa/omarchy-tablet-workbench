@@ -2,6 +2,17 @@ import unittest,tempfile
 from pathlib import Path
 from radio_control import zero_summary,flight,radio_state
 class RadioTests(unittest.TestCase):
+ def test_post_auth_guard_blocks_flight_before_any_write(self):
+  with tempfile.TemporaryDirectory() as d:
+   p=Path(d)/'flight.json';calls=[]
+   def runner(a):
+    calls.append(a)
+    if a==['nmcli','-t','-f','WIFI,WWAN','radio']:return 'enabled:enabled'
+    if a==['rfkill','--json']:return '{"rfkilldevices":[]}'
+    return ''
+   def guard():raise PermissionError('locked')
+   with self.assertRaises(PermissionError):flight(True,p,runner,guard)
+   self.assertFalse(p.exists());self.assertNotIn(['nmcli','radio','all','off'],calls)
  def test_authorization_is_not_service_running(self):
   self.assertEqual(zero_summary([{'status':'ACCESS_DENIED','name':'test','assignedAddresses':[]}])[0]['state'],'未授权')
   self.assertEqual(zero_summary([{'status':'OK','name':'test','assignedAddresses':['10.0.0.2/24'],'authToken':'secret'}])[0],{'name':'test','state':'已连接／已授权','status':'OK','addresses':['10.0.0.2/24']})

@@ -8,6 +8,7 @@ import sys
 import time
 import uuid
 import re
+import signal
 from pathlib import Path
 from adapters import snapshot, read_touch_state, thermal_values
 
@@ -33,18 +34,20 @@ def prepare(action, params, locked):
         actions={**details,
           'keyboard':['python',str(IME)],
           'proxy-on':['python',str(NETWORK),'proxy-on'],'proxy-off':['python',str(NETWORK),'proxy-off'],
-          'flight-on':['python',str(NETWORK),'flight-on'],'flight-off':['python',str(NETWORK),'flight-off'],
-          'touch-glove':['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-touch-mode.py','glove'],
-          'touch-normal':['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-touch-mode.py','normal'],
-          'touch-refresh':['pkexec','/usr/bin/systemctl','start','pcadmin-touch-state.service'],
+          **{a:['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py',a] for a in ['flight-on','flight-off','touch-glove','touch-normal','touch-refresh']},
           'screen-off':['hyprctl','dispatch','hl.dsp.dpms({enabled=false})'],
           'lock':['omarchy','system','lock'],
           'windows':['python',str(ROOT/'window-controls/physical_window_menu.py')],
+          'player':['gtk-launch','io.github.celluloid_player.Celluloid'],
+          'reader':['gtk-launch','rocks.koreader.KOReader'],
+          'games':['gtk-launch','pcadmin-flight-arcade'],
           'power-saver':['omarchy','powerprofiles','set',power_context(),'power-saver'],
           'balanced':['omarchy','powerprofiles','set',power_context(),'balanced']}
         if action=='mute':actions['mute']=['pactl','set-sink-mute',audio_sink(),'toggle']
         if action not in actions:raise ValueError('未知操作')
         argv=actions[action];resource='network' if action.startswith(('proxy','flight')) else 'touch' if action.startswith('touch') else action
+    if action in ('volume','mute'):resource='audio-output'
+    if action in ('power-saver','balanced'):resource='power-profile'
     return {'request_id':str(uuid.uuid4()),'action':action,'resource':resource,'argv':argv,
             'requires_confirmation':action in ('proxy-off','flight-on','touch-normal')}
 
@@ -61,7 +64,7 @@ def audio_sink():
     return sink
 
 def execute(request, confirmed, read_lock, run):
-    def result(stage,ok=False):return {'request_id':request['request_id'],'stage':stage,'ok':ok}
+    def result(stage,ok=False):return {'request_id':request['request_id'],'stage':stage,'ok':ok,'verified':False}
     if request['requires_confirmation'] and confirmed is not True:return result('confirmation')
     runtime=Path(os.environ.get('XDG_RUNTIME_DIR',f'/run/user/{os.getuid()}'))
     path=runtime/('pcadmin-control-'+request['resource']+'.lock')
@@ -71,11 +74,22 @@ def execute(request, confirmed, read_lock, run):
         except BlockingIOError:return result('busy')
         if read_lock() is not False:return result('locked')
         code=run(request['argv'])
-        return result('completed' if code==0 else 'cancelled' if code in (126,127) else 'failed',code==0)
+        return result('submitted' if code==0 else 'cancelled' if code in (126,127) else 'failed',code==0)
     finally:os.close(fd)
 
 def run(args):
-    return subprocess.run(args,capture_output=True,text=True,timeout=90).returncode
+    env=os.environ.copy();env['PCADMIN_NETWORK_GUARDED']='1'
+    p=subprocess.Popen(args,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,env=env)
+    end=time.monotonic()+90
+    while p.poll() is None:
+        if read_lock() is not False or time.monotonic()>end:
+            try:os.killpg(p.pid,signal.SIGTERM)
+            except (ProcessLookupError,PermissionError):pass
+            try:p.wait(timeout=3)
+            except subprocess.TimeoutExpired:p.kill();p.wait()
+            return 126
+        time.sleep(.2)
+    return p.returncode
 
 def prepare_open():
     if read_lock() is not False:return False
@@ -99,7 +113,13 @@ def status():
     try:monitor=json.loads(subprocess.check_output(['omarchy-shell','omarchy.monitor','state'],text=True,timeout=2))
     except (OSError,ValueError,subprocess.SubprocessError):pass
     d=snapshot(now,network,read_touch_state('/run/pcadmin-touch-mode/state.json',now),thermal_values())
-    d['brightness']=monitor.get('brightness') if monitor.get('brightnessAvailable') else None
+    d['brightness']=None
+    if monitor.get('brightnessAvailable'):
+        for p in Path('/sys/class/backlight').glob('*'):
+            try:
+                maximum=int((p/'max_brightness').read_text());actual=int((p/'actual_brightness').read_text())
+                if maximum>0:d['brightness']=round(actual/maximum*100);break
+            except (OSError,ValueError):pass
     d['power_profile']='unknown'
     try:d['power_profile']=subprocess.check_output(['powerprofilesctl','get'],text=True,timeout=2).strip()
     except (OSError,subprocess.SubprocessError):pass

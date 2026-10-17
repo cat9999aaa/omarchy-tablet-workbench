@@ -1,0 +1,50 @@
+#!/usr/bin/python3
+"""Root-owned post-Polkit lock gate for fixed existing device controllers."""
+import importlib.machinery
+import importlib.util
+import os
+from pathlib import Path
+import pwd
+import subprocess
+import sys
+
+def session_unlocked(uid):
+    account=pwd.getpwuid(uid)
+    args=['/usr/bin/runuser','-u',account.pw_name,'--','/usr/bin/env','-i',
+          'PATH=/usr/bin:/bin','HOME='+account.pw_dir,'XDG_RUNTIME_DIR=/run/user/'+str(uid),
+          'OMARCHY_PATH=/usr/share/omarchy','/usr/bin/omarchy-shell','lock','isLocked']
+    try:return subprocess.check_output(args,text=True,stderr=subprocess.DEVNULL,timeout=4).strip()=='false'
+    except (OSError,subprocess.SubprocessError):return False
+
+def load_owned(path,name):
+    s=Path(path).stat()
+    if s.st_uid!=0 or s.st_mode&0o022:raise PermissionError('Controller must be root-owned and not writable by other accounts')
+    loader=importlib.machinery.SourceFileLoader(name,path)
+    spec=importlib.util.spec_from_loader(name,loader);module=importlib.util.module_from_spec(spec);loader.exec_module(module);return module
+
+def dispatch_guarded(action,uid,is_unlocked,runner):
+    if uid<=0:raise PermissionError('Non-root authenticated session required')
+    def guard():
+        if is_unlocked(uid) is not True:raise PermissionError('Session locked after authorization; operation cancelled')
+    guard()
+    commands={'tun-start':['/usr/bin/systemctl','start','pcadmin-v2ray-tun.service'],
+              'tun-stop':['/usr/bin/systemctl','stop','pcadmin-v2ray-tun.service'],
+              'touch-refresh':['/usr/bin/systemctl','start','pcadmin-touch-state.service']}
+    if action in commands:return runner(commands[action])
+    if action in ('touch-glove','touch-normal'):
+        tool=load_owned('/usr/local/libexec/pcadmin-touch-mode.py','touch_controller')
+        try:
+            r=tool.read_apply(action.removeprefix('touch-'),guard=guard)
+            tool.export_state(r['actual'],True);return 0
+        except Exception:
+            tool.export_state(None,False,'Authorized operation cancelled or readback failed');raise
+    if action in ('flight-on','flight-off'):
+        tool=load_owned('/usr/local/libexec/pcadmin-radio-control','radio_controller')
+        tool.flight(action=='flight-on',Path('/var/lib/pcadmin-network/flight.json'),guard=guard)
+        tool.export_status();return 0
+    raise ValueError('Unknown privileged action')
+
+if __name__=='__main__':
+    if os.geteuid()!=0 or len(sys.argv)!=2 or not os.environ.get('PKEXEC_UID','').isdigit():raise SystemExit(1)
+    try:raise SystemExit(dispatch_guarded(sys.argv[1],int(os.environ['PKEXEC_UID']),session_unlocked,lambda cmd:subprocess.run(cmd,timeout=30).returncode))
+    except Exception as e:print(str(e),file=sys.stderr);raise SystemExit(1)

@@ -9,4 +9,8 @@ function displayField(f,now) {
 }
 function canOpen(locked,imeHidden) {return locked===false && imeHidden===true;}
 function commitSlider(n) {return Number.isFinite(n)&&n>=0&&n<=100?Math.round(n):null;}
-if(typeof module!=="undefined")module.exports={layout,displayField,canOpen,commitSlider};
+function booleanState(f,now) {
+ const label=displayField(f,now),known=label==="true"||label==="false";
+ return {known:known,label:known?(label==="true"?"运行":"关闭"):label,value:known?f.actual:null};
+}
+if(typeof module!=="undefined")module.exports={layout,displayField,canOpen,commitSlider,booleanState};

@@ -1,4 +1,4 @@
-# 启明 · 随身控制台 0.1.1
+# 启明 · 随身控制台 0.1.3
 
 面向本机 Omarchy 平板的用户插件。沿用官方 bar-widget 注册方式，不修改打包文件，不添加 Hyprland 二进制插件。
 
@@ -14,7 +14,9 @@
 
 网络复用 network-center 的状态缓存；不新增外网测速循环，不更换代理核心或节点。物理出口、核心、TUN和网络健康分别显示。CPU温度来自具名thermal源，未知不补0。电池使用UPower实体设备，缺失估算仍在原电池详情中显示未知。
 
-音频显示使用PipeWire及PwObjectTracker，修改通过白名单调度器调用pactl，目标由Omarchy官方 `audio output sink` 解析，避免误调DSP入口。亮度调用官方monitor IPC。沿用已有Polkit授权，密码不进入控制台。
+音频显示使用PipeWire及PwObjectTracker，修改通过白名单调度器调用pactl，目标由Omarchy官方 `audio output sink` 解析，避免误调DSP入口。亮度调用官方monitor IPC，当前内屏实际亮度读sysfs actual_brightness。命令exit0仅反馈请求已提交，绝不将异步IPC提交伪装成硬件验证完成。音量/静音共用audio-output锁，省电/均衡共用power-profile锁。
+
+沿用已有Polkit授权，密码不进入控制台。用户进程在授权等待期间监测锁屏并取消请求；root拥有的privileged_control.py在授权后核对PKEXEC_UID对应的会话，固定调用既有控制器。触摸写入与飞行修改前再执行guard。network-center仅在控制台设置的PCADMIN_NETWORK_GUARDED=1时使用这一受控TUN入口，原网络面板保持原行为。
 
 锁屏须明确false才能打开，动作执行前再核对；锁屏或查询失败关闭面板。打开前隐藏原生与旧键盘并检查layer消失；失败不强行叠加。面板关闭停止自身5秒状态刷新和500毫秒锁屏检查。后台手势只观察核对过名称和USB厂商/产品的触摸屏，读取ABS多点事件，永不grab、不创建虚拟输入、不读取键盘。坐标只保留在当前手势内，不写日志。仅固定gesture token通过本机Unix socket送给用户会话，接收器核对内核提供的root身份。
 
@@ -24,7 +26,7 @@
 
 权威源码是本机管理项目tools/control-center；便携源码在工作台modules/control-center。只保留一份TouchMode工具：modules/hardware-toolbox/touch-mode。便携副本需设置 `PCADMIN_CONTROL_HELPER` 到部署的适配器；network-center、IME及窗口菜单路径需按目标实例核对，不能沿用其他项目的启明身份。本模块没有跨设备通用安装器。
 
-用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.1`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
+用户插件 `pcadmin.control-center` 的versioned entry在 `release-0.1.3`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
 
 root安装只读触摸状态导出timer，以及只观察触屏的pcadmin-three-finger.service；后者recipient UID必须在安装时替换，不可复制本机UID到其他设备。用户服务pcadmin-control-gesture负责会话入口。既有TouchMode开机服务和udev默认不变。
 

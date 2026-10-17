@@ -34,8 +34,9 @@ def snapshot(now, network, touch, thermal):
             'temperature':field('temperature',bool(chosen),chosen['celsius'] if chosen else None,now,15,chosen['type'] if chosen else 'thermal',now=now),
             'touch':touch if 'capability' in touch else field('touch_mode',False,None,0,45,'TouchMode',now=now),
             'network_mode':network.get('policy',{}).get('mode','unknown'),
+            'zero':live('zero',network.get('zero_online'),'zero_online' in network and not network.get('zero_error')),
             'zero_online':network.get('zero_online'), 'zero_peers':network.get('zero_peers',{}),
-            'flight_saved':network.get('flight_saved',False),'flight_active':network.get('flight_active',False),
+            'flight_saved':network.get('flight_saved'),'flight_active':network.get('flight_active'),
             'observed_at':now}
 
 

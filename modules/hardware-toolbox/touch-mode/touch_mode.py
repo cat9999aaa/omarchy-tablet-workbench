@@ -57,7 +57,7 @@ def query(fd, selector, value=0):
     raise TimeoutError('No matching TouchMode response')
 
 
-def read_apply(mode):
+def read_apply(mode, guard=None):
     with open('/run/lock/pcadmin-touch-mode.lock', 'w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         device = None
@@ -75,6 +75,7 @@ def read_apply(mode):
                 raise RuntimeError('Unknown current mode; no writes')
             desired = {'normal': 0, 'glove': 1}.get(mode, before)
             if desired != before:
+                if guard is not None:guard()
                 try:
                     query(fd, 1, desired)
                     if query(fd, 0) != desired:

@@ -7,6 +7,7 @@ import socket
 import stat
 import struct
 import subprocess
+import time
 
 def main():
     runtime=Path(os.environ['XDG_RUNTIME_DIR'])/'pcadmin-control-center';runtime.mkdir(mode=0o700,exist_ok=True)
@@ -24,6 +25,7 @@ def main():
             if data!=b'three-finger-down' or sender!=[0]:continue
             try:
                 if subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True,timeout=2).strip()!='false':continue
+                (runtime/'last-gesture').write_text(str(time.monotonic()))
                 subprocess.run(['omarchy-shell','pcadmin.controlCenter','gesture'],capture_output=True,timeout=3)
             except (OSError,subprocess.SubprocessError):pass
 

@@ -44,6 +44,7 @@ Ui.Panel {
  }
  PwObjectTracker { objects: [root.sink,root.source,root.volumeSink].filter(x=>!!x) }
  function f(key) { return Model.displayField(data[key],Date.now()/1000) }
+ function b(key) { return Model.booleanState(data[key],Date.now()/1000) }
  function labelNetwork() {return ({"4g":"中国电信 4G",wifi:"Wi-Fi",ethernet:"有线网络",none:"未连接"})[f("physical_uplink")] || f("physical_uplink")}
  function batteryText() {
   return batteries.map((x,i)=>"电池"+(i+1)+" "+Math.round(x.percentage*100)+"%"+(x.state===UPowerDeviceState.Charging?" ↑":"")).join("  ·  ") || "电池状态未知"
@@ -61,12 +62,12 @@ Ui.Panel {
   feedback="正在处理…"
   actionProcess.request=JSON.stringify({action:name,params:params||{},confirmed:confirmed===true})
   actionProcess.running=true
-  if(["network","power","audio","monitor","bluetooth","keyboard","windows","screen-off","lock"].indexOf(name)>=0)close()
+  if(["network","power","audio","monitor","bluetooth","keyboard","windows","player","reader","games","screen-off","lock"].indexOf(name)>=0)close()
  }
  function touchLabel() {const v=f("touch");return v==="1"?"手套／原装笔":v==="0"?"普通触摸":v==="2"?"笔模式":v}
  function summary() {
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
-    "代理核心 "+(f("proxy_core")==="true"?"运行":"未就绪")+"  ·  TUN "+(f("tun")==="true"?"运行":"未就绪")
+    "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
  IpcHandler {
   target: "pcadmin.controlCenter"
@@ -76,7 +77,7 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({version:"0.1.1",opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({version:"0.1.3",opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
  Ui.BarIconButton { anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
@@ -101,7 +102,7 @@ Ui.Panel {
   id:actionProcess;property string request:"";command:["python",root.helper,"action"];stdinEnabled:true
   onStarted: {write(request);stdinEnabled=false}
   onRunningChanged: if(!running)stdinEnabled=true
-  stdout:StdioCollector {onStreamFinished:{try{const d=JSON.parse(text);root.feedback=d.ok?"操作完成，已刷新状态":d.reason || ({locked:"锁屏中，操作已拒绝",busy:"同类操作正在执行",cancelled:"认证已取消",confirmation:"请确认操作"}[d.stage] || "操作未完成")}catch(e){root.feedback="操作未完成"}}}
+  stdout:StdioCollector {onStreamFinished:{try{const d=JSON.parse(text);root.feedback=d.ok?"请求已提交，状态以实际读回为准":d.reason || ({locked:"锁屏中，操作已拒绝",busy:"同类操作正在执行",cancelled:"认证已取消或已锁屏",confirmation:"请确认操作"}[d.stage] || "操作未完成")}catch(e){root.feedback="操作未完成"}}}
   onExited:root.refresh()
  }
  PanelWindow {
@@ -120,12 +121,14 @@ Ui.Panel {
    width:Model.layout(window.width,window.height).width
    height:Model.layout(window.width,window.height).height
    color:root.bg;radius:14;border.color:root.purple;border.width:2
+   opacity:root.opened?1:0
+   Behavior on opacity {NumberAnimation {duration:120}}
    MouseArea {anchors.fill:parent}
    ColumnLayout {
     anchors.fill:parent;anchors.margins:16;spacing:10
     RowLayout {
      Layout.fillWidth:true
-     Text {Layout.fillWidth:true;text:"启明 · 随身控制台";color:root.fg;font.pixelSize:22;font.bold:true}
+     Text {Layout.fillWidth:true;Layout.minimumWidth:0;elide:Text.ElideRight;text:"启明 · 随身控制台";color:root.fg;font.pixelSize:22;font.bold:true}
      CButton {text:root.expanded?"简洁":"详情";onClicked:root.expanded=!root.expanded}
      CButton {text:"收起 ↑";onClicked:root.close()}
     }
@@ -139,25 +142,25 @@ Ui.Panel {
        id:tiles;Layout.fillWidth:true;columns:Model.layout(window.width,window.height).columns;columnSpacing:8;rowSpacing:8;visible:!root.expanded
        Repeater {
         model:[{name:"Wi-Fi／4G",sub:root.labelNetwork(),action:"network"},
-          {name:"代理",sub:root.f("tun")==="true"?"TUN 已开启":"未开启",action:root.f("tun")==="true"?"proxy-off":"proxy-on"},
-          {name:"ZeroTier",sub:root.data.zero_online===true?"服务在线":"等待连接",action:"zero"},
-          {name:"触摸模式",sub:root.touchLabel(),action:root.f("touch")==="1"?"touch-normal":"touch-glove"},
+          {name:"代理",sub:"TUN · "+root.b("tun").label,action:root.b("tun").value===true?"proxy-off":"proxy-on",available:root.b("tun").known&&root.b("proxy_core").known},
+          {name:"ZeroTier",sub:root.b("zero").known?(root.b("zero").value?"服务在线":"等待连接"):root.b("zero").label,action:"zero"},
+          {name:"触摸模式",sub:root.touchLabel(),action:root.f("touch")==="1"?"touch-normal":root.f("touch")==="0"?"touch-glove":"touch-refresh"},
           {name:"输入法",sub:"P1 同一入口",action:"keyboard"},
           {name:"显示方向",sub:"尚未适配旋转",action:"rotation"},
-          {name:"飞行模式",sub:root.data.flight_active?"已开启":"关闭无线需确认",action:root.data.flight_saved?"flight-off":"flight-on"},
+          {name:"飞行模式",sub:typeof root.data.flight_active!=="boolean"?"待读取":root.data.flight_active?"已开启":"关闭无线需确认",action:root.data.flight_saved?"flight-off":"flight-on",available:typeof root.data.flight_active==="boolean"},
           {name:"电源模式",sub:root.data.power_profile||"读取中",action:"power-mode"},
           {name:"仅熄屏",sub:"任务继续 · 不挂起",action:"screen-off"}]
         CButton {
          required property var modelData
          Layout.fillWidth:true;Layout.minimumHeight:68
          text:modelData.name+"\n"+modelData.sub
-         enabled:!actionProcess.running&&modelData.action!=="rotation"
+         enabled:!actionProcess.running&&modelData.action!=="rotation"&&modelData.available!==false
          onClicked:{if(modelData.action==="zero"){root.expanded=true;root.page="连接"}else if(modelData.action==="power-mode"){root.expanded=true;root.page="设备"}else root.act(modelData.action,{})}
         }
        }
       }
-      RowLayout {
-       visible:root.expanded;Layout.fillWidth:true;spacing:8
+      GridLayout {
+       visible:root.expanded;Layout.fillWidth:true;columns:window.width<620?2:4;columnSpacing:8;rowSpacing:8
        Repeater {model:["连接","设备","工作","旅途"];CButton {required property string modelData;Layout.fillWidth:true;text:modelData;onClicked:root.page=modelData}}
       }
       ColumnLayout {
@@ -169,7 +172,7 @@ Ui.Panel {
         Repeater {
          model:root.page==="连接"?[{label:"网络与 GPS 详情",op:"network"},{label:"蓝牙",op:"bluetooth"}]:
           root.page==="设备"?[{label:"双电池与充放电记录",op:"power"},{label:"显示设置",op:"monitor"},{label:"省电",op:"power-saver"},{label:"均衡",op:"balanced"},{label:"手套／原装笔",op:"touch-glove"},{label:"普通触摸（本次）",op:"touch-normal"},{label:"刷新触摸模式",op:"touch-refresh"},{label:"锁屏",op:"lock"}]:
-          root.page==="工作"?[{label:"输入法",op:"keyboard"},{label:"声音设置",op:"audio"},{label:"当前窗口操作",op:"windows"}]:[{label:"已有娱乐入口见应用菜单",op:"unavailable"},{label:"飞行模式…",op:"flight-on"}]
+          root.page==="工作"?[{label:"输入法",op:"keyboard"},{label:"声音设置",op:"audio"},{label:"当前窗口操作",op:"windows"}]:[{label:"视频播放器",op:"player"},{label:"小说阅读器",op:"reader"},{label:"离线街机",op:"games"},{label:"飞行模式…",op:"flight-on"}]
          CButton {required property var modelData;Layout.fillWidth:true;text:modelData.label;enabled:!actionProcess.running&&modelData.op!=="unavailable";onClicked:root.act(modelData.op,{})}
         }
        }

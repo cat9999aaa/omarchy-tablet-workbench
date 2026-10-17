@@ -1,12 +1,20 @@
 #!/usr/bin/python3
 """Screen-edge navigation via Omarchy menus; fail closed during lock."""
-import sys,subprocess
+import sys,subprocess,os,time
+from pathlib import Path
+
+def recent_three_finger():
+    try:
+        stamp=float((Path(os.environ['XDG_RUNTIME_DIR'])/'pcadmin-control-center/last-gesture').read_text())
+        return 0<=time.monotonic()-stamp<.8
+    except (KeyError,OSError,ValueError):return False
 
 def dispatch(args):
     if not args:return 2
     try:
         if subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True,timeout=3).strip()!='false':return 0
         if args==['quickstatus']:
+            if recent_three_finger():return 0
             try:
                 ready=subprocess.check_output(['omarchy-shell','pcadmin.controlCenter','ready'],text=True,stderr=subprocess.DEVNULL,timeout=2).strip()
                 if ready=='true' and subprocess.run(['omarchy-shell','pcadmin.controlCenter','toggle'],timeout=3).returncode==0:return 0

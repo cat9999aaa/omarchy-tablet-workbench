@@ -28,3 +28,5 @@ class EntryTests(unittest.TestCase):
  def test_desktop_menu_stays_unchanged(self):
   with patch.object(entry.subprocess,'check_output',return_value='false'),patch.object(entry.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:entry.dispatch(['desktops'])
   self.assertEqual(run.call_args.args[0],['omarchy','menu','summon','desktops'])
+ def test_three_finger_and_edge_release_do_not_double_toggle(self):
+  with patch.object(entry,'recent_three_finger',return_value=True),patch.object(entry.subprocess,'check_output',return_value='false'),patch.object(entry.subprocess,'run') as run:entry.dispatch(['quickstatus']);run.assert_not_called()

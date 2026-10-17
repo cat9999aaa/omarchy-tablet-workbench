@@ -30,3 +30,19 @@ class ActionsTests(unittest.TestCase):
    with open(Path(d)/'pcadmin-control-network.lock','w') as lock:
     fcntl.flock(lock,fcntl.LOCK_EX)
     self.assertEqual(execute(prepare('proxy-on',{},False),True,lambda:False,lambda cmd:0)['stage'],'busy')
+ def test_exit_zero_only_means_submitted_not_verified(self):
+  r=execute(prepare('brightness',{'percent':42},False),True,lambda:False,lambda cmd:0)
+  self.assertEqual(r['stage'],'submitted');self.assertFalse(r['verified'])
+ def test_audio_and_power_actions_share_resource(self):
+  from unittest.mock import patch
+  with patch('control_center.audio_sink',return_value='alsa_test'):
+   self.assertEqual(prepare('volume',{'percent':50},False)['resource'],prepare('mute',{},False)['resource'])
+  self.assertEqual(prepare('power-saver',{},False)['resource'],prepare('balanced',{},False)['resource'])
+ def test_lock_while_process_pending_cancels_request(self):
+  from unittest.mock import patch
+  from control_center import run
+  import sys,time
+  start=time.monotonic()
+  with patch('control_center.read_lock',return_value=True):
+   self.assertEqual(run([sys.executable,'-c','import time; time.sleep(30)']),126)
+  self.assertLess(time.monotonic()-start,4)

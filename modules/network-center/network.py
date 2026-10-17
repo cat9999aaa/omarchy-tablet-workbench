@@ -6,6 +6,8 @@ from policy import read_policy,update_policy
 PROFILE=os.environ.get('PCADMIN_CELL_PROFILE','平板蜂窝网络')
 CELL='wwp0s20f0u2c2'
 def call(args,timeout=8):
+ if os.environ.get('PCADMIN_NETWORK_GUARDED')=='1':
+  if subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True,timeout=3).strip()!='false':raise RuntimeError('锁屏后已取消操作')
  p=subprocess.run(args,capture_output=True,text=True,timeout=timeout)
  if p.returncode:raise RuntimeError(p.stderr.strip()[-180:] or '操作未成功')
  return p.stdout.strip()
@@ -223,7 +225,8 @@ def tun_control(op):
  if op not in ('start','stop'):raise ValueError('不支持的 TUN 操作')
  active=optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active'
  if (op=='start' and active) or (op=='stop' and not active):return
- call(['pkexec','/usr/bin/systemctl',op,'pcadmin-v2ray-tun.service'],90)
+ args=['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py','tun-'+op] if os.environ.get('PCADMIN_NETWORK_GUARDED')=='1' else ['pkexec','/usr/bin/systemctl',op,'pcadmin-v2ray-tun.service']
+ call(args,90)
 
 def ensure_proxy():
  directory=Path.home()/'.local/state/pcadmin-network';directory.mkdir(parents=True,exist_ok=True)

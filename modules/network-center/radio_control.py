@@ -37,10 +37,11 @@ def restore(snapshot,runner):
  for kind in ('wifi','wwan'):runner(['nmcli','radio',kind,'on' if snapshot[kind] else 'off'])
  runner(['rfkill','unblock' if snapshot['bluetooth'] else 'block','bluetooth'])
 
-def flight(enabled,path,runner=run):
+def flight(enabled,path,runner=run,guard=None):
  if enabled:
-  if not path.exists():atomic_json(path,radio_state(runner),0o600)
-  snapshot=json.loads(path.read_text())
+  snapshot=json.loads(path.read_text()) if path.exists() else radio_state(runner)
+  if guard is not None:guard()
+  if not path.exists():atomic_json(path,snapshot,0o600)
   try:
    runner(['nmcli','radio','all','off']);runner(['rfkill','block','bluetooth'])
   except Exception:
@@ -49,6 +50,7 @@ def flight(enabled,path,runner=run):
    raise
  else:
   if not path.exists():raise RuntimeError('没有保存的无线状态，请分别开启所需网络')
+  if guard is not None:guard()
   restore(json.loads(path.read_text()),runner);path.unlink()
 
 def export_status():

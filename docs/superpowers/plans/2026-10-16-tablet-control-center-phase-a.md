@@ -8,7 +8,7 @@
 
 **Tech Stack:** 现有QtQuick/Quickshell、JavaScript纯模型、Python3标准库、已有Gio/UPower/PipeWire；不新增软件源与二进制插件。
 
-**Spec:** `docs/superpowers/specs/2026-10-16-tablet-control-center-design.md`（用户已批准）。本计划待用户审阅及选择执行方式；尚未实施。
+**Spec:** `docs/superpowers/specs/2026-10-16-tablet-control-center-design.md`（用户已批准）。用户于2026-10-17明确要求按此前方案直接实施，并增加真实三指识别；本会话执行。源码与锁屏隔离已部署，解锁后的界面/实体手势验收待完成。
 
 ## Global Constraints
 
@@ -20,7 +20,7 @@
 - 现有顶部边缘下滑不是已验证三指识别；不得用全屏透明层抓取应用触摸。
 - P1/P2/P3与实体旋转键分工保持；锁屏或锁屏状态未知时拒绝唤起/执行。
 - 源码权威tools/control-center；GitHub副本modules/control-center；本机凭据、root实际配置和私人网络数据不上传。
-- 阶段A包含紧凑态及详细页导航框架；场景编排、语音AI、真实三指适配、旋转控制不在本阶段实现。
+- 阶段A包含紧凑态及详细页导航框架；用户2026-10-17追加真实三指适配，本次并行于阶段A实现。场景编排、语音AI、旋转控制仍不在本阶段。
 
 ## Review Focus
 
@@ -112,3 +112,12 @@
 ## 自审结论与执行建议
 
 目标/接口/状态字段在各任务间一致；五项Review Focus均有对应测试。阶段B–D不计入A完成。没有关闭当前网络的自动验收步骤；root导出独立于交互授权；每任务均有RED→实现→GREEN与提交。建议本会话直接执行：任务共享状态契约与现有本机接口，顺序实现更便于保持当前使用状态；最终按可用审查工具做独立代码审查，不另起用户聊天。
+
+## 2026-10-17 执行与增补
+
+- 用户批准直接实施并补齐真实三指下滑。权威源码在非Git管理项目，便携源码在既有工作台feature分支提交；本机部署前备份。
+- 新增gesture_model/gesture_daemon/gesture_receiver：核对过名称和USB身份的触摸屏只读观察，Type-B多点解码，恰好三指下滑松手提交；2/4指、横向/上划/点按/换指/长按/SYN_DROPPED拒绝。无grab、虚拟输入和坐标日志。root只发固定事件，用户核对内核凭据，再检查锁屏。
+- 授权等待监测锁屏、root授权后再核对、TouchMode写前guard、飞行修改前guard。音量/静音及电源模式使用共享资源锁。普通命令只反馈submitted，亮度读sysfs实际值；未知代理状态禁用开关。
+- 控制台0.1.3、底栏入口、顶部旧入口回退及三指服务已部署。31项控制台Python、4项TouchMode、44项网络回归与JS通过。root observer connected，TouchMode实际1 verified，默认1；控制台IPC版本0.1.3，锁屏实际拒绝打开。
+- 未锁屏界面几何/焦点/滑杆实调、实体三指和手感、重启保持仍未验收。当前电脑锁屏，不能通过测试绕过锁屏。此处不将Phase A标为完全验收。
+- 独立代码审查的4项Important均已修并回归；报告与逐项证据写入启明evidence和执行ledger。跨设备统一安装器不在首版。
