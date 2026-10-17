@@ -9,6 +9,7 @@ import time
 import uuid
 import re
 import signal
+from privileged_control import process_start
 from pathlib import Path
 from adapters import snapshot, read_touch_state, thermal_values
 
@@ -48,7 +49,9 @@ def prepare(action, params, locked):
         argv=actions[action];resource='network' if action.startswith(('proxy','flight')) else 'touch' if action.startswith('touch') else action
     if action in ('volume','mute'):resource='audio-output'
     if action in ('power-saver','balanced'):resource='power-profile'
-    return {'request_id':str(uuid.uuid4()),'action':action,'resource':resource,'argv':argv,
+    request_id=str(uuid.uuid4())
+    if '/usr/local/libexec/pcadmin-control-privileged.py' in argv:argv.append(request_id)
+    return {'request_id':request_id,'action':action,'resource':resource,'argv':argv,
             'requires_confirmation':action in ('proxy-off','flight-on','touch-normal')}
 
 def power_context():
@@ -69,13 +72,21 @@ def execute(request, confirmed, read_lock, run):
     runtime=Path(os.environ.get('XDG_RUNTIME_DIR',f'/run/user/{os.getuid()}'))
     path=runtime/('pcadmin-control-'+request['resource']+'.lock')
     fd=os.open(path,os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+    request_file=None
     try:
         try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:return result('busy')
         if read_lock() is not False:return result('locked')
-        code=run(request['argv'])
+        directory=runtime/'pcadmin-control-center';directory.mkdir(mode=0o700,exist_ok=True)
+        request_file=directory/('request-'+request['request_id']+'.json')
+        token_fd=os.open(request_file,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
+        privileged={'proxy-on':['tun-start'],'proxy-off':['tun-stop']}.get(request['action'],[request['action']])
+        with os.fdopen(token_fd,'w') as stream:json.dump({'active':True,'privileged_actions':privileged,'expires_at':time.time()+95,'pid':os.getpid(),'process_start':process_start(os.getpid())},stream)
+        code=run(['/usr/bin/env','PCADMIN_CONTROL_REQUEST='+request['request_id'],*request['argv']])
         return result('submitted' if code==0 else 'cancelled' if code in (126,127) else 'failed',code==0)
-    finally:os.close(fd)
+    finally:
+        if request_file is not None:request_file.unlink(missing_ok=True)
+        os.close(fd)
 
 def run(args):
     env=os.environ.copy();env['PCADMIN_NETWORK_GUARDED']='1'
@@ -83,10 +94,15 @@ def run(args):
     end=time.monotonic()+90
     while p.poll() is None:
         if read_lock() is not False or time.monotonic()>end:
+            if len(args)>1 and args[0]=='/usr/bin/env' and args[1].startswith('PCADMIN_CONTROL_REQUEST='):
+                token=args[1].split('=',1)[1]
+                (Path(os.environ.get('XDG_RUNTIME_DIR',f'/run/user/{os.getuid()}'))/'pcadmin-control-center'/('request-'+token+'.json')).unlink(missing_ok=True)
             try:os.killpg(p.pid,signal.SIGTERM)
             except (ProcessLookupError,PermissionError):pass
             try:p.wait(timeout=3)
-            except subprocess.TimeoutExpired:p.kill();p.wait()
+            except subprocess.TimeoutExpired:
+                try:p.kill();p.wait(timeout=1)
+                except (PermissionError,subprocess.TimeoutExpired):pass
             return 126
         time.sleep(.2)
     return p.returncode

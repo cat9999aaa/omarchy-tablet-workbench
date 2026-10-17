@@ -225,7 +225,7 @@ def tun_control(op):
  if op not in ('start','stop'):raise ValueError('不支持的 TUN 操作')
  active=optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active'
  if (op=='start' and active) or (op=='stop' and not active):return
- args=['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py','tun-'+op] if os.environ.get('PCADMIN_NETWORK_GUARDED')=='1' else ['pkexec','/usr/bin/systemctl',op,'pcadmin-v2ray-tun.service']
+ args=['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py','tun-'+op,os.environ.get('PCADMIN_CONTROL_REQUEST','')] if os.environ.get('PCADMIN_NETWORK_GUARDED')=='1' else ['pkexec','/usr/bin/systemctl',op,'pcadmin-v2ray-tun.service']
  call(args,90)
 
 def ensure_proxy():
