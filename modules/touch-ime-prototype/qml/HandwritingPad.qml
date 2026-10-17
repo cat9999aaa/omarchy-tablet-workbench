@@ -11,6 +11,7 @@ Rectangle {
  property bool tooMuchInk: false
  signal recognize(var strokes, real w, real h, int revision)
  color: background; radius: 10
+ function undoStroke() {settle.stop();strokes=strokes.slice(0,-1);currentStroke=[];inkChanged()}
  function reset() { settle.stop();strokes=[];currentStroke=[];tooMuchInk=false;revision++;ink.requestPaint() }
  function inkChanged() { revision++;ink.requestPaint();if(strokes.length>0)settle.restart() }
  onGenerationChanged: reset()
@@ -49,7 +50,7 @@ Rectangle {
   }
   RowLayout {
    Layout.fillWidth: true
-   TouchKey { label: "撤销一笔"; Layout.fillWidth: true; Layout.preferredHeight: 38; fontSize: 16; foreground: root.foreground; baseColor: Qt.lighter(root.background,1.25); onTriggered: {settle.stop();root.strokes=root.strokes.slice(0,-1);root.currentStroke=[];root.inkChanged()} }
+   TouchKey { label: "撤销一笔"; Layout.fillWidth: true; Layout.preferredHeight: 38; fontSize: 16; foreground: root.foreground; baseColor: Qt.lighter(root.background,1.25); onTriggered: root.undoStroke() }
    TouchKey { label: "重写"; Layout.fillWidth: true; Layout.preferredHeight: 38; fontSize: 16; foreground: root.foreground; baseColor: Qt.lighter(root.background,1.25); onTriggered: root.reset() }
   }
  }

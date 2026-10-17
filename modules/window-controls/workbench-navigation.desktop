@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=平板导航
+Name[en]=Tablet Navigation
+Comment=开始、桌面、窗口操作与实体按键设置
+Exec=omarchy-shell pcadmin.navigation open 开始
+Icon=preferences-desktop-keyboard
+Terminal=false
+Categories=Settings;Utility;
+Keywords=tablet;keyboard;navigation;平板;按键;桌面;

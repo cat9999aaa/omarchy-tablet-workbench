@@ -2,6 +2,8 @@
 #include "target_gate.h"
 #include "focus_link.h"
 #include "hypr_shortcut.h"
+#include "voice_output.h"
+#include <QProcessEnvironment>
 #include <QCoreApplication>
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -144,7 +146,7 @@ public:
     Backend(const std::string &data, const std::string &user) : engine_(data,user), settings_(QString::fromStdString(user)+"/ime-settings.ini",QSettings::IniFormat) {
         focusLossHide_.setSingleShot(true);focusLossHide_.setInterval(150);
         connect(&focusLossHide_,&QTimer::timeout,this,[this]{visible_=false;heldPasswordTarget_={};captureShortcutTarget();publish();});
-        phrases_=settings_.value("phrases",QStringList{"谢谢","好的","你好"}).toStringList();
+        phrases_=settings_.value("phrases",QStringList{}).toStringList();
         learning_=settings_.value("learning",true).toBool();engine_.setLearning(learning_);
         handwritingModel_=QFileInfo(QString::fromStdString(data)+"/../vendor/handwriting/models/handwriting-zh_CN.model").absoluteFilePath();
         handwritingLimit_.setSingleShot(true);handwritingLimit_.setInterval(3000);
@@ -176,6 +178,7 @@ public:
             if(voicePhase_=="recording") {cancelVoice();error_="录音意外停止，请重试";publish();return;}
             if(voicePhase_!="stopping" || !audioDir_ || !current(voiceGeneration_) || sensitive_) return;
             voicePhase_="transcribing";
+            auto env=QProcessEnvironment::systemEnvironment();env.insert("RUST_LOG","off");recognizer_.setProcessEnvironment(env);
             recognizer_.start("voxtype", {"--quiet", "transcribe", audioDir_->filePath("speech.wav")});
             recognitionLimit_.start(120000);publish();
         });
@@ -185,9 +188,12 @@ public:
         connect(&recognizer_, qOverload<int,QProcess::ExitStatus>(&QProcess::finished), this, [this](int code,QProcess::ExitStatus status){
             recognitionLimit_.stop();
             if(voicePhase_!="transcribing") return;
-            auto text=QString::fromUtf8(recognizer_.readAllStandardOutput()).trimmed();
+            const auto result=omt::parseVoiceOutput(recognizer_.readAllStandardOutput());
             audioDir_.reset();voicePhase_="idle";
-            if(current(voiceGeneration_) && !sensitive_ && code==0 && status==QProcess::NormalExit) voiceText_=text;
+            if(current(voiceGeneration_) && !sensitive_ && code==0 && status==QProcess::NormalExit) {
+                if(result.valid){voiceText_=result.text;if(voiceText_.isEmpty())error_="没有识别到说话内容，请重试";}
+                else error_="语音结果格式不兼容，已阻止运行信息进入输入框";
+            }
             else error_="识别未完成或输入位置已改变，请重试";
             publish();
         });
@@ -296,7 +302,18 @@ public:
             else {auto t=engine_.choose(size_t(a.value("index").toInt(-1)));if(!t.empty())commit(QString::fromStdString(t));}
         } else if(op=="page" && !sensitive_) {
             engine_.page(a.value("next").toBool());
-        } else if(op=="clear") {clearHandwriting(true);engine_.clear();voiceText_.clear();editingVoice_=false;}
+        } else if(op=="clear") {clearHandwriting(true);engine_.clear();voiceText_.clear();phraseDraft_.clear();editingVoice_=false;notice_="本次输入已清空";}
+        else if(op=="clearField" && !sensitive_) {
+            if(!focusLink_.ownsCurrentService() || !a.value("confirmed").toBool() || editingVoice_ || editingPhrase_ || !engine_.snapshot().preedit.empty())error_="请确认清空当前输入框";
+            else {
+                const auto expected=bridgeGeneration_;const auto epoch=ownerEpoch_;
+                editingKey("Control+a");
+                const auto reply=focusLink_.call("State",{});
+                const auto fresh=reply.type()==QDBusMessage::ReplyMessage && !reply.arguments().isEmpty()?QJsonDocument::fromJson(reply.arguments().first().toString().toUtf8()).object():QJsonObject{};
+                if(error_.isEmpty() && epoch==ownerEpoch_ && focusLink_.ownsCurrentService() && fresh.value("protocol").toInt()==2 && fresh.value("focused").toBool() && fresh.value("sensitive").isBool() && !fresh.value("sensitive").toBool() && fresh.value("generation").toInt(-1)==int(expected))editingKey("BackSpace");
+                else error_="输入位置发生变化，已取消清空";
+            }
+        }
         else if(op=="voice" && !sensitive_) {if(voicePhase_=="recording")stopVoice();else startVoice();}
         else if(op=="voiceEdit" && !sensitive_ && !voiceText_.isEmpty()) {editingVoice_=!editingVoice_;engine_.clear();}
         else if(op=="voiceCommit" && !sensitive_ && current(voiceGeneration_)) {
@@ -310,7 +327,13 @@ public:
         else if(op=="key") {
             auto key=a.value("key").toString();auto before=engine_.snapshot();
             bool composing=!before.preedit.empty();
-            if(key=="BackSpace" && composing) engine_.key(0xff08);
+            if(key=="BackSpace" && a.value("localScope").toBool()) {
+                if(composing)engine_.key(0xff08);
+                else if(editingPhrase_){if(!phraseDraft_.isEmpty())phraseDraft_.chop(phraseDraft_.back().isLowSurrogate()&&phraseDraft_.size()>1?2:1);}
+                else if(!voiceText_.isEmpty()){editingVoice_=true;voiceText_.chop(voiceText_.back().isLowSurrogate()&&voiceText_.size()>1?2:1);}
+                // This press started on a local draft. Never fall through after it empties.
+            }
+            else if(key=="BackSpace" && composing) engine_.key(0xff08);
             else if((key=="Return" || key=="space") && composing) {engine_.key(' ');auto t=engine_.takeCommit();if(!t.empty())commit(QString::fromStdString(t));}
             else if(editingPhrase_ && key=="BackSpace") {
                 if(!phraseDraft_.isEmpty()){int n=phraseDraft_.back().isLowSurrogate()&&phraseDraft_.size()>1?2:1;phraseDraft_.chop(n);}

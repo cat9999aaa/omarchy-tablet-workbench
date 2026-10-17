@@ -13,6 +13,11 @@ def dispatch(args):
     if not args:return 2
     try:
         if subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True,timeout=3).strip()!='false':return 0
+        if args==['desktops']:
+            try:
+                ready=subprocess.check_output(['omarchy-shell','pcadmin.navigation','ready'],text=True,stderr=subprocess.DEVNULL,timeout=2).strip()
+                if ready=='true' and subprocess.run(['omarchy-shell','pcadmin.navigation','open','桌面'],timeout=3).returncode==0:return 0
+            except (OSError,subprocess.SubprocessError):pass
         if args==['quickstatus']:
             if recent_three_finger():return 0
             try:

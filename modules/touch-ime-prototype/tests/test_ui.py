@@ -19,6 +19,8 @@ with tempfile.TemporaryDirectory(prefix='omt-ui-test-') as tmp:
     (tmp/'Commons').symlink_to('/usr/share/omarchy/shell/Commons',target_is_directory=True)
     (tmp/'Ui').symlink_to('/usr/share/omarchy/shell/Ui',target_is_directory=True)
     qml=(root/'qml/TouchIme.qml').read_text()
+    if os.environ.get('OMT_TEST_BACKEND'):
+        qml=qml.replace('root.projectDir + "/build/omt-backend"',json.dumps(os.environ['OMT_TEST_BACKEND']))
     qml=qml.replace('Quickshell.env("HOME") + "/.local/share/pcadmin-touch-ime/rime"', json.dumps(str(tmp/'rime')))
     qml=qml.replace('id: root', 'id: root; property int testGeneration: -1', 1)
     qml=qml.replace('target: "omtInput"', '''target: "omtTest"

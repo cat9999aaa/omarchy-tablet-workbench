@@ -17,6 +17,10 @@ Item {
  property var state: ({})
  property bool uppercase:false
  property bool settingsOpen:false
+ property int clearConfirmGeneration:-1
+ function requestClear(local){}
+ function hasLocalDraft(){return false}
+ function backspace(local){}
  property int keyHeight:56
  property bool inputActive:true
  property color bg:"#202020"

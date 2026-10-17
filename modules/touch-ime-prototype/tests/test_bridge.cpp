@@ -1,5 +1,6 @@
 #include "../src/focus_bridge.cpp"
 #include "../src/hypr_shortcut.h"
+#include "../src/voice_output.h"
 #include <cassert>
 #include <algorithm>
 #include <iostream>
@@ -45,6 +46,23 @@ public:
 };
 int main(int argc, char **argv) {
     QCoreApplication app(argc,argv);
+    {
+        const QByteArray envelope="Loading audio file: \"/tmp/speech.wav\"\nAudio format: 16000 Hz, 1 channel(s), Int\nProcessing 32000 samples (2.00s)...\n";
+        auto result=omt::parseVoiceOutput(envelope+"\n你好测试\n");
+        assert(result.valid && result.text=="你好测试");
+        const auto spoken=QString("代码 /tmp/demo.py\nLoading audio file: 这是我说的文字");
+        result=omt::parseVoiceOutput(envelope+"\n"+spoken.toUtf8()+"\n");
+        assert(result.valid && result.text==spoken);
+        assert(!omt::parseVoiceOutput("path /tmp/private.wav\n你好").valid);
+        assert(!omt::parseVoiceOutput(envelope+"Unknown diagnostic\n\n你好").valid);
+        assert(!omt::parseVoiceOutput(QByteArray(70000,'a')).valid);
+        result=omt::parseVoiceOutput(envelope+"VAD: 0.00s speech (0.0% of audio)\nNo speech detected, skipping transcription.\n");
+        assert(result.valid && result.text.isEmpty());
+        result=omt::parseVoiceOutput(envelope+"\n");assert(result.valid && result.text.isEmpty());
+        auto crlf=envelope+"\n你好\n";crlf.replace("\n","\r\n");
+        assert(omt::parseVoiceOutput(crlf).text=="你好");
+    }
+
     {
         using omt::CommandResult;
         // A restored Fcitx focus cannot authorize text before compositor target validation.

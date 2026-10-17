@@ -10,6 +10,18 @@ Item {
     property var state: ({ visible: false, focused: false, generation: 0, candidates: [], preedit: "", mode: "t9", voicePhase: "idle", voiceText: "", sensitive: false, error: "" })
     property bool uppercase: false
     property bool settingsOpen: false
+    property int clearConfirmGeneration: -1
+    function hasLocalDraft() {return !!root.state.preedit || !!root.state.voiceText || root.state.editingPhrase===true || (root.state.mode==="handwriting" && (handPad.strokes.length>0 || (root.state.candidates||[]).length>0))}
+    function backspace(localScope) {
+        if(localScope && root.state.mode==="handwriting")handPad.undoStroke()
+        else root.send({op:"key",key:"BackSpace",localScope:localScope})
+    }
+    function requestClear(localScope) {
+        if(!root.inputActive || root.state.sensitive)return
+        if(localScope) {root.send({op:"clear"});handPad.reset()}
+        else root.clearConfirmGeneration=root.state.generation
+    }
+    onStateChanged: if(clearConfirmGeneration>=0 && clearConfirmGeneration!==root.state.generation)clearConfirmGeneration=-1
     readonly property bool inputActive: root.state.visible===true && root.state.focused===true && root.state.voicePhase==="idle"
     property int panelWidth: 440
     readonly property string projectDir: Quickshell.env("HOME") + "/Projects/pcadmin/tools/omarchy-touch-ime"
@@ -30,7 +42,8 @@ Item {
         function toggle(): void { root.send({op: "toggle"}) }
         function show(): void { root.send({op: "show"}) }
         function hide(): void { root.send({op: "hide"}) }
-        function version(): string { return "0.2.3" }
+        function version(): string { return "0.2.4" }
+        function voice(): void { if(!root.state.visible)root.send({op:"show"});root.send({op:"voice"}) }
         function ready(): bool { return backend.running && (root.state.generation || 0) > 0 }
     }
     Process {
@@ -72,6 +85,17 @@ Item {
                     Text { visible: root.state.editingPhrase===true; Layout.fillWidth: true; text: "短语："+(root.state.phraseDraft||"请用下方键盘输入"); color: root.fg; font.pixelSize: 18; elide: Text.ElideLeft }
 
 
+                    ColumnLayout {
+                        visible: root.clearConfirmGeneration>=0
+                        Layout.fillWidth: true
+                        Text { Layout.fillWidth:true;text:"清空当前输入框？已发送的消息不会撤回。";wrapMode:Text.Wrap;color:root.fg;font.pixelSize:16 }
+                        RowLayout {
+                            Layout.fillWidth:true
+                            TouchKey {label:"取消";Layout.fillWidth:true;Layout.preferredHeight:48;foreground:root.fg;baseColor:root.bg;onTriggered:root.clearConfirmGeneration=-1}
+                            TouchKey {label:"清空输入框";Layout.fillWidth:true;Layout.preferredHeight:48;foreground:root.fg;baseColor:root.accent;enabled:root.inputActive && root.clearConfirmGeneration===root.state.generation;onTriggered:{root.send({op:"clearField",confirmed:true});root.clearConfirmGeneration=-1}}
+                        }
+                    }
+                    HandwritingPad { id: handPad; visible: !root.settingsOpen && (root.state.mode==="handwriting"); Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 160; Layout.preferredHeight: 230; foreground: root.fg; background: root.buttonBg; enabled: root.inputActive && !root.state.sensitive; generation: root.state.generation||0; onRecognize: (strokes,w,h,revision) => root.send({op:"handwriting",strokes:strokes,width:w,height:h,revision:revision}); onRevisionChanged: root.send({op:"handwritingClear",revision:revision}) }
                     VoicePreview {
                         visible: !root.settingsOpen && (root.state.voicePhase!=="idle" || !!root.state.voiceText)
                         Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 65
@@ -101,7 +125,21 @@ Item {
                         }
                         Text { Layout.fillWidth: true; text: root.state.notice||"只保存在本机，不上传云端"; color: root.fg; font.pixelSize: 13; wrapMode: Text.Wrap }
                     }
-                    Item { Layout.fillHeight: true; Layout.minimumHeight: 0 }
+                    ColumnLayout {
+                        visible: !root.settingsOpen && !root.state.sensitive && !root.state.editingPhrase && root.state.mode!=="handwriting" && root.state.voicePhase==="idle" && !root.state.voiceText
+                        Layout.fillWidth:true;Layout.fillHeight:true
+                        Text {Layout.fillWidth:true;text:"常用语 · 只保存在本机";color:root.fg;font.pixelSize:17}
+                        Text {visible:(root.state.phrases||[]).length===0;Layout.fillWidth:true;text:"在设置里添加你自己的常用语。下方保留复制、粘贴和光标操作。";color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
+                        Flickable {
+                            Layout.fillWidth:true;Layout.fillHeight:true;Layout.minimumHeight:0;clip:true;contentWidth:width;contentHeight:quickPhrases.implicitHeight
+                            GridLayout {id:quickPhrases;width:parent.width;columns:2;columnSpacing:6;rowSpacing:6
+                                Repeater {model:root.state.phrases||[]
+                                    TouchKey {required property string modelData;Layout.fillWidth:true;Layout.preferredHeight:48;label:modelData.length>10?modelData.slice(0,10)+"…":modelData;fontSize:15;triggerOnRelease:true;foreground:root.fg;baseColor:root.bg;accentColor:root.accent;enabled:!root.state.preedit;inputActive:root.inputActive;inputGeneration:root.state.generation||0;onTriggered:root.send({op:"text",text:modelData})}
+                                }
+                            }
+                        }
+                    }
+                    Item { visible:root.settingsOpen;Layout.fillHeight: true; Layout.minimumHeight: 0 }
 
                 }
             }
@@ -154,14 +192,20 @@ Item {
                         onTriggered: root.key(index===0 ? "'" : String(index+1))
                     }
                 }
-                TouchKey { objectName: "t9Backspace"; label: "⌫"; fontSize: 28; repeatKey: true; inputGeneration: root.state.generation||0; Layout.row: 0; Layout.column: 3; Layout.rowSpan: 2; Layout.preferredWidth: 74; Layout.fillHeight: true; Layout.minimumHeight: 134; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.key("BackSpace") }
+                TouchKey { objectName: "t9Backspace"; label: "⌫"; fontSize: 28; repeatKey: true; clearGesture: !root.state.sensitive; property bool localDeleteScope: false; onPressStarted: localDeleteScope=root.hasLocalDraft(); onClearTriggered: root.requestClear(localDeleteScope); inputGeneration: root.state.generation||0; Layout.row: 0; Layout.column: 3; Layout.rowSpan: 2; Layout.preferredWidth: 74; Layout.fillHeight: true; Layout.minimumHeight: 134; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.backspace(localDeleteScope) }
                 TouchKey { label: "回车"; Layout.row: 2; Layout.column: 3; Layout.preferredWidth: 74; Layout.preferredHeight: 64; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.key("Return") }
+            }
+            RowLayout {
+                visible: !root.settingsOpen && root.state.mode!=="t9"
+                Layout.fillWidth:true
+                Text {Layout.fillWidth:true;text:"长按退格上滑清空 · 滑回取消";color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
+                TouchKey { label: "⌫"; repeatKey: true; clearGesture: !root.state.sensitive; property bool localDeleteScope: false; onPressStarted: localDeleteScope=root.hasLocalDraft(); onClearTriggered: root.requestClear(localDeleteScope); inputGeneration: root.state.generation||0; objectName: "otherBackspace"; Layout.preferredWidth: 74; Layout.preferredHeight: 64; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.backspace(localDeleteScope) }
             }
             ColumnLayout {
                 visible: !root.settingsOpen && (root.state.mode==="abc"||root.state.mode==="pinyin")
                 Layout.fillWidth: true; spacing: 6
                 KeyRow { objectName: "digitRow"; labels: ["1","2","3","4","5","6","7","8","9","0"]; keyHeight: 44; Layout.fillWidth: true; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; onSelected: value => root.send({op:"text",text:value}) }
-                KeyRow { labels: ["@",".","/","_","-"]; keyHeight: 38; Layout.fillWidth: true; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; onSelected: value => root.send({op:"text",text:value}) }
+                KeyRow { visible: root.state.mode==="abc"; labels: ["@",".","/","_","-"]; keyHeight: 38; Layout.fillWidth: true; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; onSelected: value => root.send({op:"text",text:value}) }
                 Repeater {
                     model: root.uppercase ? ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"] : ["qwertyuiop","asdfghjkl","zxcvbnm"]
                     KeyRow { required property string modelData; Layout.fillWidth: true; labels: modelData.split(""); keyHeight: 50; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; onSelected: value => root.key(value) }
@@ -175,10 +219,10 @@ Item {
                     TouchKey { required property string modelData; Layout.fillWidth: true; Layout.preferredHeight: 50; label: modelData; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.send({op:"text",text:modelData}) }
                 }
             }
-            HandwritingPad { id: handPad; visible: !root.settingsOpen && (root.state.mode==="handwriting"); Layout.fillWidth: true; Layout.preferredHeight: 230; foreground: root.fg; background: root.buttonBg; enabled: root.inputActive && !root.state.sensitive; generation: root.state.generation||0; onRecognize: (strokes,w,h,revision) => root.send({op:"handwriting",strokes:strokes,width:w,height:h,revision:revision}); onRevisionChanged: root.send({op:"handwritingClear",revision:revision}) }
+
             RowLayout {
                 Layout.fillWidth: true; spacing: 6
-                TouchKey { visible: root.state.mode!=="t9"; label: "⌫"; repeatKey: true; inputGeneration: root.state.generation||0; Layout.preferredWidth: 64; Layout.preferredHeight: 52; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; inputActive: root.inputActive; enabled: root.inputActive; onTriggered: root.key("BackSpace") }
+
                 TouchKey { label: root.state.mode==="abc" ? "⇧" : "，"; Layout.preferredWidth: 48; Layout.preferredHeight: 52; foreground: root.fg; baseColor: root.state.mode==="abc"&&root.uppercase ? root.accent : root.buttonBg; accentColor: root.accent; enabled: root.inputActive; onTriggered: {if(root.state.mode==="abc")root.uppercase=!root.uppercase;else root.send({op:"text",text:"，"})} }
                 TouchKey { label: "空格"; Layout.fillWidth: true; Layout.preferredHeight: 52; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; enabled: root.inputActive; onTriggered: root.key("space") }
                 TouchKey { visible: !root.settingsOpen && (root.state.mode==="t9"); label: "。"; Layout.preferredWidth: 64; Layout.preferredHeight: 52; foreground: root.fg; baseColor: root.buttonBg; accentColor: root.accent; enabled: root.inputActive; onTriggered: root.send({op:"text",text:"。"}) }

@@ -28,6 +28,7 @@ class Bridge(dbus.service.Object):
         self.keys = []
         self.state_calls = 0
         self.state_delay = 0
+        self.after_select = None
 
     def snapshot(self):
         return json.dumps(dict(protocol=2, generation=self.generation, context=self.context, focused=self.focused,
@@ -61,6 +62,7 @@ class Bridge(dbus.service.Object):
         if not self.focused or generation != self.generation:
             return False
         self.keys.append(str(key))
+        if key=="Control+a" and self.after_select:self.after_select()
         return True
 
 bridge = Bridge()
@@ -76,7 +78,7 @@ import signal,time,os,pathlib
 signal.signal(signal.SIGTERM, signal.SIG_IGN if pathlib.Path(os.environ['XDG_RUNTIME_DIR']+'/ignore-term').exists() else lambda *a: exit(0))
 while True: time.sleep(.05)
 """)
-    (binaries/'voxtype').write_text('#!/bin/sh\nprintf "你好测试\\n"\n')
+    (binaries/'voxtype').write_text('#!/usr/bin/python3\nimport sys\nprint(\'Loading audio file: "/tmp/speech.wav"\\nAudio format: 16000 Hz, 1 channel(s), Int\\nProcessing 32000 samples (2.00s)...\\n\\n你好测试\')\n')
     for f in binaries.iterdir(): f.chmod(0o700)
     env=dict(os.environ, PATH=str(binaries)+':'+os.environ['PATH'], XDG_RUNTIME_DIR=tmp)
     process = subprocess.Popen([str(root/'build/omt-backend'), str(root/'rime'), tmp],
@@ -101,6 +103,7 @@ while True: time.sleep(.05)
     try:
         initial=wait(lambda s: s['focused'] and not s['visible'])
         assert initial['learning'] is True
+        assert initial['phrases']==[], 'Do not seed unwanted canned greetings'
         stale_generation=initial['generation']
         calls=bridge.state_calls;time.sleep(.65)
         assert bridge.state_calls==calls, 'Idle backend must not periodically query State'
@@ -118,6 +121,28 @@ while True: time.sleep(.05)
         assert bridge.commits == ['你好'], repr(bridge.commits)
         action('key',key='Control+c')
         time.sleep(.1);assert bridge.keys[-1:] == ['Control+c'], 'Copy must reach focused application'
+        keys_before=list(bridge.keys)
+        action('clearField',confirmed=False);wait(lambda s:bool(s['error']))
+        assert bridge.keys==keys_before
+        action('clearField',confirmed=True);wait(lambda s:not s['error'])
+        assert bridge.keys[-2:]==['Control+a','BackSpace']
+        for transition in ['generation','sensitive','focus','owner']:
+            keys_before=list(bridge.keys)
+            def change():
+                if transition=='generation':bridge.generation+=1
+                elif transition=='sensitive':bridge.sensitive=True
+                elif transition=='owner':bus.release_name('org.fcitx.Fcitx5')
+                else:bridge.focused=False
+            bridge.after_select=change
+            action('clearField',confirmed=True);wait(lambda s:bool(s['error']))
+            assert bridge.keys==keys_before+['Control+a'],'Field changed after select-all: deletion must be cancelled'
+            before_restore=latest_generation
+            if transition=='owner':bus.request_name('org.fcitx.Fcitx5')
+            bridge.after_select=None;bridge.sensitive=False;bridge.focused=True;bridge.generation+=1;bridge.notify()
+            restored=wait(lambda s:s['generation']>before_restore and s['focused'] and not s['sensitive'])
+            if not restored['visible']:
+                action('show');wait(lambda s:s['visible'])
+
         action('voice'); wait(lambda s: s['voicePhase']=='recording')
         time.sleep(.2)
         action('voice'); wait(lambda s: s['voiceText']=='你好测试')
@@ -128,6 +153,15 @@ while True: time.sleep(.05)
         wait(lambda s: s['voiceText']=='你好测a')
         action('voiceCommit'); wait(lambda s: not s['voiceText'])
         assert bridge.commits == ['你好', '你好测a']
+        # Holding delete in a voice draft must never fall through to the application.
+        action('voice');wait(lambda s:s['voicePhase']=='recording');time.sleep(.2)
+        action('voice');wait(lambda s:s['voiceText']=='你好测试')
+        keys_before=list(bridge.keys)
+        for _ in range(8):action('key',key='BackSpace',localScope=True)
+        time.sleep(.1)
+        assert bridge.keys==keys_before,'Local voice deletion leaked to the application'
+        wait(lambda s:not s['voiceText'])
+        action('clear');wait(lambda s:not s['editingVoice'])
         Path(tmp+'/ignore-term').touch()
         action('voice'); wait(lambda s: s['voicePhase']=='recording')
         time.sleep(.2)
@@ -163,6 +197,10 @@ while True: time.sleep(.05)
         strokes=[[{'x':35,'y':40},{'x':35,'y':105}],[{'x':35,'y':40},{'x':125,'y':40},{'x':125,'y':105}],[{'x':35,'y':105},{'x':125,'y':105}],[{'x':80,'y':15},{'x':80,'y':140}]]
         action('handwriting',strokes=strokes,width=160,height=155,revision=100)
         hw=wait(lambda s:'中' in s['candidates'])
+        keys_before=list(bridge.keys)
+        action('key',key='BackSpace',localScope=True);time.sleep(.1)
+        assert bridge.keys==keys_before,'Local handwriting deletion leaked to the application'
+
         before=list(bridge.commits)
         action('choose',index=0,revision=99);wait(lambda s:bool(s['error']))
         assert bridge.commits==before

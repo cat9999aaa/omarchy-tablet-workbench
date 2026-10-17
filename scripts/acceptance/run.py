@@ -26,7 +26,7 @@ class Check:
 
 
 DESTINATIONS = ['modules/control-center/Workbench', 'modules/network-center/Workbench',
-                'modules/battery-manager/panel/Workbench']
+                'modules/battery-manager/panel/Workbench', 'modules/window-controls/Workbench']
 
 
 def run_python_suite(directory, pattern):
@@ -145,6 +145,8 @@ def checks_for(suite):
             ('touch-mode', 'modules/hardware-toolbox/touch-mode', 'test_*.py'),
             ('arcade-catalog', 'modules/offline-arcade/catalog', 'test_*.py'),
             ('ime-control', 'modules/touch-ime-prototype', 'tests/test_control.py'),
+            ('navigation', 'modules/window-controls', 'test_navigation.py'),
+            ('edge-menu', 'modules/edge-gestures', 'test_menu.py'),
         ]
         for name, directory, pattern in python_suites:
             p = Path(pattern)
@@ -164,6 +166,8 @@ def checks_for(suite):
              if Path(p).is_file()), 'qmltestrunner')
         checks.append(Check('shared-qml', 'modules/workbench-ui',
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
+        checks.append(Check('navigation-layout', 'modules/window-controls',
+                            [sys.executable, 'test_navigation_layout.py']))
     return checks
 
 

@@ -20,6 +20,7 @@ public:
     explicit FocusLink(QObject *parent = nullptr);
     void start();
     void refresh();
+    bool ownsCurrentService() const;
     QDBusMessage call(const QString &method, const QVariantList &args);
 signals:
     void changed(const QJsonObject &state, quint64 epoch);

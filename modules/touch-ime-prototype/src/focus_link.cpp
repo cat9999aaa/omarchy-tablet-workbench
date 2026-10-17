@@ -78,3 +78,9 @@ QDBusMessage FocusLink::call(const QString &method,const QVariantList &args) {
     request.setArguments(args);
     return QDBusConnection::sessionBus().call(request,QDBus::Block,300);
 }
+
+bool FocusLink::ownsCurrentService() const {
+    if(owner_.isEmpty())return false;
+    const auto current=QDBusConnection::sessionBus().interface()->serviceOwner(service);
+    return current.isValid() && current.value()==owner_;
+}
