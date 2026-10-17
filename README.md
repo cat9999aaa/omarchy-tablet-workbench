@@ -36,3 +36,5 @@
 6. 编译、打包与批量软件测试优先使用授权的远程构建机；平板保留真实硬件验收。见[远程构建原则](docs/design/2026-10-17-remote-build-policy.md)。
 
 路线见 [ROADMAP](ROADMAP.md)，界面方向见 [设计简报](docs/design-brief.md)，贡献流程见 [CONTRIBUTING](CONTRIBUTING.md)。
+
+现有模块的整合顺序、共享界面、语言选择与远程构建边界，统一见[平板增强系统总体方案](docs/superpowers/specs/2026-10-17-tablet-system-architecture-design.md)。该文档是整体设计；当前已验范围与未实现阶段分别列出。
