@@ -1,0 +1,13 @@
+[Addon]
+Name=Omarchy Touch IME Focus Bridge
+Name[zh_CN]=Omarchy 触屏输入桥接
+Category=Module
+Type=SharedLibrary
+Library=@CMAKE_CURRENT_BINARY_DIR@/libomtbridge
+Version=0.1.0
+OnDemand=False
+Configurable=False
+
+[Addon/Dependencies]
+0=core:5.1.22
+1=dbus

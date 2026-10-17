@@ -1,0 +1,9 @@
+__include: omt_t9.schema:/
+schema:
+  schema_id: omt_t9_private
+  name: Omarchy 暂停学习
+  version: '0.2'
+translator:
+  enable_user_dict: false
+custom_phrase:
+  enable_user_dict: false

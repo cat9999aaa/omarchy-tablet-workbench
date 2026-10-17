@@ -1,0 +1,28 @@
+{
+  "repository": "https://github.com/metasequoiaime/MSIME-Engine",
+  "revision": "1a428e2a83a94ff3837ec9eae6299ead5e457c37",
+  "files": [
+    "handwriting/README.md",
+    "handwriting/CMakeLists.txt",
+    "handwriting/handwriting.cpp",
+    "handwriting/test_handwriting.cpp",
+    "handwriting/provenance.json",
+    "include/metasequoia/handwriting.h",
+    "include/metasequoia/handwriting_candidates.h",
+    "handwriting/models/HandwritingModel-LICENSE.txt",
+    "handwriting/models/handwriting-zh_CN.model",
+    "handwriting/third_party/zinnia/Zinnia-LICENSE.txt",
+    "handwriting/third_party/zinnia/character.cpp",
+    "handwriting/third_party/zinnia/common.h",
+    "handwriting/third_party/zinnia/feature.cpp",
+    "handwriting/third_party/zinnia/feature.h",
+    "handwriting/third_party/zinnia/freelist.h",
+    "handwriting/third_party/zinnia/mmap.h",
+    "handwriting/third_party/zinnia/recognizer.cpp",
+    "handwriting/third_party/zinnia/scoped_ptr.h",
+    "handwriting/third_party/zinnia/sexp.cpp",
+    "handwriting/third_party/zinnia/sexp.h",
+    "handwriting/third_party/zinnia/stream_wrapper.h",
+    "handwriting/third_party/zinnia/zinnia.h"
+  ]
+}

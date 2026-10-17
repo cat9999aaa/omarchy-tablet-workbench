@@ -1,0 +1,13 @@
+__include: luna_pinyin.schema:/
+schema:
+  schema_id: omt_full
+  name: Omarchy 全拼
+  version: '0.1'
+  dependencies: []
+switches:
+  - name: ascii_mode
+    reset: 0
+  - name: simplification
+    reset: 1
+menu:
+  page_size: 6

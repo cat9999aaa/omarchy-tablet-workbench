@@ -1,0 +1,7 @@
+patch:
+  schema_list:
+    - schema: omt_t9
+    - schema: omt_full
+    - schema: omt_t9_private
+    - schema: omt_full_private
+  menu/page_size: 6

@@ -1,0 +1,26 @@
+__include: luna_pinyin.schema:/
+schema:
+  schema_id: omt_t9
+  name: Omarchy 九键拼音
+  version: '0.1'
+  dependencies: []
+speller:
+  alphabet: '23456789'
+  delimiter: " '"
+  algebra:
+    - xlit/abcdefghijklmnopqrstuvwxyz/22233344455566677778889999/
+translator:
+  dictionary: luna_pinyin
+  prism: omt_t9
+  enable_completion: true
+  spelling_hints: 20
+switches:
+  - name: ascii_mode
+    reset: 0
+  - name: simplification
+    reset: 1
+menu:
+  page_size: 6
+  alternative_select_keys: '!@#$%^&*('
+recognizer:
+  patterns: {}
