@@ -32,7 +32,7 @@ tests='''
   function buttons(item,list) {
    if(!item.visible)return
    if(item.minimumTouchHeight!==undefined)list.push(item)
-   for(var child of item.children)buttons(child,list)
+   for(var i=0;i<item.children.length;i++)buttons(item.children[i],list)
   }
   function test_pages(d){
    root.width=d.w;root.height=d.h;root.page=d.page;root.actions=[];root.snapshot={current:1,workspaces:Array.from({length:10},(_,i)=>({id:i+1,count:i})),windowLabel:"用于测试超长标题的窗口".repeat(20),bindings:{P1:"keyboard",P2:"voice",P3:"authorize",rotation:"navigation"},labels:{keyboard:"输入法",voice:"语音",authorize:"授权",navigation:"开始",desktops:"桌面",windows:"窗口",disabled:"不执行操作"}};wait(50)

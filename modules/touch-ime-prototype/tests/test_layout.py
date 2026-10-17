@@ -45,11 +45,11 @@ tests='''
    if(item.label!==undefined && item.triggered!==undefined) {
     var p=item.mapToItem(inputLayout,0,0)
     verify(item.width>0 && item.height>0,"key collapsed: "+item.label)
-    for(var child of item.children)if(child.paintedWidth!==undefined)verify(child.paintedWidth<=item.width-8,"key label overflow: "+item.label)
+    for(var i=0;i<item.children.length;i++){var child=item.children[i];if(child.paintedWidth!==undefined)verify(child.paintedWidth<=item.width-8,"key label overflow: "+item.label)}
     verify(p.x>=-1 && p.x+item.width<=inputLayout.width+1,"key horizontal overflow: "+item.label)
     verify(p.y>=-1 && p.y+item.height<=inputLayout.height+1,"key vertical overflow: "+item.label)
    }
-   for(var child of item.children)checkKeys(child)
+   for(var i=0;i<item.children.length;i++)checkKeys(item.children[i])
   }
   function test_display_matrix(d) {
    root.height=d.h;root.settingsOpen=d.panel==="settings";root.clearConfirmGeneration=d.panel==="clear"?1:-1
