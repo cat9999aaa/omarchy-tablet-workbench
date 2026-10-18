@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import stat
 import struct
+import subprocess
 
 from contract_host import ReadBudget, ReadDeadline, ReadFailure, boottime_ms
 from device_classifier import DeviceFacts, aggregate, classify, parse_bitmap
@@ -134,6 +135,8 @@ def collect_device_evidence(*, sysfs_root=Path('/sys'), runner=None, clock_ms=bo
             return aggregate(items, True, 'observed', elapsed)
     except ReadDeadline as exc:
         reason = 'read_cancelled' if str(exc) == 'read_cancelled' else 'read_timeout'
+    except subprocess.TimeoutExpired:
+        reason = 'read_timeout'
     except EvidenceError as exc:
         reason = str(exc)
     except PermissionError:

@@ -229,6 +229,9 @@ def status_readonly():
 
 def main():
     op=sys.argv[1] if len(sys.argv)==2 else ''
+    if op in ('mode-step','mode-preference-read','mode-preference-write','output-policy'):
+        from device_session import command
+        return command(op)
     if op=='device-evidence':
         from device_classifier import aggregate
         try:
