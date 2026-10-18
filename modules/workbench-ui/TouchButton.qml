@@ -8,8 +8,8 @@ Button {
  property bool selected:false
  property bool bordered:true
  property real minimumTouchHeight:themeTokens?Math.max(48,themeTokens.metrics.minimumTouchHeight):48
- font.family:themeTokens?themeTokens.font.family:Qt.application.font.family
- font.pixelSize:themeTokens?themeTokens.font.body:Qt.application.font.pixelSize
+ // Reset the Control font when tokens are removed so parent inheritance resumes.
+ font:themeTokens?Qt.font({family:themeTokens.font.family,pixelSize:themeTokens.font.body}):undefined
  implicitWidth:Math.max(96,contentItem.implicitWidth+leftPadding+rightPadding)
  implicitHeight:Math.max(minimumTouchHeight,contentItem.implicitHeight+topPadding+bottomPadding)
  leftPadding:themeTokens?themeTokens.metrics.paddingX:12;rightPadding:leftPadding

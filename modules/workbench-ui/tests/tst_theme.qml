@@ -5,6 +5,7 @@ import "../Theme.js" as Theme
 import ".." as WB
 TestCase {
  visible:true;name:"WorkbenchThemeCompatibility";when:windowShown;width:640;height:600
+ Component {id:parentComponent;Control {font.family:"monospace";font.pixelSize:29;font.bold:true}}
  Component {id:plainComponent;Button {text:"原生按钮"}}
  Component {id:buttonComponent;WB.TouchButton {width:200;text:"确认中文操作"}}
  Component {id:panelComponent;WB.PanelBody {width:320;height:300;title:"这是一个很长的中文控制面板标题";subtitle:"状态未知，请检查设备；此处允许换行";Rectangle {width:parent.width;height:1200}}}
@@ -16,7 +17,7 @@ TestCase {
   b.themeTokens=tokens();wait(10);compare(b.contentItem,label);compare(b.background,background)
   compare(b.font.pixelSize,24);verify(b.height>=48);compare(b.leftPadding,18)
   b.forceActiveFocus();mousePress(b,b.width/2,b.height/2);verify(b.down)
-  const next=tokens();next.colors.accent='#00ffff';b.themeTokens=next;wait(10)
+  const next=tokens();next.colors.accent='#00ffff';next.font.body=27;b.themeTokens=next;wait(10);compare(b.font.pixelSize,27)
   compare(b.contentItem,label);verify(b.down);verify(b.activeFocus)
   mouseRelease(b,b.width/2,b.height/2);compare(count,1)
   b.font.pixelSize=20;b.themeTokens=tokens();compare(b.font.pixelSize,20)
@@ -27,6 +28,16 @@ TestCase {
   const plain=createTemporaryObject(plainComponent,this);compare(b.font.pixelSize,plain.font.pixelSize);compare(b.font.family,plain.font.family)
   b.enabled=false;compare(b.contentItem.opacity,.45)
   b.themeTokens=tokens();compare(b.contentItem.opacity,.65)
+ }
+ function test_null_tokens_inherit_parent_font() {
+  const parentControl=createTemporaryObject(parentComponent,this)
+  const b=createTemporaryObject(buttonComponent,parentControl)
+  const plain=createTemporaryObject(plainComponent,parentControl)
+  compare(b.font.pixelSize,plain.font.pixelSize);compare(b.font.family,plain.font.family)
+  parentControl.font.pixelSize=33;compare(b.font.pixelSize,33)
+  b.themeTokens=tokens();compare(b.font.pixelSize,24);verify(b.font.bold)
+  b.themeTokens=null;compare(b.font.pixelSize,33);compare(b.font.family,plain.font.family)
+  parentControl.font.pixelSize=34;compare(b.font.pixelSize,34);verify(b.font.bold)
  }
  function test_typed_alpha_and_explicit_properties() {
   const b=createTemporaryObject(buttonComponent,this);verify(b!==null)
