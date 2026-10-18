@@ -34,7 +34,12 @@ if op=='observer':
  print('{"schema_version":1,"event":"ready","seq":0}',flush=True)
  time.sleep(30)
 elif op=='prepare-open':print('{"ok":true}')
-elif op=='mode-preference-read':json.load(sys.stdin);print('{"schema_version":1,"choice":"auto","reason_code":"ok"}')
+elif op=='mode-preference-read':
+ json.load(sys.stdin);p=root/'choice';print(json.dumps(dict(schema_version=1,choice=p.read_text() if p.exists() else 'auto',reason_code='ok')))
+elif op=='mode-preference-write':
+ d=json.load(sys.stdin)
+ if d['choice']=='desktop':print('{"schema_version":1,"saved":false}')
+ else:(root/'choice').write_text(d['choice']);print('{"schema_version":1,"saved":true}')
 elif op=='output-policy':json.load(sys.stdin);print('{"schema_version":1,"eligible":true}')
 elif op=='mode-step':json.load(sys.stdin);time.sleep(30)
 ''')
@@ -113,6 +118,18 @@ ShellRoot {
   }else if(harness.phase===5 && harness.second.mode.observerReady) {
    harness.first.route("gesture")
    if(!harness.check(harness.second.expanded&&harness.second.opened,"legacy-gesture"))return
+   harness.second.selectMode("tablet");harness.phase=7
+  }else if(harness.phase===7 && harness.second.mode.isStopped && harness.second.modeSaved) {
+   harness.second.close();harness.phase=8
+  }else if(harness.phase===8 && harness.second.mode.isStopped && !harness.second.opened) {
+   harness.second.open();harness.phase=9
+  }else if(harness.phase===9 && harness.second.opened && harness.second.modeInitialized) {
+   if(!harness.check(harness.second.modeChoice==="tablet"&&harness.second.mode.lastEffective==="tablet"&&harness.second.mode.isStopped,"manual-reopen"))return
+   harness.second.selectMode("desktop");harness.phase=10
+  }else if(harness.phase===10 && harness.second.activeSettings===null) {
+   if(!harness.check(!harness.second.modeSaved&&harness.second.mode.lastEffective==="desktop","save-failure-session"))return
+   harness.second.selectMode("auto");harness.phase=11
+  }else if(harness.phase===11 && harness.second.mode.observerReady) {
    harness.phase=6;console.log("B2_READY_REMOVE")
   }else if(harness.phase===6 && Quickshell.screens.length===1) {
    if(!harness.check(harness.second===null||!harness.second.opened,"destroy"))return
@@ -124,4 +141,4 @@ ShellRoot {
 '''
     path=temp/'ownership.qml';path.write_text(fixture)
     attachment_check(path,[helper,*[root/n for n in ('ModeSession.qml','ModeProtocol.js','ContractState.qml','ContractModel.js')]],
-                     ['ipc-target','transfer-reaped','close-current','legacy-gesture'],verify_children=True)
+                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session'],verify_children=True)

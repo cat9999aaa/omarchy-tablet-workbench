@@ -19,4 +19,12 @@ function flightView(data,now) {
  const verified=entertainment&&fresh&&data.flight_active===true;
  return {entertainment:entertainment,verified:verified,label:verified?"无线关闭已确认":entertainment?(data.flight_error||"无线状态待确认") : "尚未开启"};
 }
-if(typeof module!=="undefined")module.exports={layout,displayField,canOpen,commitSlider,booleanState,flightView};
+function selectLayout(suggested,current,guards) {
+ if(["tablet","desktop"].indexOf(suggested)<0 || guards.confirmation || guards.action || guards.pointer)return current;
+ return suggested;
+}
+function modeLabel(choice,health,effective,saved) {
+ const label=choice==="auto"&&health!=="observed"?"设备模式待确认":(choice==="auto"?"自动 · ":"手动 · ")+(effective==="desktop"?"桌面布局":"平板布局");
+ return label+(saved?"":" · 未保存");
+}
+if(typeof module!=="undefined")module.exports={selectLayout,modeLabel,layout,displayField,canOpen,commitSlider,booleanState,flightView};
