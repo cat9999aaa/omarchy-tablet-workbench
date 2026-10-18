@@ -47,7 +47,7 @@ sudo python3 /usr/local/libexec/pcadmin-touch-mode.py normal
 不记录输入坐标、笔迹或设备序列号。
 
 来源：本机排障原型，源码权威保留在本机管理项目的tools/touch-mode；此目录为脱敏同步副本。
-厂商二进制、固件、个人管理档案不随仓库分发。仓库整体许可证仍待选择。
+厂商二进制、固件、个人管理档案不随仓库分发。本项目原创源码随仓库以 GPL-3.0-only 发布，厂商原件不包含在该授权中。
 
 - [戴尔官方 TouchMode A06](https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=jxxy8)
 - [EETI Linux 驱动](https://www.eeti.com/drivers_Linux.html)
