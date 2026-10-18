@@ -22,3 +22,5 @@ __pycache__/
 
 .worktrees/
 .superpowers/
+
+/modules/proxy-manager/target/
