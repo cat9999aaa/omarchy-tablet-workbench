@@ -47,6 +47,9 @@ else:
  if name in ('late','changed'):
   signal.signal(signal.SIGTERM,signal.SIG_IGN);time.sleep(.3)
   if count==1:response['mode']['effective']='tablet'
+ if name=='paused':
+  consumer=os.getppid();os.kill(consumer,signal.SIGSTOP)
+  time.sleep(3);os.kill(consumer,signal.SIGCONT)
  if name=='truncated':print('{');raise SystemExit()
  if name=='oversize':print('x'*65537);raise SystemExit()
  if name=='bounded':response['mode']['health']='unknown';response['mode']['reason_code']='debouncing';response['confirm_after_ms']=1
@@ -58,7 +61,7 @@ else:
 import Quickshell
 ShellRoot {
  id:root
- property var cases:["success","nonzero","truncated","oversize","ready-lost","exit-before-ready","cancel","timeout","late","changed","bounded"]
+ property var cases:["success","nonzero","truncated","oversize","ready-lost","exit-before-ready","cancel","timeout","late","changed","bounded","paused"]
  property int index:0
  property int ticks:0
  property bool closing:false
@@ -110,7 +113,7 @@ ShellRoot {
         text = result.stdout+result.stderr
         print(text[-8000:])
         assert result.returncode == 0 and 'MODE_COMPLETE' in text and 'MODE_FAILED' not in text
-        for name in ('success','nonzero','truncated','oversize','ready-lost','exit-before-ready','cancel','timeout','late','changed','bounded'):
+        for name in ('success','nonzero','truncated','oversize','ready-lost','exit-before-ready','cancel','timeout','late','changed','bounded','paused'):
             assert 'MODE_PASSED '+name+' ' in text, name
         assert (root/'calls-bounded').read_text() == '4'
         assert (root/'calls-changed').read_text() == '2'
@@ -122,7 +125,7 @@ ShellRoot {
             except ProcessLookupError:
                 continue
             raise AssertionError('test-owned child remains: '+pid)
-        print('11 real mode transport cases passed; all child PIDs reaped')
+        print('12 real mode transport cases passed; all child PIDs reaped')
 
 
 if __name__=='__main__':

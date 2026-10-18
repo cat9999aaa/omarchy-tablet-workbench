@@ -86,6 +86,33 @@ class PreferenceTests(unittest.TestCase):
             p.stdout.close()
         self.assertEqual(read_preference('eDP-1')['choice'],'tablet')
 
+    def test_directory_replacement_during_sync_preserves_old(self):
+        self.assertTrue(write_preference('eDP-1','tablet')['saved']);old=self.file.read_bytes()
+        original=os.fsync
+        moved=self.base/'detached'
+        def replace_parent(fd):
+            original(fd)
+            if not moved.exists():
+                self.file.parent.rename(moved)
+                self.file.parent.symlink_to(moved,target_is_directory=True)
+        with patch('device_session.os.fsync',side_effect=replace_parent):
+            self.assertFalse(write_preference('eDP-1','desktop')['saved'])
+        self.assertEqual((moved/'modes.json').read_bytes(),old)
+
+    def test_directory_replacement_after_commit_rolls_back(self):
+        self.assertTrue(write_preference('eDP-1','tablet')['saved']);old=self.file.read_bytes()
+        original=os.fsync;calls=0;moved=self.base/'detached'
+        def replace_parent(fd):
+            nonlocal calls
+            original(fd);calls+=1
+            if calls==3:
+                self.file.parent.rename(moved)
+                self.file.parent.mkdir(mode=0o700)
+        with patch('device_session.os.fsync',side_effect=replace_parent):
+            self.assertFalse(write_preference('eDP-1','desktop')['saved'])
+        self.assertEqual((moved/'modes.json').read_bytes(),old)
+        self.assertEqual(list(self.file.parent.iterdir()),[])
+
     def test_directory_sync_failure_restores_old_file(self):
         self.assertTrue(write_preference('eDP-1','tablet')['saved']);old=self.file.read_bytes()
         original=os.fsync

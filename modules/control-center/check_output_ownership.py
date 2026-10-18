@@ -25,7 +25,18 @@ from pathlib import Path
 root=Path(__file__).parent
 op=sys.argv[1]
 if op=='observer':
- with (root/'events').open('a') as f:f.write('start '+str(os.getpid())+'\\n')
+ # A destroyed QML owner may SIGKILL; record kernel-confirmed exit before retry.
+ events=root/'events';active=set()
+ if events.exists():
+  for row in events.read_text().splitlines():
+   event,pid=row.split()
+   if event=='start':active.add(pid)
+   else:active.discard(pid)
+ for pid in active:
+  try:os.kill(int(pid),0)
+  except ProcessLookupError:
+   with events.open('a') as f:f.write('end '+pid+'\\n')
+ with events.open('a') as f:f.write('start '+str(os.getpid())+'\\n')
  def stop(*a):
   time.sleep(.2)
   with (root/'events').open('a') as f:f.write('end '+str(os.getpid())+'\\n')
@@ -130,10 +141,15 @@ ShellRoot {
    if(!harness.check(!harness.second.modeSaved&&harness.second.mode.lastEffective==="desktop","save-failure-session"))return
    harness.second.selectMode("auto");harness.phase=11
   }else if(harness.phase===11 && harness.second.mode.observerReady) {
-   harness.phase=6;console.log("B2_READY_REMOVE")
-  }else if(harness.phase===6 && Quickshell.screens.length===1) {
+   harness.first.open();harness.phase=6;console.log("B2_READY_REMOVE")
+  }else if(harness.phase===6 && Quickshell.screens.length===1 && !harness.first.transferPending) {
    if(!harness.check(harness.second===null||!harness.second.opened,"destroy"))return
    if(!harness.check(harness.first!==null&&!harness.first.opened&&harness.first.mode.isStopped,"no-migration"))return
+   harness.first.open();harness.phase=12
+  }else if(harness.phase===12 && harness.first.mode.observerReady) {
+   if(!harness.check(harness.first.opened,"retry-after-destroy"))return
+   harness.first.close();harness.phase=13
+  }else if(harness.phase===13 && harness.first.mode.isStopped) {
    console.log("B2_COMPLETE");Qt.quit()
   }
  }}
@@ -141,4 +157,4 @@ ShellRoot {
 '''
     path=temp/'ownership.qml';path.write_text(fixture)
     attachment_check(path,[helper,*[root/n for n in ('ModeSession.qml','ModeProtocol.js','ContractState.qml','ContractModel.js')]],
-                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session'],verify_children=True)
+                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy'],verify_children=True)

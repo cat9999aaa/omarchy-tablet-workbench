@@ -35,6 +35,11 @@ Ui.Panel {
  property int routeEpoch: 0
  property bool transferPending: false
  property var transferCallbacks: []
+ onTransferPendingChanged:if(transferPending)transferDeadline.restart();else transferDeadline.stop()
+ Timer {
+  id:transferDeadline;interval:3000
+  onTriggered:if(root.transferPending){root.routeEpoch++;root.transferPending=false;root.feedback="屏幕转交已取消，请重试"}
+ }
  property bool destroying: false
  property var hostScreen: null
  readonly property var attachedScreen: {

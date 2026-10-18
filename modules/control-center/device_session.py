@@ -129,6 +129,16 @@ def _regular(fd):
         raise ValueError('unsafe_state')
 
 
+def _verify_directory(directory):
+    current = _directory(_state_dir())
+    try:
+        a, b = os.fstat(current), os.fstat(directory)
+        if (a.st_dev, a.st_ino) != (b.st_dev, b.st_ino):
+            raise ValueError('state_changed')
+    finally:
+        os.close(current)
+
+
 @contextmanager
 def _store():
     path = _state_dir()
@@ -147,14 +157,7 @@ def _store():
                 if time.monotonic() >= deadline:
                     raise ValueError('state_busy')
                 time.sleep(.01)
-        # Re-open without following any ancestor link after acquiring the lock.
-        current = _directory(path)
-        try:
-            a, b = os.fstat(current), os.fstat(directory)
-            if (a.st_dev, a.st_ino) != (b.st_dev, b.st_ino):
-                raise ValueError('state_changed')
-        finally:
-            os.close(current)
+        _verify_directory(directory)
         yield directory
     finally:
         if lock is not None:
@@ -244,10 +247,12 @@ def write_preference(output_key, choice):
                         raise OSError('write_failed')
                     view = view[count:]
                 os.fsync(fd)
+                _verify_directory(directory)
                 os.replace(temporary, 'modes.json', src_dir_fd=directory, dst_dir_fd=directory)
                 replaced = True
                 os.fsync(directory)
-            except OSError:
+                _verify_directory(directory)
+            except (OSError, ValueError):
                 if replaced:
                     try:
                         if had_old:

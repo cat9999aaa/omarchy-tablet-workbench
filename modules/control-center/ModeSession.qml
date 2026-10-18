@@ -31,6 +31,21 @@ QtObject {
     signal stopped()
     onIsStoppedChanged: if(isStopped) { stopped(); Qt.callLater(pump) }
 
+    // Kernel uptime includes suspend; never infer trusted age from wall-clock time.
+    property bool clockReadFailed:false
+    property FileView bootClock: FileView {
+        path:"/proc/uptime";preload:false;blockLoading:true;blockAllReads:true;printErrors:false
+        onLoadFailed:root.clockReadFailed=true
+    }
+    function bootMilliseconds() {
+        clockReadFailed=false
+        bootClock.reload()
+        bootClock.waitForJob()
+        const text=bootClock.text()
+        if(clockReadFailed)return NaN
+        if(!/^[0-9]+\.[0-9]+ [0-9]+\.[0-9]+\n?$/.test(text))return NaN
+        return Number(text.split(" ")[0])*1000
+    }
     function validChoice(value) { return ["auto","tablet","desktop"].indexOf(value)>=0 }
     function begin(eligible, selection, effective) {
         if (!isStopped || sessionOpen || !validChoice(selection)) return false
@@ -70,7 +85,7 @@ QtObject {
         if(!observerReady || !dirty || debounce.running || confirm.running || request!==null)return
         if(samplesUsed>=4){dirty=false;return}
         dirty=false;samplesUsed++;requestSequence++
-        request=requestFactory.createObject(root,{epoch:generation,seq:observerSeq,token:requestSequence,
+        request=requestFactory.createObject(root,{epoch:generation,seq:observerSeq,token:requestSequence,startedBootMs:bootMilliseconds(),
             payload:JSON.stringify({choice:choice,last_effective:lastEffective,pending:pending})})
         if(!request){fail("read_failed");return}
         request.running=true
@@ -96,6 +111,8 @@ QtObject {
     function accept(child, text, code) {
         if(child.cancelled || child.epoch!==generation || child.seq!==observerSeq || child.token!==requestSequence
             || !sessionOpen || !observerReady || choice!=="auto")return
+        const age=bootMilliseconds()-child.startedBootMs
+        if(!isFinite(age)||age<0||age>2000){fail("observation_gap");return}
         const value=code===0?Protocol.response(text):null
         if(!value){fail("read_failed");return}
         pending=value.mode.pending;health=value.mode.health;reason=value.mode.reason_code
@@ -146,6 +163,7 @@ QtObject {
             required property int epoch
             required property double seq
             required property int token
+            required property double startedBootMs
             required property string payload
             property bool cancelled:false
             property bool started:false
