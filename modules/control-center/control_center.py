@@ -229,6 +229,13 @@ def status_readonly():
 
 def main():
     op=sys.argv[1] if len(sys.argv)==2 else ''
+    if op=='device-evidence':
+        from device_classifier import aggregate
+        try:
+            from device_evidence import collect_device_evidence
+            return collect_device_evidence()
+        except Exception:
+            return aggregate([], False, 'read_failed', 0)
     if op=='status':return status()
     if op=='status-readonly':return status_readonly()
     if op=='lock-state':return {'locked':read_lock()}

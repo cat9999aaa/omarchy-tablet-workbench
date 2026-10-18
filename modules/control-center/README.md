@@ -71,3 +71,11 @@ Python适配器/调度/手势协议/入口回退、JS几何/状态、TouchMode�
 温度与触摸只显示经固定契约验证的最近一次采样结果；未知/失败不附温度单位，不以UTC回拨恢复已知状态。5秒刷新开始时清除这两项旧显示，关闭/锁屏使请求代次失效，20秒超时取消本次读取。原白名单动作及未知时的触摸刷新入口保留。采样后的连续实时年龄与真实休眠恢复尚需实体对照，不能从QML定时器推定。
 
 远程纯Qt测试运行 `tests/tst_contractstate.qml` 与实际Panel布局提取检查 `check_panel_layout.py`；安装Quickshell的隔离构建机另运行 `check_read_transport.py`，验证真实Process的成功、非零退出、超限、截断、锁屏、取消和20秒超时。后者不要求普通Qt CI安装完整桌面。
+
+## B1：按需设备证据（软件候选）
+
+`python3 modules/control-center/control_center.py device-evidence` 独立读取 sysfs 能力与 udev 白名单属性。输出固定 schema JSON；`complete=false` 表示枚举不完整，存在性字段为 `null`，不能当作没有键盘。未知来源候选保持 `unknown`，不说明硬件损坏。`tablet_switch_capability` 只表示开关能力，不能当作当前模式。
+
+最多128个event节点、单文件/udev输出16KiB、共享5秒用户态预算；仅回收该请求创建的进程。正常与失败通过 health/reason_code 区分，参数错误退出非零；不输出设备身份或输入正文，不打开输入事件流。无新依赖/服务，不进入原status轮询。
+
+`device_mode.reduce_mode` 提供纯模式建议，手动选择优先；自动desktop/tablet分别稳定500/1000ms，观察间断超过2秒清空候选。该库不读取时钟、持久化偏好或实际改变布局。B2布局/输出接入及真实USB/蓝牙/Pogo插拔仍待实施/验收；本批不安装到生产。

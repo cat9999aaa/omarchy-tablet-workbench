@@ -158,7 +158,10 @@ class ReadDeadline(ReadFailure):
 
 
 class ReadBudget:
-    def __init__(self, limit_ms=20000, clock_ms=boottime_ms):
+    def __init__(self, limit_ms=20000, clock_ms=boottime_ms, max_bytes=MAX_BYTES):
+        if type(max_bytes) is not int or not 0 < max_bytes <= MAX_BYTES:
+            raise ValueError("invalid read limit")
+        self.max_bytes = max_bytes
         self.limit_ms = limit_ms
         self.clock_ms = clock_ms
         self.started = finite_nonnegative(clock_ms())
@@ -219,13 +222,13 @@ class ReadBudget:
                     if age is None or age >= timeout_s * 1000:
                         raise subprocess.TimeoutExpired(argv, timeout_s)
                     for key, events in selector.select(min(.1, remaining, timeout_s - age / 1000)):
-                        chunk = os.read(key.fd, MAX_BYTES + 1 - len(output))
+                        chunk = os.read(key.fd, self.max_bytes + 1 - len(output))
                         if not chunk:
                             selector.unregister(key.fileobj)
                             eof = True
                         else:
                             output.extend(chunk)
-                            if len(output) > MAX_BYTES:
+                            if len(output) > self.max_bytes:
                                 raise ReadFailure('read_output_too_large')
             self.remaining_s()
             if process.returncode:
