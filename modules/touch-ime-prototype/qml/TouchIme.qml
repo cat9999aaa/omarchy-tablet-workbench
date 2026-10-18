@@ -3,11 +3,28 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.Commons
 
 Item {
     id: root
     property var state: ({ visible: false, focused: false, generation: 0, candidates: [], preedit: "", mode: "t9", voicePhase: "idle", voiceText: "", sensitive: false, error: "" })
+    // Use the same event-driven toplevel API as Omarchy's active-window widget.
+    // Object identity changes on window switches; no titles/input text are read.
+    readonly property var activeWindow: ToplevelManager.activeToplevel
+    property int surfaceEpoch: 1
+    function syncSurface() {
+        root.send({op: "surface", epoch: root.surfaceEpoch, valid: !!root.activeWindow})
+    }
+    onActiveWindowChanged: { ++surfaceEpoch; syncSurface() }
+    // Hyprland emits an empty activewindowv2 when session lock clears seat
+    // focus, including when the application editor was already unfocused.
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if(event.name === "activewindowv2" && event.data === "")root.send({op:"hide"})
+        }
+    }
     property bool uppercase: false
     property bool settingsOpen: false
     property int clearConfirmGeneration: -1
@@ -21,7 +38,17 @@ Item {
         if(localScope) {root.send({op:"clear"});handPad.reset()}
         else root.clearConfirmGeneration=root.state.generation
     }
-    onStateChanged: if(clearConfirmGeneration>=0 && clearConfirmGeneration!==root.state.generation)clearConfirmGeneration=-1
+    onStateChanged: {
+        if(clearConfirmGeneration>=0 && clearConfirmGeneration!==root.state.generation)clearConfirmGeneration=-1
+        // A lock transition normally clears the active toplevel. Also check the
+        // official lock service on blur, without a timer or idle polling.
+        if(root.state.visible && !root.state.focused && !lockProbe.running)lockProbe.running=true
+    }
+    Process {
+        id: lockProbe
+        command: ["omarchy-shell", "lock", "isLocked"]
+        stdout: SplitParser { onRead: line => { if(line.trim()==="true")root.send({op:"hide"}) } }
+    }
     readonly property bool inputActive: root.state.visible===true && root.state.focused===true && root.state.voicePhase==="idle"
     property int panelWidth: 440
     readonly property string projectDir: Quickshell.env("HOME") + "/Projects/pcadmin/tools/omarchy-touch-ime"
@@ -31,7 +58,7 @@ Item {
     readonly property color buttonBg: Qt.lighter(Color.background,1.45)
     readonly property color accent: Color.accent
     function send(action) {
-        if (!backend.running) return
+        if (!backend || !backend.running) return
         action.generation = root.state.generation || 0
         backend.write(JSON.stringify(action) + "\n")
     }
@@ -42,7 +69,7 @@ Item {
         function toggle(): void { root.send({op: "toggle"}) }
         function show(): void { root.send({op: "show"}) }
         function hide(): void { root.send({op: "hide"}) }
-        function version(): string { return "0.2.5" }
+        function version(): string { return "0.2.6" }
         function voice(): void { if(!root.state.visible)root.send({op:"show"});root.send({op:"voice"}) }
         function ready(): bool { return backend.running && (root.state.generation || 0) > 0 }
     }
@@ -51,6 +78,7 @@ Item {
         command: [root.projectDir + "/build/omt-backend",
                   root.projectDir + "/rime",
                   Quickshell.env("HOME") + "/.local/share/pcadmin-touch-ime/rime"]
+        onRunningChanged: if(running)root.syncSurface()
         stdinEnabled: true
         running: true
         stdout: SplitParser { onRead: line => { try { root.state = JSON.parse(line) } catch (_) {} } }

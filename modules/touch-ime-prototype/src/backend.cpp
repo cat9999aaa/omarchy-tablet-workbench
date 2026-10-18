@@ -43,6 +43,8 @@ class Backend : public QObject {
     uint32_t generation_ = 0, voiceGeneration_ = 0;
     uint32_t context_ = 0;
     bool focused_ = false, sensitive_ = false, visible_ = false, noKeyboard_ = false;
+    bool surfaceKnown_ = false, surfaceValid_ = false, surfaceFocusPending_ = false;
+    int surfaceEpoch_ = 0;
     bool editingVoice_ = false;
     QString mode_ = "t9", error_, voiceText_, voicePhase_ = "idle";
     QProcess recorder_, recognizer_;
@@ -81,7 +83,7 @@ class Backend : public QObject {
     QTimer voiceLimit_, recognitionLimit_, stopLimit_;
     std::unique_ptr<QTemporaryDir> audioDir_;
     QByteArray input_, lastState_;
-    bool current(uint32_t expected) const { return omt::validTarget(expected, generation_, focused_, focusLossHide_.isActive()); }
+    bool current(uint32_t expected) const { return (!surfaceKnown_ || (surfaceValid_ && visible_ && !surfaceFocusPending_)) && omt::validTarget(expected, generation_, focused_, focusLossHide_.isActive()); }
     bool commitTarget(const QString &text) {
         if(visible_ && sensitive_ && frontend_.startsWith("wayland"))sensitiveCommit_.start();
         auto r = focusLink_.call("Commit", {bridgeGeneration_, text});
@@ -217,9 +219,16 @@ public:
     ~Backend() override {cancelVoice();clearHandwriting(true);}
 
     void applyFocus(const QJsonObject &s, quint64 epoch) {
+        // A compositor switch revokes the old snapshot until a new signal or
+        // explicit post-switch State reply confirms the input service target.
+        surfaceFocusPending_ = false;
         const bool mayHold=!s.value("focused").toBool() && epoch==ownerEpoch_
             && omt::holdPasswordPanel(visible_,sensitive_,frontend_.startsWith("wayland"),
                 sensitiveCommit_.isValid()?sensitiveCommit_.elapsed():-1,shortcutTarget_);
+        // Presentation belongs to the explicitly opened compositor surface.
+        // Focus loss still revokes input immediately and clears pending work.
+        const bool keepSurface = surfaceKnown_ && surfaceValid_ && visible_
+            && epoch==ownerEpoch_ && !s.isEmpty() && !s.value("noKeyboard").toBool();
         const auto previousTarget=shortcutTarget_;
         frontend_=s.value("frontend").toString();
         const auto next=uint32_t(s.value("generation").toInt());
@@ -232,7 +241,8 @@ public:
             sensitive_=s.value("sensitive").toBool();noKeyboard_=s.value("noKeyboard").toBool();
             // Only explicit P1/manual actions open the panel.
             if(!focused_ || noKeyboard_) {
-                if(mayHold && !noKeyboard_) {heldPasswordTarget_=previousTarget;focusLossHide_.start();}
+                if(keepSurface && !noKeyboard_) {focusLossHide_.stop();heldPasswordTarget_={};}
+                else if(mayHold && !noKeyboard_) {heldPasswordTarget_=previousTarget;focusLossHide_.start();}
                 else {visible_=false;focusLossHide_.stop();heldPasswordTarget_={};}
             } else if(focusLossHide_.isActive() && (!sensitive_ || !frontend_.startsWith("wayland"))) {
                 visible_=false;focusLossHide_.stop();heldPasswordTarget_={};
@@ -250,7 +260,7 @@ public:
         if(mode_=="handwriting"){for(auto &c:handwritingCandidates_)candidates.append(c);e.preedit="";}
         else for(auto &c:e.candidates)candidates.append(QString::fromStdString(c));
         QJsonArray phraseArray;for(auto &p:phrases_)phraseArray.append(p);
-        QJsonObject s{{"editingPhrase",editingPhrase_},{"phraseDraft",phraseDraft_},{"phrases",phraseArray},{"learning",learning_},{"notice",notice_},{"handwritingRevision",handwritingRevision_},{"generation",int(generation_)},{"focused",focused_ && !focusLossHide_.isActive()},{"sensitive",sensitive_ || focusLossHide_.isActive()},
+        QJsonObject s{{"editingPhrase",editingPhrase_},{"phraseDraft",phraseDraft_},{"phrases",phraseArray},{"learning",learning_},{"notice",notice_},{"handwritingRevision",handwritingRevision_},{"generation",int(generation_)},{"focused",focused_ && !surfaceFocusPending_ && !focusLossHide_.isActive()},{"sensitive",sensitive_ || focusLossHide_.isActive()},
             {"visible",visible_},{"mode",mode_},{"preedit",QString::fromStdString(e.preedit)},
             {"candidates",candidates},{"page",e.page},{"lastPage",e.lastPage},{"error",error_},{"voicePhase",voicePhase_},{"voiceText",voiceText_},{"editingVoice",editingVoice_}};
         auto data=QJsonDocument(s).toJson(QJsonDocument::Compact);
@@ -258,8 +268,25 @@ public:
     }
     void action(const QJsonObject &a) {
         auto op=a.value("op").toString();error_.clear();
+        if(op=="surface") {
+            // This event comes from our own QML frontend over private stdin.
+            // Never use it to acquire Fcitx focus or open a hidden panel.
+            const int next=a.value("epoch").toInt(-1);
+            const bool valid=a.value("valid").isBool() && a.value("valid").toBool();
+            if(next<0 || (surfaceKnown_ && next<surfaceEpoch_))return;
+            const bool changed=surfaceKnown_ && next!=surfaceEpoch_;
+            surfaceKnown_=true;surfaceEpoch_=next;surfaceValid_=valid;
+            if(changed || !valid) {
+                ++generation_;visible_=false;surfaceFocusPending_=true;focusLossHide_.stop();heldPasswordTarget_={};
+                captureShortcutTarget();editingPhrase_=false;phraseDraft_.clear();
+                cancelVoice();clearHandwriting(true);engine_.clear();
+                // refresh invalidates older in-flight queries in FocusLink.
+                if(valid)focusLink_.refresh();
+            }
+            publish();return;
+        }
         if(op=="hide") {visible_=false;focusLossHide_.stop();heldPasswordTarget_={};captureShortcutTarget();editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);publish();return;}
-        if(op=="show" || op=="toggle") {if(!focused_)focusLink_.refresh();visible_=op=="show"?true:!visible_;focusLossHide_.stop();heldPasswordTarget_={};captureShortcutTarget();if(!visible_){editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);}publish();return;}
+        if(op=="show" || op=="toggle") {if(surfaceKnown_ && !surfaceValid_){visible_=false;error_="请先返回要输入的应用窗口";publish();return;}if(!focused_)focusLink_.refresh();visible_=op=="show"?true:!visible_;focusLossHide_.stop();heldPasswordTarget_={};captureShortcutTarget();if(!visible_){editingPhrase_=false;phraseDraft_.clear();cancelVoice();clearHandwriting(true);}publish();return;}
         if(!current(uint32_t(a.value("generation").toInt()))) {error_="请先点选输入框";publish();return;}
         if(voicePhase_!="idle" && op!="voice") {error_="请先结束语音识别";publish();return;}
         if(op=="phraseStart" && !sensitive_) {engine_.clear();cancelVoice();editingPhrase_=true;phraseDraft_.clear();}
