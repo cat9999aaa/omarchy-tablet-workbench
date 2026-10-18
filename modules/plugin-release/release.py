@@ -9,6 +9,7 @@ PROFILES={
  'network':('.network','omarchy.network','travelVersion',False),
  'battery':('.power','omarchy.power','workbenchState',True),
  'control':('pcadmin.control-center','pcadmin.controlCenter','state',True),
+ 'navigation':('pcadmin.navigation','pcadmin.navigation','state',True),
 }
 def sha(data):return hashlib.sha256(data).hexdigest()
 def no_links(path):
@@ -87,7 +88,7 @@ class ReleaseManager:
   if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,100}',plugin_id) or '..' in plugin_id:raise ReleaseError('Invalid plugin id')
   if profile not in PROFILES:raise ReleaseError('Unknown runtime profile')
   suffix=PROFILES[profile][0]
-  if (plugin_id!=suffix if profile=='control' else not plugin_id.endswith(suffix)):raise ReleaseError('Profile does not match plugin')
+  if (plugin_id!=suffix if profile in ('control','navigation') else not plugin_id.endswith(suffix)):raise ReleaseError('Profile does not match plugin')
   plug=self.plugins/plugin_id;no_links(plug)
   if not plug.is_dir():raise ReleaseError('Only existing installed plugins may be updated')
   no_links(plug/'manifest.json')

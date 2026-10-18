@@ -41,6 +41,30 @@ class Releases(unittest.TestCase):
    return 'true'
   raise AssertionError('Unexpected command: '+repr(args))
  def apply(self):return self.manager.apply(self.bundle,'test.touchime','ime')
+ def navigation_fixture(self):
+  target=self.plugins/'pcadmin.navigation';self.plugin.rename(target);self.plugin=target
+  self.old={**self.old,'id':'pcadmin.navigation'};self.new={**self.new,'id':'pcadmin.navigation'}
+  (self.plugin/'manifest.json').write_text(json.dumps(self.old))
+  (self.bundle/'manifest.json').write_text(json.dumps(self.new))
+  def command(args):
+   if args==['omarchy-shell','pcadmin.navigation','state']:
+    self.calls.append(args);return json.dumps({'version':self.live})
+   return self.run_command(args)
+  self.manager.runner=command
+ def test_navigation_publish_and_rollback_use_existing_state_probe(self):
+  self.navigation_fixture()
+  result=self.manager.apply(self.bundle,'pcadmin.navigation','navigation')
+  self.assertEqual(result['status'],'applied');self.assertEqual(self.live,'2.0')
+  result=self.manager.rollback('pcadmin.navigation',result['transaction'],'navigation')
+  self.assertEqual(result['status'],'rolled-back');self.assertEqual(self.live,'1.0')
+  self.assertEqual(json.loads((self.plugin/'manifest.json').read_text()),self.old)
+  self.assertIn(['omarchy-shell','pcadmin.navigation','state'],self.calls)
+  self.assertFalse(any(args[1]=='omtInput' for args in self.calls))
+ def test_navigation_profile_rejects_other_plugin_with_matching_suffix(self):
+  self.navigation_fixture();other=self.plugins/'other.pcadmin.navigation';other.mkdir()
+  (other/'manifest.json').write_text(json.dumps({**self.old,'id':other.name}))
+  (other/'old.qml').write_text('other plugin')
+  with self.assertRaises(ReleaseError):self.manager.identity(other.name,'navigation')
  def test_apply_and_explicit_rollback_keep_old_files(self):
   result=self.apply();self.assertEqual(result['status'],'applied')
   self.assertEqual(self.live,'2.0');self.assertEqual((self.plugin/'old.qml').read_text(),'old release')

@@ -1,6 +1,8 @@
 # 工作台插件版本发布与恢复
 
-用于已经安装的 Omarchy 用户插件：触屏输入法、网络中心、电池面板、控制台。低频运行，无常驻服务。首次安装仍走 Omarchy 官方流程。
+用于已经安装的 Omarchy 用户插件：触屏输入法、网络中心、电池面板、控制台和平板导航。低频运行，无常驻服务。首次安装仍走 Omarchy 官方流程。
+
+导航使用 `--plugin-id pcadmin.navigation --profile navigation`，通过现有 `pcadmin.navigation state` IPC 的 JSON `version` 字段核对运行版本；仅接受该固定插件 ID。测试中的发布和恢复不代表导航已在真实桌面升级或回退。
 
 提供 `pack`、只读 `plan`、`apply` 和 `rollback`。候选包由 `manifest.json`、`files.json` 与 `files/` 组成，入口在 files 内相对定位；来源需可信。摘要用于检查完整性，不是签名，也不把插件代码变成安全沙箱。当前不打包后端二进制，不迁移私人数据库，不升级系统服务、启动镜像或代理核心。
 
