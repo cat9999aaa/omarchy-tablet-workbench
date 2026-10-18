@@ -15,3 +15,5 @@ pub mod transaction;
 
 pub mod core_cli;
 pub mod runtime;
+pub mod update;
+pub mod update_cli;

@@ -30,7 +30,7 @@ def execute(root, job_id, phase):
         raise ValueError('scope: explicit non-symlink build root required')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9-]{0,63}', job_id):
         raise ValueError('job: invalid identifier')
-    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve', 'coretest', 'format-write'):
+    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve', 'coretest', 'format-write', 'updates'):
         raise ValueError('phase: unsupported operation')
     job = checked(root, 'jobs/'+job_id)
     source = checked(root, 'jobs/'+job_id+'/source')
@@ -64,8 +64,11 @@ def execute(root, job_id, phase):
         'test': [['--chdir','/work/modules/proxy-manager','cargo','test','--no-fail-fast','--locked','--offline','-j2'],
                  ['--chdir','/work','python','scripts/remote-build/test_proxy_build.py'],
                  ['--chdir','/work','python','modules/proxy-manager/tests/test_owned_core.py'],
+                 ['--chdir','/work','python','scripts/test_proxy_upstream.py'],
+                 ['--chdir','/work','python','scripts/check_proxy_workflows.py'],
                  ['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],
         'build': [['--chdir','/work/modules/proxy-manager','cargo','build','--release','--locked','--offline','-j2']],
+        'updates': [['--chdir','/work','python','scripts/test_proxy_upstream.py']],
         'coretest': [['--chdir','/work','python','modules/proxy-manager/tests/network_namespace.py']],
         'qml': [['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],
         'format-write': [['--chdir','/work/modules/proxy-manager','cargo','fmt']],

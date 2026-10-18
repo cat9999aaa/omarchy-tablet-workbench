@@ -123,6 +123,18 @@ fn main() {
         }
         return;
     }
+    if args.get(1).map(String::as_str) == Some("updates") && args.len() == 3 {
+        let mut input = Vec::new();
+        let _ = io::stdin().take(1025).read_to_end(&mut input);
+        match omt_proxy::update_cli::run(std::path::Path::new(&args[2]), &input) {
+            Ok(v) => println!("{}", v),
+            Err(e) => {
+                println!("{}", json!({"error_code":e}));
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

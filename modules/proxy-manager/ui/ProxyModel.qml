@@ -31,6 +31,12 @@ QtObject {
  function selectNode(id){draft=Object.assign({},draft,{node_id:id,dirty:true,mode:draft.mode||"rules",base_revision:catalog.revision,rules:draft.rules||[]})}
  function selectMode(mode){if(["rules","global","direct"].indexOf(mode)<0)return;draft=Object.assign({},draft,{mode:mode,dirty:true,base_revision:catalog.revision,rules:draft.rules||[]})}
  function saveRoutingDraft(){if(!draft.node_id)return;catalogAction({action:"routing-preview",draft:{mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[]}})}
+ property var updates:({observed_at:null,proposals:[],checks:[]})
+ property bool updatesPending:false
+ property string updatesFeedback:""
+ signal updatesRequested(var command)
+ function updateAction(action){if(updatesPending)return;updatesPending=true;updatesFeedback="正在读取更新信息…";updatesRequested({action:action})}
+ function acceptUpdates(value){updatesPending=false;if(value.error_code){updatesFeedback=({metered_or_unknown:"4G 或出口未知，已延后在线检查",flight_or_unknown:"飞行模式或状态未知，已暂停检查",update_check_failed:"未能获取上游信息，保留当前版本"})[value.error_code]||"更新信息暂不可用";return}updates=value;updatesFeedback="只生成更新提案；核心仍按 Omarchy → Arch 渠道维护"}
  signal requested(var command)
  function known(field){return !!field&&field.health==="observed"&&field.value!==null&&now-field.observed_at>=0&&now-field.observed_at<=45}
  function allowed(action){return !readOnly&&!pending&&(snapshot.capabilities||[]).indexOf(action)>=0}
