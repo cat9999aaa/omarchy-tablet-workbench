@@ -15,6 +15,12 @@ class HealthCacheTests(unittest.TestCase):
             cache = home / '.local/state/pcadmin-network/health.json'
             cache.parent.mkdir(parents=True)
             cache.write_text(json.dumps(value))
+            read_text = Path.read_text
+            def isolated_read(path, *args, **kwargs):
+                if path == Path('/run/pcadmin-network/status.json'):
+                    return '{}'
+                return read_text(path, *args, **kwargs)
+            stack.enter_context(patch.object(network.Path, 'read_text', isolated_read))
             stack.enter_context(patch.object(network.Path, 'home', return_value=home))
             stack.enter_context(patch.object(network, 'route_status', return_value={'interface': 'wlan-test'}))
             stack.enter_context(patch.object(network, 'optional', side_effect=lambda args, default='', **kw: default))
