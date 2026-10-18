@@ -4,16 +4,57 @@ import Quickshell
 import qs.Commons
 import "Workbench/Theme.js" as Theme
 import "Cases.js" as Cases
+import "Contrast.js" as Contrast
 ShellRoot {
  id:root
  property int index:-1
  property var passed:[]
  property var current:null
+ property int textChecks:0
+ property int borderChecks:0
+ property real minimumTextContrast:100
+ property real minimumBorderContrast:100
+ property var hotSnapshot:null
+ property var hotButton:null
  function fail(message){console.error('C1_FAIL:'+message);Qt.quit();throw new Error(message)}
  function check(value,message){if(!value)fail(message)}
  function visibleThrough(item,stop){let p=item;while(p&&p!==stop){if(!p.visible)return false;p=p.parent}return true}
  function buttons(item,out){if(item.text!==undefined&&typeof item.clicked==='function'&&visibleThrough(item,scene))out.push(item);for(const child of item.children)buttons(child,out)}
  function texts(item,out){if(item.text!==undefined)out.push(item.text);for(const child of item.children)texts(child,out)}
+ function layers(item){
+  const result=[]
+  for(let p=item;p;p=p.parent){
+   let color=Qt.rgba(0,0,0,0)
+   if(p.background&&p.background.color!==undefined&&p.background.visible)color=Qt.rgba(p.background.color.r,p.background.color.g,p.background.color.b,p.background.color.a*p.background.opacity)
+   else if(p.color!==undefined&&p.color.r!==undefined)color=p.color
+   result.push({color:color,opacity:p.opacity})
+   if(p===scene)break
+  }
+  return result
+ }
+ function checkContrast(item,expectedFailure){
+  if(!item.visible)return 0
+  let failures=0
+  if(item.paintedWidth!==undefined&&item.color!==undefined&&item.text){
+   check(item.paintedHeight<=item.height+1&&item.paintedWidth<=item.width+1,'text-clipped:'+current.name+':'+String(item.text).slice(0,40))
+   const samples=Contrast.samples(item.color,item.opacity,layers(item.parent))
+   const ratio=Contrast.ratio(samples.foreground,samples.background)
+   if(ratio<4.5)failures++
+   if(!expectedFailure){
+    check(ratio>=4.5,'text-contrast:'+current.name+':'+String(item.text).slice(0,40)+':'+ratio)
+    textChecks++;minimumTextContrast=Math.min(minimumTextContrast,ratio)
+   }
+  }
+  for(const child of item.children)failures+=checkContrast(child,expectedFailure)
+  return failures
+ }
+ function find(item,name){if(item.objectName===name)return item;for(const child of item.children){const result=find(child,name);if(result)return result}return null}
+ function hotUpdate(){
+  current=Object.assign({},current,{surface:'control'})
+  control.confirmation={name:'flight-on',params:{}}
+  network.confirmFlight=true;network.selectedTab='proxy'
+  hotPrepare.start()
+ }
  function reading(temperature){
   return {contract_version:'0.1.0',capability_id:temperature?'dashen.device.temperature':'dashen.device.touch-mode',resource_id:temperature?'thermal-summary':'touch-mode',output_id:'local',read_permission:temperature?'device.temperature.read':'device.touch-mode.read',state:{available:current.state!=='unavailable',actual:current.state==='observed'?(temperature?42:0):null,health:current.state,boot_default:1}}
  }
@@ -26,24 +67,34 @@ ShellRoot {
    let scroll=b.parent;while(scroll&&scroll!==item&&scroll.contentY===undefined)scroll=scroll.parent
    if(scroll&&scroll.contentY!==undefined)check(scroll.height>=48,'no-scroll-viewport:'+current.name)
    else check(p.y>=-.5&&p.y+b.height<=scene.height+.5,'header-unreachable:'+current.name+':'+b.text)
+   const surface=b.background&&b.background.border!==undefined?b.background:b
+   if(surface.border!==undefined&&surface.border.width>0){
+    const samples=Contrast.samples(surface.border.color,surface===b?1:surface.opacity,layers(b))
+    const ratio=Contrast.ratio(samples.foreground,samples.background)
+    check(ratio>=3,'border-contrast:'+current.name+':'+b.text+':'+ratio)
+    borderChecks++;minimumBorderContrast=Math.min(minimumBorderContrast,ratio)
+   }
   }
  }
  function next(){
-  if(++index>=Cases.rows.length){console.log('C1_RESULT:'+JSON.stringify({passed:passed,failed:[]}));Qt.quit();return}
+  if(++index>=Cases.rows.length){hotUpdate();return}
   current=Cases.rows[index];win.width=current.width;win.height=current.height
-  Color.loadColors('background = "'+(current.high?'#000000':'#0c1014')+'"\nforeground = "'+(current.high?'#ffffff':'#e7e9df')+'"\naccent = "#ffb454"\nred = "#ff6778"')
-  Color.loadShell('');Color.loadUserShell('[font]\nbase-size='+12*current.scale)
-  control.themeScale=current.scale;navigation.themeScale=current.scale
+  Color.loadColors(current.high?Cases.colors.replace(/#0C1014/g,'#000000').replace(/#E7E9DF/g,'#FFFFFF'):Cases.colors)
+  Color.loadShell(current.high?Cases.shell.replace(/#0C1014/g,'#000000').replace(/#E7E9DF/g,'#FFFFFF'):Cases.shell)
+  Color.loadUserShell('[font]\nbase-size='+12*current.scale)
   control.appliedMode=current.mode;control.suggestedMode=current.mode
+  control.expanded=current.surface==='control'&&!!current.view&&current.view!=='flight'
+  control.page=control.expanded?current.view:'设备'
+  control.flight={entertainment:current.surface==='control'&&current.view==='flight',verified:false}
   control.contractReadings.beginOpen()
   check(control.contractReadings.accept(control.contractReadings.startRequest(),{schema_version:1,legacy:{locked:false},contracts:{version:'0.1.0',status:'ok',states:[reading(true),reading(false)]}}),'contract-fixture:'+current.name)
   control.confirmation=current.state==='error'?{name:'flight-on',params:{}}:null
   control.feedback=current.state==='error'?'合成失败状态，请检查设备。'.repeat(8):''
-  navigation.page='窗口';navigation.feedback=current.state==='error'?'合成失败状态，原窗口保持':''
-  network.themeTokens=Theme.resolve({schemaVersion:1,foreground:Color.foreground,accent:Color.accent,fontScale:current.scale,fontFamily:Style.font.family})
-  network.state={wifi_enabled:false,wwan:true,signal:null,traffic:{day:null},policy:{proxy_enabled:false,mode:'auto'},health:{internet:current.state==='observed'?'ok':current.state==='error'?'failed':current.state}}
-  network.now=100;network.observedAt=current.state==='unknown'?0:current.state==='stale'?1:100;network.selectedTab='cell';network.confirmFlight=current.state==='error'
+  navigation.page=current.surface==='navigation'&&current.view?current.view:'窗口';navigation.feedback=current.state==='error'?'合成失败状态，原窗口保持':''
+  network.state={wifi_enabled:false,wifi_connection:current.view==='wifi'?'合成中文热点名称'.repeat(20):'',wwan:true,signal:null,traffic:{day:null},policy:{proxy_enabled:false,mode:'auto'},health:{internet:current.state==='observed'?'ok':current.state==='error'?'failed':current.state}}
+  network.now=100;network.observedAt=current.state==='unknown'?0:current.state==='stale'?1:100;network.selectedTab=current.surface==='network'&&current.view?current.view:'cell';network.confirmFlight=current.state==='error'
   power.power=current.state==='observed'?{onBattery:true,displayDevice:{isPresent:true,percentage:.72,state:2,timeToEmpty:3600},devices:{values:[]}}:{onBattery:false,displayDevice:null,devices:{values:[]}}
+  power.historyView.selected=current.surface==='power'&&current.view?current.view:0
   settle.start()
  }
  Window {
@@ -57,8 +108,32 @@ ShellRoot {
   }
  }
  Timer {interval:500;running:true;onTriggered:root.next()}
+ Timer {id:hotPrepare;interval:50;onTriggered:{
+  root.hotButton=root.find(control,'quick-keyboard');root.check(root.hotButton!==null,'hot-button-missing')
+  root.hotButton.forceActiveFocus()
+  root.hotSnapshot={window:win,button:root.hotButton,confirmation:control.confirmation,mode:control.modeChoice,actions:JSON.stringify([control.actions,navigation.actions,network.actions,power.actions])}
+  Color.loadColors(Cases.colors.replace(/#FFB454/g,'#00FFFF'))
+  Color.loadUserShell('[font]\nbase-size=15')
+  hotVerify.start()
+ }}
+ Timer {id:hotVerify;interval:200;onTriggered:{
+  root.check(win===root.hotSnapshot.window&&win.visible,'hot-window-recreated')
+  root.check(root.find(control,'quick-keyboard')===root.hotSnapshot.button&&root.hotButton.activeFocus,'hot-button-focus-lost')
+  root.check(control.confirmation===root.hotSnapshot.confirmation&&control.modeChoice===root.hotSnapshot.mode,'hot-confirmation-or-mode-reset')
+  root.check(network.confirmFlight&&network.selectedTab==='proxy','hot-network-state-reset')
+  root.check(JSON.stringify([control.actions,navigation.actions,network.actions,power.actions])===root.hotSnapshot.actions,'hot-action-triggered')
+  root.check([control,navigation,network,power].every(item=>item.themeTokens.font.body===20),'hot-official-font-not-bound')
+  Color.loadColors(Cases.colors.replace(/#E7E9DF/g,'#0C1014'))
+  lowContrastVerify.start()
+ }}
+ Timer {id:lowContrastVerify;interval:200;onTriggered:{
+  root.check(root.checkContrast(control,true)>0,'low-contrast-override-not-detected')
+  Color.loadColors(Cases.colors);Color.loadShell(Cases.shell);Color.loadUserShell('')
+  console.log('C1_RESULT:'+JSON.stringify({passed:root.passed,failed:[],textChecks:root.textChecks,borderChecks:root.borderChecks,minimumTextContrast:root.minimumTextContrast,minimumBorderContrast:root.minimumBorderContrast,hotUpdate:'preserved',lowContrastOverride:'detected-without-file-write'}));Qt.quit()
+ }}
  Timer {id:settle;interval:120;onTriggered:{
   const item=root.current.surface==='control'?control:root.current.surface==='navigation'?navigation:root.current.surface==='network'?network:power
+  root.check(Style.normalBorderAlpha===1&&Style.normalFillAlpha===.05,'candidate-shell-not-loaded')
   if(root.current.surface==='control') {
    const expected={observed:'42 °C',unknown:'未知',error:'读取失败',stale:'待读取',unavailable:'不可用'}[root.current.state]
    root.check(control.contractReadings.temperatureText===expected,'contract-health:'+root.current.name)
@@ -68,6 +143,7 @@ ShellRoot {
    root.check(!power.chargeIndicator.visible,'unknown-battery-shown-as-charge')
   }
   root.checkGeometry(item)
+  root.checkContrast(item)
   const name=root.current.name
   const accepted=scene.grabToImage(function(result){
    root.check(result.saveToFile(Quickshell.env('C1_OUTPUT')+'/'+name+'.png'),'screenshot:'+name)

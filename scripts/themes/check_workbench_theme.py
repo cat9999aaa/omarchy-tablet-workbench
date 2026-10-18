@@ -21,6 +21,11 @@ def cases():
                             height=round(width*(.75 if orientation=='landscape' else 1.5))
                             name=f'{surface}-{mode}-{width}-{orientation}-{scale}-{state}-{int(high)}'
                             rows.append(dict(name=name,surface=surface,mode=mode,width=width,height=height,scale=scale,state=state,high=high))
+    # Remaining existing pages share the geometry above, but have distinct text.
+    for surface,mode,views in [('control','tablet',['连接','设备','工作','旅途','flight']),('control','desktop',['连接','设备','工作','旅途','flight']),('navigation','tablet',['开始','桌面','按键']),('network','tablet',['wifi','local','zero','proxy','gps']),('power','tablet',[1,2])]:
+        for view in views:
+            for high in (False,True):
+                rows.append(dict(name=f'{surface}-{mode}-page-{view}-{int(high)}',surface=surface,mode=mode,width=480,height=720,scale=1.5,state='observed',high=high,view=view))
     return rows
 
 
@@ -32,10 +37,12 @@ def main(output,official,surface=None):
     output.mkdir(parents=True,exist_ok=False);rows=[r for r in cases() if surface is None or r["surface"]==surface]
     with tempfile.TemporaryDirectory(prefix='c1-surfaces-') as temp:
         work=Path(temp);home=work/'home';home.mkdir();write_sources(work)
+        shutil.copy2(Path(__file__).parent/'Contrast.js',work/'Contrast.js')
         for folder in ('Commons','Ui'):shutil.copytree(official/folder,work/folder)
         (work/'Commons/qmldir').write_text('module qs.Commons\n'+''.join('singleton '+n+' 1.0 '+n+'.qml\n' for n in ['Color','Style','Util','Border']))
         (work/'Ui/qmldir').write_text('module qs.Ui\n'+''.join(n+' 1.0 '+n+'.qml\n' for n in ['Button','BorderSurface','BorderOverlay','PanelSeparator','PanelSectionHeader']))
-        (work/'Cases.js').write_text('var rows = '+json.dumps(rows)+';\n')
+        theme=ROOT/'themes/dashen-overdrive'
+        (work/'Cases.js').write_text('var rows = '+json.dumps(rows)+';\nvar colors = '+json.dumps((theme/'colors.toml').read_text())+';\nvar shell = '+json.dumps((theme/'shell.toml').read_text())+';\n')
         fixture=work/'WorkbenchMatrix.qml';shutil.copy2(Path(__file__).parent/'fixtures/WorkbenchMatrix.qml',fixture)
         with compositor(work) as env:
             env.update(HOME=str(home),C1_OUTPUT=str(output))
@@ -43,6 +50,8 @@ def main(output,official,surface=None):
         lines=[line.split('C1_RESULT:',1)[1] for line in log.splitlines() if 'C1_RESULT:' in line]
         if len(lines)!=1 or any(marker in log for marker in ['C1_FAIL:','ReferenceError:','TypeError:','Unable to assign','Binding loop detected']):raise RuntimeError('render-result-missing: '+log[-5000:])
         receipt=json.loads(lines[0]);receipt['cases']=rows;receipt['source_sha256']=hashes
+        for name in ['colors.toml','shell.toml']:
+            receipt['source_sha256']['themes/dashen-overdrive/'+name]=hashlib.sha256((theme/name).read_bytes()).hexdigest()
         for folder in ['modules/control-center','modules/window-controls','modules/network-center','modules/battery-manager/panel','modules/workbench-ui','scripts/themes']:
             for p in (ROOT/folder).rglob('*'):
                 if p.is_file() and p.suffix in ('.qml','.js','.py'):receipt['source_sha256'][str(p.relative_to(ROOT))]=hashlib.sha256(p.read_bytes()).hexdigest()

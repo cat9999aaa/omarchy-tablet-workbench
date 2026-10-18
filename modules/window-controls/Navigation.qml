@@ -128,7 +128,7 @@ Item {
        Repeater{model:["P1","P2","P3","rotation"]
         RowLayout{
          required property string modelData;Layout.fillWidth:true
-         Text{text:parent.modelData==="rotation"?"旋转键":parent.modelData;Layout.preferredWidth:72;color:root.fg;font.pixelSize:root.themeTokens.font.title}
+         Text{text:parent.modelData==="rotation"?"旋转键":parent.modelData;Layout.preferredWidth:Math.max(72,implicitWidth);color:root.fg;font.pixelSize:root.themeTokens.font.title}
          ComboBox{
           id:choice;Layout.fillWidth:true;Layout.minimumHeight:52
           property string button:parent.modelData

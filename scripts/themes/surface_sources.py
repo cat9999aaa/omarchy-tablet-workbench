@@ -4,9 +4,16 @@ No replacement layouts. Official Ui and Commons remain real in the renderer.
 """
 from pathlib import Path
 import runpy
+import re
 import shutil
 from check_status_surfaces import remove_io
 ROOT=Path(__file__).resolve().parents[2]
+
+
+def theme_binding(prefix,source):
+    binding=re.search(r'readonly property var themeTokens:Theme.resolve\(\{.*?\}\)',source,re.S)
+    if binding is None:raise RuntimeError('product-theme-binding-missing')
+    return re.sub(r'property var themeTokens:[^\n]+',binding.group(0),prefix)
 
 
 def block(source, marker):
@@ -28,18 +35,20 @@ def write_sources(output):
     nav=runpy.run_path(str(ROOT/'modules/window-controls/test_navigation_layout.py'))
     prefix=ctl['prefix'].replace('import QtTest','import qs.Commons')
     for name,value in [('fg','Color.foreground'),('bg','Color.popups.background'),('purple','Color.accent'),('green','Color.accent'),('orange','Color.urgent')]:
-        import re
         prefix=re.sub(r'property color '+name+r':"[^"]+"','property color '+name+':'+value,prefix)
+    prefix=theme_binding(prefix,ctl['source'])
     body=block(ctl['source'],'   ColumnLayout {').replace('root.data','root.snapshot')
     button=block(ctl['source'],' component CButton:')
     (output/'ControlSurface.qml').write_text(prefix+'property alias contractReadings: readings\n'+body+button+'}\n')
     prefix=nav['prefix'].replace('import QtTest','import qs.Commons').replace('property color fg:"#eeeeee"','property color fg:Color.foreground').replace('property color bg:"#202020"','property color bg:Color.popups.background')
+    prefix=theme_binding(prefix,nav['source'])
     body=block(nav['source'],'   ColumnLayout {').replace('root.data','root.snapshot')
     (output/'NavigationSurface.qml').write_text(prefix+body+'}\n')
     # Source functions/status labels stay intact; replace unavailable host I/O only.
     network=remove_io((ROOT/'modules/network-center/TravelControls.qml').read_text()).replace('testColor.','Color.').replace('testStyle.','Style.')
     network=network.replace('Rectangle {height:1;width:parent.width;color:Color.foreground}', 'Ui.PanelSeparator {foreground:Color.foreground}')
-    network='import qs.Commons\nimport qs.Ui as Ui\n'+network
+    network='import qs.Commons\nimport qs.Ui as Ui\nimport "Workbench/Theme.js" as Theme\n'+network
+    network=theme_binding(network,(ROOT/'modules/network-center/Panel.qml').read_text())
     network=network.replace('id: hub','id: hub\n property var actions:[]\n QtObject {id:action;property bool running:false;property var command:[]}\n QtObject {id:entertainment;property bool running:false}',1)
     (output/'NetworkSurface.qml').write_text(network)
     history=remove_io((ROOT/'modules/battery-manager/panel/BatteryHistory.qml').read_text())
@@ -69,6 +78,7 @@ Item {
  property bool discharging:true
  property bool batteryPresent:!!power.displayDevice
  property alias chargeIndicator:barFill
+ property alias historyView:batteryHistory
  property real batteryFraction:Model.batteryFraction(power.displayDevice)
  property color batteryFillColor:Color.foreground
  property string heroStatusText:power.displayDevice?'合成设备状态':'设备状态未知'
@@ -79,4 +89,4 @@ Item {
  function upowerStates(){return {Charging:1,Discharging:2,FullyCharged:4,PendingCharge:5}}
  function batteryIcon(){return Model.batteryIcon(power.displayDevice,discharging,upowerStates())}
 '''
-    (output/'PowerSurface.qml').write_text(prefix+body+components+'}\n')
+    (output/'PowerSurface.qml').write_text(theme_binding(prefix,source)+body+components+'}\n')
