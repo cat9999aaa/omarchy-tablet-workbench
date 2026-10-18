@@ -111,6 +111,19 @@ def radio_state(raw):
  value=raw.strip()
  return True if value=="enabled" else False if value=="disabled" else None
 
+def read_health_cache(path, interface, now):
+ """Accept only a current observation for the current physical interface."""
+ try:
+  health=json.loads(Path(path).read_text())
+  if not isinstance(health,dict) or health.get('interface')!=interface:return {}
+  observed=health.get('observed_at')
+  if type(observed) not in (int,float) or type(now) not in (int,float):return {}
+  if not math.isfinite(observed) or not math.isfinite(now):return {}
+  age=now-observed
+  if not math.isfinite(age) or not -5<=age<=65:return {}
+  return health
+ except (OSError,ValueError,OverflowError):return {}
+
 def status():
  devices=[]
  for line in optional(['nmcli','-t','-f','DEVICE,TYPE,STATE','dev']).splitlines():
@@ -144,11 +157,7 @@ def status():
  wifi=next((x for x in devices if x[1]=='wifi'),None)
  wired=[{'interface':x[0],'state':x[2]} for x in devices if x[1]=='ethernet']
  local=[{'interface':x.get('ifname'),'addresses':[a.get('local')+'/'+str(a.get('prefixlen')) for a in x.get('addr_info',[]) if a.get('family')=='inet']} for x in net if types.get(x.get('ifname')) in ('wifi','ethernet')]
- health={}
- try:
-  health=json.loads((Path.home()/'.local/state/pcadmin-network/health.json').read_text())
-  if health.get('interface')!=iface or time.time()-health.get('observed_at',0)>65:health={}
- except (OSError,ValueError):pass
+ health=read_health_cache(Path.home()/'.local/state/pcadmin-network/health.json',iface,time.time())
  return {**cache,'flight_saved':flight_requested(),'health':health,'policy':read_policy(),'cell_proxy':linkage,'local_addresses':local,'wifi_enabled':radio_state(optional(['nmcli','-t','-f','WIFI','radio'])),'wifi_state':wifi[2] if wifi else '未发现设备','wifi_connection':optional(['nmcli','-g','GENERAL.CONNECTION','dev','show',wifi[0]]) if wifi else '','wired':wired,'primary':classify(iface,types,CELL) if iface else 'none','interface':iface,'cell':cell[2] if cell else '未发现设备','cell_connected':bool(cell and cell[2]=='connected'),'wwan':radio_state(radios),'signal':signal,'traffic':traffic,'zero_enabled':optional(['systemctl','is-active','zerotier-one.service'])=='active','zero_ips':zero,'proxy_available':proxy_port,'proxy_tun':optional(['systemctl','is-active','pcadmin-v2ray-tun.service'])=='active','proxy_system':proxy_mode=='manual','gps':gps_status()}
 def auto_metric(kind):
  return {'802-3-ethernet':100,'802-11-wireless':600,'gsm':700}.get(kind)
