@@ -65,6 +65,7 @@ ShellRoot {
   }
   if(root.current.surface==='power'&&root.current.state!=='observed') {
    let labels=[];root.texts(item,labels);root.check(labels.indexOf('0%')<0,'unknown-battery-shown-as-zero')
+   root.check(!power.chargeIndicator.visible,'unknown-battery-shown-as-charge')
   }
   root.checkGeometry(item)
   const name=root.current.name

@@ -68,6 +68,7 @@ Item {
  property bool fullyCharged:false
  property bool discharging:true
  property bool batteryPresent:!!power.displayDevice
+ property alias chargeIndicator:barFill
  property real batteryFraction:Model.batteryFraction(power.displayDevice)
  property color batteryFillColor:Color.foreground
  property string heroStatusText:power.displayDevice?'合成设备状态':'设备状态未知'

@@ -408,6 +408,7 @@ Panel {
 
           Rectangle {
             id: barFill
+            visible: root.batteryPresent
             anchors.left: barTrack.left
             anchors.verticalCenter: barTrack.verticalCenter
             height: barTrack.height
