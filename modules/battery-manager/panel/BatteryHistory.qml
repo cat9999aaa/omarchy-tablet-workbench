@@ -6,9 +6,12 @@ import "Workbench" as WB
 
 Item {
   id: view
+  property var themeTokens:null
+  onThemeTokensChanged:plot.requestPaint()
+  onForegroundChanged:plot.requestPaint()
   property bool active: false
-  property color foreground: "white"
-  property string fontFamily: "sans-serif"
+  property color foreground: themeTokens?themeTokens.colors.foreground:"white"
+  property string fontFamily: themeTokens?themeTokens.font.family:"sans-serif"
   property string helper: Quickshell.env("HOME") + "/Projects/pcadmin/tools/battery-manager/battery.py"
   property int selected: 0
   property string period: "session"
@@ -116,7 +119,7 @@ Item {
               var left=32,right=width-8,top=12,bottom=height-28
               ctx.strokeStyle=Qt.rgba(view.foreground.r,view.foreground.g,view.foreground.b,0.25);ctx.lineWidth=1
               ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.lineTo(right,bottom);ctx.stroke()
-              ctx.fillStyle=view.foreground;ctx.font="11px sans-serif";ctx.fillText("100%",0,top+5);ctx.fillText("0",12,bottom)
+              ctx.fillStyle=view.foreground;ctx.font=(view.themeTokens?view.themeTokens.font.subtitle:11)+"px "+view.fontFamily;ctx.fillText("100%",0,top+5);ctx.fillText("0",12,bottom)
               var start=pts[0].axis_time,end=pts[pts.length-1].axis_time,span=Math.max(60000,end-start)
               var maxW=10;for(var j=0;j<pts.length;j++)if(pts[j].net_discharge_w!==null)maxW=Math.max(maxW,pts[j].net_discharge_w)
               ctx.fillText(Math.ceil(maxW)+"W 上限",left+8,top+5)
@@ -147,13 +150,14 @@ Item {
     }
   }
   component Line:Text {
-    width:parent.width;color:view.foreground;font.family:view.fontFamily;font.pixelSize:13
+    width:parent.width;color:view.foreground;font.family:view.fontFamily;font.pixelSize:view.themeTokens?view.themeTokens.font.body:13
     textFormat:Text.PlainText;wrapMode:Text.Wrap
   }
   component Choice:WB.TouchButton {
+    themeTokens:view.themeTokens
     property string label:""
     property bool chosen:false
     text:label;selected:chosen;foreground:view.foreground;accent:view.foreground
-    font.family:view.fontFamily;font.pixelSize:13
+    font.family:view.fontFamily;font.pixelSize:view.themeTokens?view.themeTokens.font.body:13
   }
 }

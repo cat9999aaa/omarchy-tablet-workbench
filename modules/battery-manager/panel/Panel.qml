@@ -8,9 +8,13 @@ import "Model.js" as Model
 import "Details.js" as Details
 import "Workbench" as WB
 import "Workbench/Layout.js" as LayoutModel
+import "Workbench/Theme.js" as Theme
 
 Panel {
   id: root
+  readonly property var themeTokens:Theme.resolve({schemaVersion:1,foreground:Color.foreground,
+    background:Color.popups.background,accent:Color.accent,urgent:Color.urgent,muted:Color.muted,
+    fontFamily:Style.font.family,fontScale:Style.font.body/12,cornerRadius:Style.cornerRadius})
   moduleName: "omarchy.power"
   ipcTarget: "omarchy.power"
   // manageIpc: false so this panel can own the single IpcHandler the target
@@ -316,6 +320,7 @@ Panel {
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       WB.PanelBody {
+        themeTokens:root.themeTokens
         anchors.fill:parent;title:"电池与电源";foreground:Color.foreground;accent:Color.accent;fontFamily:Style.font.family
         onCloseRequested:root.close()
       Column {
@@ -455,6 +460,7 @@ Panel {
         }
 
         BatteryHistory {
+          themeTokens:root.themeTokens
           id: batteryHistory
           width: parent.width
           active: root.opened

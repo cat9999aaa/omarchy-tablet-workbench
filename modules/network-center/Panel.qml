@@ -8,9 +8,13 @@ import qs.Ui
 import qs.Commons
 import "Model.js" as Model
 import "Workbench/Layout.js" as LayoutModel
+import "Workbench/Theme.js" as Theme
 
 Panel {
   id: root
+  readonly property var themeTokens:Theme.resolve({schemaVersion:1,foreground:Color.foreground,
+    background:Color.popups.background,accent:Color.accent,urgent:Color.urgent,muted:Color.muted,
+    fontFamily:Style.font.family,fontScale:Style.font.body/12,cornerRadius:Style.cornerRadius})
   moduleName: "omarchy.network"
   ipcTarget: "omarchy.network"
   // manageIpc: false so this panel can own the single IpcHandler the target
@@ -1101,7 +1105,7 @@ Panel {
       id: column
       width: travelScroll.width
       spacing: Style.space(12)
-      TravelControls { id: travel; onCloseRequested:root.close(); opened: root.opened; width:parent.width; height:travelScroll.height
+      TravelControls { themeTokens:root.themeTokens; id: travel; onCloseRequested:root.close(); opened: root.opened; width:parent.width; height:travelScroll.height
       Column { width: parent.width; spacing: Style.space(12)
 
       // ---------- Hero: network icon · SSID + state · actions ----------

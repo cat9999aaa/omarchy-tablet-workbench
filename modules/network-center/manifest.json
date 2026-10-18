@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "cat9999sss.network",
+  "name": "本机网络与出行",
+  "version": "1.3.8",
+  "author": "Omarchy",
+  "description": "触屏网络中心：手动选网、ZeroTier、代理、GPS与飞行模式",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "My Network",
+    "description": "Wi-Fi list and connection state",
+    "category": "Network",
+    "allowMultiple": false
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.network"
+  }
+}
