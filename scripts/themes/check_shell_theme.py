@@ -10,7 +10,7 @@ from check_theme import validate_theme
 from render_support import compositor, run_checked, verify_official, verify_outputs
 
 ROOT=Path(__file__).resolve().parents[2]
-CASES=['theme-command','background-preserved','command-restored','user-color-override','user-font-override','palette-loaded','override-removal','theme-surface','old-theme-fallback','theme-restored','window-survived','capture-requested','screenshot-saved']
+CASES=['theme-command','background-preserved','command-restored','user-color-override','user-font-override','palette-loaded','override-removal','theme-surface','old-theme-fallback','theme-restored','window-survived','capture-requested','screenshot-saved','shared-theme-adapter','shared-theme-update']
 
 
 def main(output, official):
@@ -29,9 +29,13 @@ def main(output, official):
         current=home/'.local/state/omarchy/current';current.mkdir(parents=True)
         (current/'background').symlink_to(old_background)
         user=home/'.config/omarchy/shell.toml';user.write_text('[font]\nbase-size=18\n[popups]\nbackground="#182028"\n')
-        module=work/'Official';module.mkdir()
+        module=work/'Commons';module.mkdir()
         for name in ['Color.qml','Style.qml','Util.qml','BorderGeometry.js']:shutil.copy2(official/'Commons'/name,module/name)
         (module/'qmldir').write_text('module qs.Commons\nsingleton Color 1.0 Color.qml\nsingleton Style 1.0 Style.qml\nsingleton Util 1.0 Util.qml\n')
+        shared=work/'Workbench';shared.mkdir()
+        for name in ['Theme.js','ThemeContext.qml']:
+            source=ROOT/'modules/workbench-ui'/name
+            if source.exists():shutil.copy2(source,shared/name)
         fixture=work/'ShellTheme.qml';shutil.copy2(Path(__file__).parent/'fixtures/ShellTheme.qml',fixture)
         with compositor(work) as env:
             env.update(HOME=str(home),OMARCHY_PATH=str(official),OMARCHY_THEME_HEADLESS='1',OMARCHY_THEME_SKIP_BACKGROUND='1',PATH=str(official/'bin')+':'+env['PATH'],C1_OUTPUT=str(output),C1_PALETTE=str(theme/'colors.toml'),C1_SHELL=str(theme/'shell.toml'))

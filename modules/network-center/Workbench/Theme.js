@@ -12,7 +12,7 @@ function resolve(options) {
                  accent:color('accent','white'), urgent:color('urgent','#FF6778'), muted:color('muted','#99A6AF')},
         font: {family:typeof o.fontFamily === 'string' && o.fontFamily.trim() ? o.fontFamily : 'sans-serif',
                body:16*scale, subtitle:13*scale, title:21*scale},
-        metrics: {minimumTouchHeight:48, paddingX:12*scale, paddingY:10*scale, gap:12*scale, radius:radius},
+        metrics: {minimumTouchHeight:48, paddingX:12*scale, paddingY:10*scale, gap:12*scale, gapSmall:6*scale, radius:radius},
         states: {normalAlpha:.05, selectedAlpha:.18, pressedAlpha:.28, disabledTextAlpha:.65, focusBorderWidth:2}
     };
 }

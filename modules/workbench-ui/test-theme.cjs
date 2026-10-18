@@ -23,3 +23,9 @@ assert.equal(t.states.focusBorderWidth,2);assert.equal(JSON.stringify(input),bef
 for(const value of [-1,25,NaN,Infinity,'4'])assert.equal(resolve({schemaVersion:1,cornerRadius:value}).metrics.radius,8);
 assert.equal(resolve({schemaVersion:1,fontFamily:'  '}).font.family,'sans-serif');
 console.log('shared theme validation passed');
+for (const scale of [1,1.25,1.5]) {
+ const t=resolve({schemaVersion:1,fontScale:scale});
+ assert.equal(t.metrics.gapSmall,6*scale,'small spacing is a shared scaled role');
+ assert.equal(t.metrics.gap,12*scale);assert.equal(t.font.title,21*scale);
+ assert.equal(t.font.subtitle,13*scale);
+}
