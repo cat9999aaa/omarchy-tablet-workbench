@@ -12,3 +12,5 @@
 模型属于可选的本地单字识别资源。再分发时保留许可、版权和对应源码信息。系统依赖如Qt、Fcitx、Rime、GTK、NetworkManager、ModemManager和播放器由发行版安装，具有各自许可证；本仓库的声明不替代其分发义务。
 
 游戏ROM、商业游戏资源、私人词库、录音及代理订阅不包含在本仓库中。新增第三方资源时一并更新来源、许可和所需声明。
+
+控制台候选携带DASHEN // OVERDRIVE的`dashen-contracts 0.1.0`原件，固定提交`969cd18647f59bc3072a877a87ce1c4f054351f0`。来源与逐文件摘要见`modules/control-center/vendor/dashen-contracts-0.1.0/source.json`，原GPL-3.0-only许可证保留在同目录LICENSE；升级统一来源，不独立修改副本。
