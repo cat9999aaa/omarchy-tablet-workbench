@@ -15,6 +15,7 @@ Rectangle {
  property bool closeAfterDiscard:false
  readonly property var pageNames:["总览","节点","订阅","分流","更新","诊断","设置"]
  signal closeRequested()
+ Connections {target:root.model;function onEditRoutingRequested(){root.page=3}}
  function choosePage(index){if(index<0||index>6||index===page)return;if(model.draft.dirty){requestedPage=index;closeAfterDiscard=false;leavePrompt=true;leave.open()}else page=index}
  function requestClose(){if(model.draft.dirty){closeAfterDiscard=true;leavePrompt=true;leave.open()}else closeRequested()}
  function discardAndContinue(){model.draft={dirty:false,mode:"rules"};leavePrompt=false;leave.close();if(closeAfterDiscard)closeRequested();else page=requestedPage}

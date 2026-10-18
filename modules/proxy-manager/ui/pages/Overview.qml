@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import ".."
 import "../../../workbench-ui" as WB
-Page {
+ProxyPage {
  id:root;title:"连接总览";description:"物理网络、代理进程和访问检测分别确认。收起窗口后，网络继续工作。"
  PText {Layout.fillWidth:true;color:root.foreground;text:model.online?"最近访问检测正常":"访问状态待确认";font.pixelSize:24}
  PText {Layout.fillWidth:true;color:root.foreground;text:"物理出口  "+model.physicalLabel+"\n代理  "+model.proxyLabel+"    ·    TUN  "+model.tunLabel+"\n当前节点  待接入目录";lineHeight:1.5}

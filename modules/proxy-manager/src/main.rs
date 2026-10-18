@@ -27,6 +27,10 @@ fn main() {
             events.wait();
         }return;
     }
+    if args.get(1).map(String::as_str)==Some("catalog") && args.len()==3 {
+        let mut input=Vec::new();let _=io::stdin().take(8*1024*1024+1).read_to_end(&mut input);
+        match omt_proxy::catalog_cli::run(std::path::Path::new(&args[2]),&input){Ok(v)=>println!("{}",v),Err(e)=>{println!("{}",json!({"error_code":e}));std::process::exit(1);}}return;
+    }
     let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     let raw: Result<Value, String> = match args.get(1).map(String::as_str) {
         Some("snapshot") if args.len() == 3 => read_network(&args[2], now),

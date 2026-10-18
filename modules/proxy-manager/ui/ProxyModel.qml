@@ -13,6 +13,24 @@ QtObject {
  readonly property string physicalLabel:known(snapshot.physical)?({"4g":"4G 蜂窝","wifi":"Wi-Fi","ethernet":"有线网络","none":"未连接"}[snapshot.physical.value]||"未知"):"未知"
  readonly property string proxyLabel:known(snapshot.proxy)?(snapshot.proxy.value?"开启":"关闭"):"未知"
  readonly property string tunLabel:known(snapshot.tun)?(snapshot.tun.value?"开启":"关闭"):"未知"
+ property var catalog:({nodes:[],revision:0,current:null})
+ property var preview:({})
+ property bool catalogPending:false
+ property string catalogFeedback:""
+ signal catalogRequested(var command)
+ signal editRoutingRequested()
+ function catalogAction(command){if(catalogPending)return;catalogPending=true;catalogFeedback="正在处理…";catalogRequested(command)}
+ function acceptCatalog(value){
+  catalogPending=false
+  if(value.error_code){catalogFeedback=({migration_unsupported:"旧配置包含尚未支持的字段，原客户端保持可用",unsupported_field:"包含未支持的参数，未导入",unsupported_protocol:"尚不支持这个协议，未导入",https_subscription_required:"订阅必须使用 HTTPS",catalog_revision_conflict:"目录已变化，请重新预览",preview_conflict:"预览已变化，请重新导入",flight_active:"飞行模式下暂停在线更新"})[value.error_code]||"处理未完成，请检查格式或权限";return}
+  if(value.preview_id){preview=value;catalogFeedback="预览已准备，确认后才保存"}
+  else if(value.draft){catalogFeedback="草稿已校验并保存，尚未应用"}
+  else if(value.nodes){catalog=value;preview={};catalogFeedback="本机目录已读回，运行网络未改变"}
+ }
+ function commitPreview(confirmed){if(!preview.preview_id)return;catalogAction({action:"commit",preview_id:preview.preview_id,confirmed:!!confirmed})}
+ function selectNode(id){draft=Object.assign({},draft,{node_id:id,dirty:true,mode:draft.mode||"rules",base_revision:catalog.revision,rules:draft.rules||[]})}
+ function selectMode(mode){if(["rules","global","direct"].indexOf(mode)<0)return;draft=Object.assign({},draft,{mode:mode,dirty:true,base_revision:catalog.revision,rules:draft.rules||[]})}
+ function saveRoutingDraft(){if(!draft.node_id)return;catalogAction({action:"routing-preview",draft:{mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[]}})}
  signal requested(var command)
  function known(field){return !!field&&field.health==="observed"&&field.value!==null&&now-field.observed_at>=0&&now-field.observed_at<=45}
  function allowed(action){return !readOnly&&!pending&&(snapshot.capabilities||[]).indexOf(action)>=0}

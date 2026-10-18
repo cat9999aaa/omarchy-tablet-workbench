@@ -30,7 +30,7 @@ def execute(root, job_id, phase):
         raise ValueError('scope: explicit non-symlink build root required')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9-]{0,63}', job_id):
         raise ValueError('job: invalid identifier')
-    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml'):
+    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve'):
         raise ValueError('phase: unsupported operation')
     job = checked(root, 'jobs/'+job_id)
     source = checked(root, 'jobs/'+job_id+'/source')
@@ -56,8 +56,9 @@ def execute(root, job_id, phase):
         '--setenv','QT_QPA_PLATFORM','offscreen','--setenv','QT_QUICK_BACKEND','software',
         '--setenv','LC_ALL','C.UTF-8']
     commands = {
+        'resolve': [['--share-net','--chdir','/work/modules/proxy-manager','cargo','generate-lockfile']],
         'fetch': [['--share-net','--chdir','/work/modules/proxy-manager','cargo','fetch','--locked']],
-        'test': [['--chdir','/work/modules/proxy-manager','cargo','test','--locked','--offline','-j2'],
+        'test': [['--chdir','/work/modules/proxy-manager','cargo','test','--no-fail-fast','--locked','--offline','-j2'],
                  ['--chdir','/work','python','scripts/remote-build/test_proxy_build.py'],
                  ['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],
         'build': [['--chdir','/work/modules/proxy-manager','cargo','build','--release','--locked','--offline','-j2']],
