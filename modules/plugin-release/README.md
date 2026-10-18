@@ -30,3 +30,9 @@ python3 release.py rollback --plugin-id pcadmin.touchime --profile ime --transac
 C1 多插件交付按控制台、导航、网络、电池、官方主题的顺序逐项执行。每项保留事务 ID；任一步失败立即停止后续发布，按反序恢复本批已成功的插件。恢复出现并发修改则保留冲突，继续核对其他独立事务，不宣称整批原子回退。主题恢复另走原官方主题入口，先核对本批写入后的摘要；个人主题选择、shell 配置和背景不能整份无条件覆盖。
 
 `test_batch_recovery.py` 在临时目录使用真实单插件发布器和注入命令演练第三插件失败、主题步骤失败、manifest 并发编辑与主题并发编辑。主题文件是合成标记，测试不执行生产主题钩子，也不代表提供了自动批量发布或崩溃恢复工具。正式应用前仍需审阅官方后置命令、用户钩子，并完成备份和只读计划。
+
+### Live session gate
+
+`apply` requires the Omarchy lock IPC to return exactly `false` before preparing a release, immediately before the manifest switch, and after the new runtime probe. A locked/unknown/failed response stops publication; it never substitutes logind `LockedHint`. Control-center publication additionally requires its `ready` IPC, so a matching version with no routable panel cannot count as applied. These checks reduce races but do not promise a session cannot lock after a successful return; verify actual opening separately.
+
+`plan` remains read-only without querying the session. `rollback` stays available while locked and verifies the restored version and manifest; control-center readiness is not required during recovery because a locked panel may correctly refuse to open. No lock setting, input service or authorization policy is changed.

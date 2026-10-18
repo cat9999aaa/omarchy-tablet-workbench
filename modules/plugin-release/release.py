@@ -126,13 +126,18 @@ class ReleaseManager:
   finally:temp.unlink(missing_ok=True)
  def save(self,transaction,data):
   self.atomic(transaction/'transaction.json',(json.dumps(data,ensure_ascii=False,indent=2)+'\n').encode())
- def wait_version(self,profile,version):
+ def require_unlocked(self):
+  # Omarchy owns this lock; logind LockedHint can disagree with its state.
+  if self.runner(['omarchy-shell','lock','isLocked']).strip()!='false':
+   raise ReleaseError('Omarchy session is locked or lock state is unknown')
+ def wait_version(self,profile,version,require_control_ready=False):
   _,target,method,is_json=PROFILES[profile];end=time.monotonic()+self.timeout
   while True:
    try:
     value=self.runner(['omarchy-shell',target,method]).strip()
     actual=json.loads(value).get('version') if is_json else value
-    if actual==version and (profile!='ime' or self.runner(['omarchy-shell',target,'ready']).strip()=='true'):return
+    needs_ready=profile=='ime' or (profile=='control' and require_control_ready)
+    if actual==version and (not needs_ready or self.runner(['omarchy-shell',target,'ready']).strip()=='true'):return
    except (ReleaseError,ValueError,AttributeError):pass
    if time.monotonic()>=end:raise ReleaseError('Runtime version/readiness was not confirmed')
    time.sleep(min(.1,max(.001,self.timeout/4)))
@@ -153,8 +158,9 @@ class ReleaseManager:
   with self.locked(plugin_id):
    plug,old,new,files,original=self.context(source,plugin_id,profile)
    if new['version']==old['version']:raise ReleaseError('Same-version replacement is refused')
+   self.require_unlocked()
    before_hash=sha(original);mode=(plug/'manifest.json').stat().st_mode&0o777
-   self.wait_version(profile,old['version'])
+   self.wait_version(profile,old['version'],require_control_ready=True)
    if sha((plug/'manifest.json').read_bytes())!=before_hash:raise ReleaseError('Installed manifest changed during initial probe')
    token=uuid.uuid4().hex;release='workbench-releases/'+new['version']+'-'+token
    candidate={**new,'entryPoints':{k:release+'/'+v for k,v in new['entryPoints'].items()}}
@@ -171,9 +177,11 @@ class ReleaseManager:
      data={'schema':1,'transaction':token,'plugin':plugin_id,'profile':profile,'from':old['version'],'to':new['version'],'before_sha256':before_hash,'after_sha256':sha(encoded),'mode':mode,'release':release,'status':'prepared','created_at':time.time()};self.save(transaction,data)
      destination=plug/release;no_links(destination);destination.parent.mkdir(exist_ok=True)
      os.replace(payload,destination)
+     self.require_unlocked()
      if sha((plug/'manifest.json').read_bytes())!=before_hash:raise ReleaseError('Installed manifest changed before switch')
      self.atomic(plug/'manifest.json',encoded,mode);data['status']='pointer-written';self.save(transaction,data)
-     self.runner(['omarchy-shell','shell','rescanPlugins']);self.wait_version(profile,new['version'])
+     self.runner(['omarchy-shell','shell','rescanPlugins']);self.wait_version(profile,new['version'],require_control_ready=True)
+     self.require_unlocked()
      if sha((plug/'manifest.json').read_bytes())!=data['after_sha256']:raise ReleaseError('Installed manifest changed during new runtime probe')
      data['status']='applied';self.save(transaction,data);return data
    except BaseException as failure:

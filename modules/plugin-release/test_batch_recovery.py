@@ -55,6 +55,10 @@ class BatchRecovery(unittest.TestCase):
         self.manager = ReleaseManager(self.plugins, self.root / 'state', self.command, timeout=.02)
 
     def command(self, args):
+        if args == ['omarchy-shell', 'lock', 'isLocked']:
+            return 'false'
+        if args == ['omarchy-shell', 'pcadmin.controlCenter', 'ready']:
+            return 'true'
         if args[:3] == ['omarchy', 'plugin', 'validate']:
             plugin = json.loads((Path(args[3]) / 'manifest.json').read_text())['id']
             self.validated.append(plugin)

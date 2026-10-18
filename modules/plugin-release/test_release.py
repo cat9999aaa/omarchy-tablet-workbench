@@ -14,6 +14,7 @@ class Releases(unittest.TestCase):
   (self.bundle/'files/qml/Main.qml').write_text('new release')
   self.new={**self.old,'version':'2.0','entryPoints':{'overlay':'qml/Main.qml'}}
   (self.bundle/'manifest.json').write_text(json.dumps(self.new));self.hashes()
+  self.lock_state='false';self.lock_failure=False;self.lock_on_validate=False;self.lock_on_new_probe=False
   self.calls=[];self.live='1.0';self.fail_new=False;self.fail_old=False;self.validation_fails=False;self.concurrent=None
   self.manager=ReleaseManager(self.plugins,self.root/'state',self.run_command,timeout=.02)
  def hashes(self):
@@ -21,8 +22,12 @@ class Releases(unittest.TestCase):
   (self.bundle/'files.json').write_text(json.dumps({'schema':1,'sha256':files}))
  def run_command(self,args):
   self.calls.append(args)
+  if args==['omarchy-shell','lock','isLocked']:
+   if self.lock_failure:raise ReleaseError('lock query unavailable')
+   return self.lock_state
   if args[:3]==['omarchy','plugin','validate']:
    if self.concurrent=='validate':(self.plugin/'manifest.json').write_text(json.dumps({**self.old,'description':'user edit'}))
+   if self.lock_on_validate:self.lock_state='true'
    if self.validation_fails:raise ReleaseError('validation rejected')
    candidate=Path(args[3]);d=json.loads((candidate/'manifest.json').read_text())
    self.assertTrue(all((candidate/p).is_file() for p in d['entryPoints'].values()))
@@ -33,6 +38,7 @@ class Releases(unittest.TestCase):
    if self.concurrent=='rollback-rescan' and self.live=='1.0':(self.plugin/'manifest.json').write_text(json.dumps({**self.old,'description':'concurrent rollback edit'}))
    return ''
   if args==['omarchy-shell','omtInput','version']:
+   if self.lock_on_new_probe and self.live=='2.0':self.lock_state='true'
    if self.fail_new and self.live=='2.0':return 'unready'
    if self.fail_old and self.live=='1.0':return 'unready'
    return self.live
@@ -72,6 +78,71 @@ class Releases(unittest.TestCase):
   release=self.plugin/current['entryPoints']['overlay'];self.assertTrue(release.exists())
   rolled=self.manager.rollback('test.touchime',result['transaction'],'ime');self.assertEqual(rolled['status'],'rolled-back')
   self.assertEqual(json.loads((self.plugin/'manifest.json').read_text()),self.old);self.assertTrue(release.exists())
+ def test_locked_or_unknown_shell_state_cannot_publish(self):
+  for value in ['true','', 'unknown','False','false\ntrue']:
+   with self.subTest(value=value):
+    self.lock_state=value;self.calls=[]
+    with self.assertRaises(ReleaseError):self.apply()
+    self.assertEqual(json.loads((self.plugin/'manifest.json').read_text()),self.old)
+    self.assertFalse((self.plugin/'workbench-releases').exists())
+    self.assertEqual(self.calls,[['omarchy-shell','lock','isLocked']])
+ def test_failed_shell_lock_probe_has_no_logind_fallback(self):
+  self.lock_failure=True
+  with self.assertRaises(ReleaseError):self.apply()
+  self.assertEqual(self.calls,[['omarchy-shell','lock','isLocked']])
+  self.assertEqual(self.live,'1.0')
+ def test_lock_after_staging_stops_before_manifest_switch(self):
+  self.lock_on_validate=True
+  with self.assertRaises(ReleaseError):self.apply()
+  self.assertEqual(json.loads((self.plugin/'manifest.json').read_text()),self.old)
+  self.assertNotIn(['omarchy-shell','shell','rescanPlugins'],self.calls)
+ def test_edit_during_final_lock_probe_is_preserved(self):
+  count=0
+  def command(args):
+   nonlocal count
+   if args==['omarchy-shell','lock','isLocked']:
+    count+=1
+    if count==2:(self.plugin/'manifest.json').write_text(json.dumps({**self.old,'description':'edit during lock query'}))
+   return self.run_command(args)
+  self.manager.runner=command
+  with self.assertRaises(ReleaseError):self.apply()
+  self.assertEqual(json.loads((self.plugin/'manifest.json').read_text())['description'],'edit during lock query')
+  self.assertNotIn(['omarchy-shell','shell','rescanPlugins'],self.calls)
+ def test_lock_during_new_probe_rolls_back_and_never_reports_applied(self):
+  self.lock_on_new_probe=True
+  with self.assertRaises(ReleaseError):self.apply()
+  self.assertEqual(self.live,'1.0')
+  journal=next((self.root/'state').rglob('transaction.json'))
+  self.assertEqual(json.loads(journal.read_text())['status'],'rolled-back')
+ def test_explicit_rollback_is_available_while_locked(self):
+  result=self.apply();self.lock_state='true'
+  rolled=self.manager.rollback('test.touchime',result['transaction'],'ime')
+  self.assertEqual(rolled['status'],'rolled-back')
+ def control_fixture(self, new_ready=False):
+  target=self.plugins/'pcadmin.control-center';self.plugin.rename(target);self.plugin=target
+  self.old={**self.old,'id':target.name};self.new={**self.new,'id':target.name}
+  (self.plugin/'manifest.json').write_text(json.dumps(self.old));(self.bundle/'manifest.json').write_text(json.dumps(self.new))
+  def command(args):
+   if args==['omarchy-shell','pcadmin.controlCenter','state']:
+    self.calls.append(args);return json.dumps({'version':self.live,'available':self.live=='1.0'})
+   if args==['omarchy-shell','pcadmin.controlCenter','ready']:
+    self.calls.append(args);return 'true' if self.lock_state=='false' and (self.live=='1.0' or new_ready) else 'false'
+   return self.run_command(args)
+  self.manager.runner=command
+  return target.name
+ def test_control_matching_version_without_ready_is_rejected(self):
+  plugin=self.control_fixture()
+  with self.assertRaises(ReleaseError):self.manager.apply(self.bundle,plugin,'control')
+  self.assertEqual(self.live,'1.0')
+  self.assertEqual(json.loads((self.plugin/'manifest.json').read_text()),self.old)
+  journal=next((self.root/'state').rglob('transaction.json'))
+  self.assertEqual(json.loads(journal.read_text())['status'],'rolled-back')
+ def test_control_rollback_while_locked_does_not_require_openable_panel(self):
+  plugin=self.control_fixture(new_ready=True)
+  result=self.manager.apply(self.bundle,plugin,'control');self.lock_state='true';self.calls=[]
+  restored=self.manager.rollback(plugin,result['transaction'],'control')
+  self.assertEqual(restored['status'],'rolled-back');self.assertEqual(self.live,'1.0')
+  self.assertNotIn(['omarchy-shell','pcadmin.controlCenter','ready'],self.calls)
  def test_pack_and_refuse_recursive_output(self):
   result=pack(self.bundle/'manifest.json',self.bundle/'files',self.root/'packed')
   self.assertEqual(result['status'],'packed')
