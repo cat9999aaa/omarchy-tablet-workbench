@@ -66,4 +66,6 @@
 
 | 2026-10-19 C2旧Qt删除边界 | C09用基础Grid排列等宽按钮，保留数量模型和revision保护 | gdb定位Qt6.4的GridLayout重排崩溃路径；Qt6.4 GitHub39162420543通过；Qt6.11统一38/真实qs8/主题186通过 | 未安装 | 原删除/非法模型/布局断言保持 |
 
+| 2026-10-19 C2本机交付 | 九份共享源/四份本地源副本同步，导航0.1.3使用C07–C09及数字网格测量 | 真实窗口保护、四页截图、生产回退/重装通过 | 用户确认中文输入、四页手指切页/收起正常 | 笔/竖屏/冷启动/完整性能未验；见本机交付报告 |
+
 证据：[C1报告](validation/2026-10-18-eva-shell-stage-c1.md)；[批准的C2计划](https://github.com/cat9999aaa/dashen-overdrive/blob/a8d7b39/docs/superpowers/plans/2026-10-19-navigation-stage-c2.md)。
