@@ -228,7 +228,7 @@ Ui.Panel {
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
     "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
- function serializedState() {return JSON.stringify({uiRevision:5,version:"0.1.9",nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
+ function serializedState() {return JSON.stringify({uiRevision:5,version:"0.2.0",nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
  IpcHandler {
   target: "pcadmin.controlCenter"
   function ready(): bool {return root.focusedTarget()!==null && !root.peers().some(p=>p.transferPending)}
@@ -237,7 +237,7 @@ Ui.Panel {
   function toggle(): void {root.route("toggle")}
   function gesture(): void {root.route("gesture")}
   function expand(): void {root.route("expand")}
-  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:5,version:"0.1.9",opened:false,locked:true,available:false})}
+  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:5,version:"0.2.0",opened:false,locked:true,available:false})}
 
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
