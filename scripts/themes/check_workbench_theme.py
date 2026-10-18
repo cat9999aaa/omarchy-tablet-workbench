@@ -26,13 +26,21 @@ def cases():
         for view in views:
             for high in (False,True):
                 rows.append(dict(name=f'{surface}-{mode}-page-{view}-{int(high)}',surface=surface,mode=mode,width=480,height=720,scale=1.5,state='observed',high=high,view=view))
+    for width,height in [(320,240),(320,480),(480,720)]:
+        for scale in (1,1.25,1.5):
+            for high in (False,True):
+                rows.insert(0,dict(name=f'network-wifi-{width}x{height}-{scale}-{int(high)}',surface='network',mode='tablet',width=width,height=height,scale=scale,state='observed',high=high,view='wifi'))
+    for width,height in [(320,240),(320,480),(480,720)]:
+        for scale in (1,1.25,1.5):
+            for high in (False,True):
+                rows.insert(0,dict(name=f'power-history-{width}x{height}-{scale}-{int(high)}',surface='power',mode='tablet',width=width,height=height,scale=scale,state='observed',high=high,view=2))
     return rows
 
 
 def main(output,official,surface=None):
     if os.environ.get('C1_ISOLATED_TEST')!='1':raise RuntimeError('isolated-namespace-required')
     hashes=verify_official(official)
-    for name in ['Commons/Border.qml','Ui/Button.qml','Ui/BorderSurface.qml','Ui/BorderOverlay.qml','Ui/PanelSeparator.qml','Ui/PanelSectionHeader.qml']:
+    for name in ['Commons/Border.qml','Ui/Button.qml','Ui/BorderSurface.qml','Ui/BorderOverlay.qml','Ui/PanelSeparator.qml','Ui/PanelSectionHeader.qml','Ui/CursorSurface.qml','Ui/PanelActionButton.qml','Ui/PanelToolTip.qml','Ui/TextField.qml','Ui/ToggleSwitch.qml']:
         if name not in hashes:raise RuntimeError('missing-official-ui:'+name)
     output.mkdir(parents=True,exist_ok=False);rows=[r for r in cases() if surface is None or r["surface"]==surface]
     with tempfile.TemporaryDirectory(prefix='c1-surfaces-') as temp:
@@ -40,7 +48,7 @@ def main(output,official,surface=None):
         shutil.copy2(Path(__file__).parent/'Contrast.js',work/'Contrast.js')
         for folder in ('Commons','Ui'):shutil.copytree(official/folder,work/folder)
         (work/'Commons/qmldir').write_text('module qs.Commons\n'+''.join('singleton '+n+' 1.0 '+n+'.qml\n' for n in ['Color','Style','Util','Border']))
-        (work/'Ui/qmldir').write_text('module qs.Ui\n'+''.join(n+' 1.0 '+n+'.qml\n' for n in ['Button','BorderSurface','BorderOverlay','PanelSeparator','PanelSectionHeader']))
+        (work/'Ui/qmldir').write_text('module qs.Ui\n'+''.join(n+' 1.0 '+n+'.qml\n' for n in ['Button','BorderSurface','BorderOverlay','PanelSeparator','PanelSectionHeader','CursorSurface','PanelActionButton','PanelToolTip','TextField','ToggleSwitch']))
         theme=ROOT/'themes/dashen-overdrive'
         (work/'Cases.js').write_text('var rows = '+json.dumps(rows)+';\nvar colors = '+json.dumps((theme/'colors.toml').read_text())+';\nvar shell = '+json.dumps((theme/'shell.toml').read_text())+';\n')
         fixture=work/'WorkbenchMatrix.qml';shutil.copy2(Path(__file__).parent/'fixtures/WorkbenchMatrix.qml',fixture)

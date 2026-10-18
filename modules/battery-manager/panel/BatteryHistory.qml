@@ -9,6 +9,7 @@ Item {
   property var themeTokens:null
   onThemeTokensChanged:plot.requestPaint()
   onForegroundChanged:plot.requestPaint()
+  onFontFamilyChanged:plot.requestPaint()
   property bool active: false
   property color foreground: themeTokens?themeTokens.colors.foreground:"white"
   property string fontFamily: themeTokens?themeTokens.font.family:"sans-serif"
@@ -116,13 +117,20 @@ Item {
             onPaint:{
               var ctx=getContext("2d");ctx.clearRect(0,0,width,height)
               var pts=view.historyData.points || [];if(pts.length===0)return
-              var left=32,right=width-8,top=12,bottom=height-28
+              var textSize=view.themeTokens?view.themeTokens.font.subtitle:11
+              ctx.font=textSize+"px "+view.fontFamily
+              var firstTime=view.stamp(pts[0].time)
+              var lastTime=Qt.formatDateTime(new Date(pts[pts.length-1].time),"HH:mm")
+              var left=Math.ceil(ctx.measureText("100%").width)+8,right=width-8,top=textSize+8
+              var endWidth=ctx.measureText(lastTime).width
+              var separateTimes=width>250 && left+ctx.measureText(firstTime).width+8>right-endWidth
+              var footerLine=textSize+8,bottom=height-7-footerLine*(separateTimes?2:1)
               ctx.strokeStyle=Qt.rgba(view.foreground.r,view.foreground.g,view.foreground.b,0.25);ctx.lineWidth=1
               ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(left,bottom);ctx.lineTo(right,bottom);ctx.stroke()
-              ctx.fillStyle=view.foreground;ctx.font=(view.themeTokens?view.themeTokens.font.subtitle:11)+"px "+view.fontFamily;ctx.fillText("100%",0,top+5);ctx.fillText("0",12,bottom)
+              ctx.fillStyle=view.foreground;ctx.fillText("100%",0,top);ctx.fillText("0",left-ctx.measureText("0").width-8,bottom)
               var start=pts[0].axis_time,end=pts[pts.length-1].axis_time,span=Math.max(60000,end-start)
               var maxW=10;for(var j=0;j<pts.length;j++)if(pts[j].net_discharge_w!==null)maxW=Math.max(maxW,pts[j].net_discharge_w)
-              ctx.fillText(Math.ceil(maxW)+"W 上限",left+8,top+5)
+              ctx.fillText(Math.ceil(maxW)+"W 上限",left+8,top)
               var keys=["BAT0","BAT1","net_discharge_w"],colors=["#60a5fa","#f5aa55","#7adba0"]
               for(var k=0;k<3;k++){
                 ctx.strokeStyle=colors[k];ctx.lineWidth=2;ctx.beginPath();var started=false
@@ -133,8 +141,8 @@ Item {
                   if(pts.length===1){ctx.lineTo(x+3,y)}
                 }ctx.stroke()
               }
-              ctx.fillStyle=view.foreground;ctx.fillText(view.stamp(pts[0].time),left,height-7)
-              if(width>250)ctx.fillText(Qt.formatDateTime(new Date(pts[pts.length-1].time),"HH:mm"),right-40,height-7)
+              ctx.fillStyle=view.foreground;ctx.fillText(firstTime,left,height-7-(separateTimes?footerLine:0))
+              if(width>250)ctx.fillText(lastTime,right-endWidth,height-7)
             }
           }
           Line {visible:view.historyData.available===false;text:"历史记录暂不可用"}
