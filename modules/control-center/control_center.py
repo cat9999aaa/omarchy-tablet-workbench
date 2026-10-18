@@ -23,38 +23,79 @@ def read_lock():
         return False if value=='false' else True if value=='true' else None
     except (OSError,subprocess.SubprocessError):return None
 
+# Literal commands never inspect hardware. Dynamic commands are resolved only
+# after the selected action's parameters and lock state have been validated.
+_STATIC_COMMANDS = {
+    **{name: ('omarchy-shell', 'omarchy.' + name, 'open')
+       for name in ('network', 'power', 'audio', 'monitor', 'bluetooth')},
+    'nightlight': ('omarchy', 'toggle', 'nightlight'),
+    'screen-off': ('hyprctl', 'dispatch', 'hl.dsp.dpms({enabled=false})'),
+    'lock': ('omarchy', 'system', 'lock'),
+    'player': ('gtk-launch', 'io.github.celluloid_player.Celluloid'),
+    'music': ('gtk-launch', 'io.github.quodlibet.QuodLibet'),
+    'reader': ('gtk-launch', 'rocks.koreader.KOReader'),
+    'games': ('gtk-launch', 'pcadmin-flight-arcade'),
+}
+_PRIVILEGED_ACTIONS = frozenset(('flight-on', 'flight-off', 'touch-glove',
+                                 'touch-normal', 'touch-refresh'))
+_PRIVILEGED_HELPER = '/usr/local/libexec/pcadmin-control-privileged.py'
+_POWER_ACTIONS = frozenset(('power-saver', 'balanced'))
+_CONFIRMATION_ACTIONS = frozenset(('proxy-off', 'flight-on', 'touch-normal'))
+
+
+def _action_command(action, params):
+    if action == 'brightness':
+        return ['omarchy-shell', 'omarchy.monitor', 'brightness', str(params['percent'])]
+    if action == 'volume':
+        return ['pactl', 'set-sink-volume', audio_sink(), str(params['percent']) + '%']
+    if action == 'mute':
+        return ['pactl', 'set-sink-mute', audio_sink(), 'toggle']
+    if action in _POWER_ACTIONS:
+        return ['omarchy', 'powerprofiles', 'set', power_context(), action]
+    if action in _PRIVILEGED_ACTIONS:
+        return ['pkexec', '/usr/bin/python', _PRIVILEGED_HELPER, action]
+    if action in ('proxy-on', 'proxy-off'):
+        return ['python', str(NETWORK), action]
+    if action == 'keyboard':
+        return ['python', str(IME)]
+    if action == 'windows':
+        return ['python', str(ROOT / 'window-controls/physical_window_menu.py')]
+    if action in _STATIC_COMMANDS:
+        return list(_STATIC_COMMANDS[action])
+    raise ValueError('未知操作')
+
+
+def _action_resource(action):
+    if action in ('volume', 'mute'):
+        return 'audio-output'
+    if action in _POWER_ACTIONS:
+        return 'power-profile'
+    if action in ('proxy-on', 'proxy-off', 'flight-on', 'flight-off'):
+        return 'network'
+    if action in ('touch-glove', 'touch-normal', 'touch-refresh'):
+        return 'touch'
+    return action
+
+
 def prepare(action, params, locked):
-    if locked is not False:raise PermissionError('锁屏中或无法确认锁屏状态')
-    if not isinstance(params,dict):raise ValueError('参数无效')
-    if action in ('brightness','volume'):
-        if set(params)!={'percent'} or type(params['percent']) is not int or not 0<=params['percent']<=100:raise ValueError('亮度须为0–100整数')
-        argv=['omarchy-shell','omarchy.monitor','brightness',str(params['percent'])] if action=='brightness' else ['pactl','set-sink-volume',audio_sink(),str(params['percent'])+'%'];resource=action
-    else:
-        if params:raise ValueError('该操作不接受参数')
-        details={x:['omarchy-shell','omarchy.'+x,'open'] for x in ['network','power','audio','monitor','bluetooth']}
-        actions={**details,
-          'keyboard':['python',str(IME)],
-          'proxy-on':['python',str(NETWORK),'proxy-on'],'proxy-off':['python',str(NETWORK),'proxy-off'],
-          **{a:['pkexec','/usr/bin/python','/usr/local/libexec/pcadmin-control-privileged.py',a] for a in ['flight-on','flight-off','touch-glove','touch-normal','touch-refresh']},
-          'nightlight':['omarchy','toggle','nightlight'],
-          'screen-off':['hyprctl','dispatch','hl.dsp.dpms({enabled=false})'],
-          'lock':['omarchy','system','lock'],
-          'windows':['python',str(ROOT/'window-controls/physical_window_menu.py')],
-          'player':['gtk-launch','io.github.celluloid_player.Celluloid'],
-          'music':['gtk-launch','io.github.quodlibet.QuodLibet'],
-          'reader':['gtk-launch','rocks.koreader.KOReader'],
-          'games':['gtk-launch','pcadmin-flight-arcade'],
-          'power-saver':['omarchy','powerprofiles','set',power_context(),'power-saver'],
-          'balanced':['omarchy','powerprofiles','set',power_context(),'balanced']}
-        if action=='mute':actions['mute']=['pactl','set-sink-mute',audio_sink(),'toggle']
-        if action not in actions:raise ValueError('未知操作')
-        argv=actions[action];resource='network' if action.startswith(('proxy','flight')) else 'touch' if action.startswith('touch') else action
-    if action in ('volume','mute'):resource='audio-output'
-    if action in ('power-saver','balanced'):resource='power-profile'
-    request_id=str(uuid.uuid4())
-    if '/usr/local/libexec/pcadmin-control-privileged.py' in argv:argv.append(request_id)
-    return {'request_id':request_id,'action':action,'resource':resource,'argv':argv,
-            'requires_confirmation':action in ('proxy-off','flight-on','touch-normal')}
+    if locked is not False:
+        raise PermissionError('锁屏中或无法确认锁屏状态')
+    if not isinstance(params, dict):
+        raise ValueError('参数无效')
+    if action in ('brightness', 'volume'):
+        if (set(params) != {'percent'} or type(params['percent']) is not int
+                or not 0 <= params['percent'] <= 100):
+            raise ValueError('亮度须为0–100整数')
+    elif params:
+        raise ValueError('该操作不接受参数')
+
+    argv = _action_command(action, params)
+    request_id = str(uuid.uuid4())
+    if action in _PRIVILEGED_ACTIONS:
+        argv.append(request_id)
+    return {'request_id': request_id, 'action': action,
+            'resource': _action_resource(action), 'argv': argv,
+            'requires_confirmation': action in _CONFIRMATION_ACTIONS}
 
 def power_context():
     for p in Path('/sys/class/power_supply').glob('*/type'):
