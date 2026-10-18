@@ -189,7 +189,7 @@ Panel {
     function togglePercentage() { root.togglePercentage() }
     function history() { batteryHistory.selected = 2; root.open() }
     function activity() { batteryHistory.selected = 1; root.open() }
-    function workbenchState(): string {return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,version:"1.2.0",opened:root.opened,width:panel.contentWidth,height:panel.contentHeight,tab:batteryHistory.selected})}
+    function workbenchState(): string {return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,version:"1.2.1",opened:root.opened,width:panel.contentWidth,height:panel.contentHeight,tab:batteryHistory.selected})}
     function timing() { batteryHistory.selected = 0; root.open() }
   }
 

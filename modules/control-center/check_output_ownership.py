@@ -50,11 +50,13 @@ if op=='observer':
  time.sleep(30)
 elif op=='prepare-open':print('{"ok":true}')
 elif op=='mode-preference-read':
- json.load(sys.stdin);p=root/'choice';print(json.dumps(dict(schema_version=1,choice=p.read_text() if p.exists() else 'auto',reason_code='ok')))
+ d=json.load(sys.stdin);p=root/('choice-'+d['output_key']);print(json.dumps(dict(schema_version=1,choice=p.read_text() if p.exists() else 'auto',reason_code='ok')))
 elif op=='mode-preference-write':
  d=json.load(sys.stdin)
+ # Keep an auto-mode save pending when its output is removed.
+ if d['choice']=='auto':time.sleep(1)
  if d['choice']=='desktop':print('{"schema_version":1,"saved":false}')
- else:(root/'choice').write_text(d['choice']);print('{"schema_version":1,"saved":true}')
+ else:(root/('choice-'+d['output_key'])).write_text(d['choice']);print('{"schema_version":1,"saved":true}')
 elif op=='output-policy':json.load(sys.stdin);print('{"schema_version":1,"eligible":true}')
 elif op=='mode-step':json.load(sys.stdin);time.sleep(30)
 ''')
@@ -109,7 +111,7 @@ ShellRoot {
   }
  }
  Timer {interval:20;running:true;repeat:true;onTriggered:{
-  harness.ticks++;if(harness.ticks>850){harness.check(false,"timeout phase="+harness.phase+" first="+(harness.first?JSON.stringify({opened:harness.first.opened,want:harness.first.wantOpen,health:harness.first.mode.health,reason:harness.first.mode.reason,feedback:harness.first.feedback}):"gone"));return}
+  harness.ticks++;if(harness.ticks>850){harness.check(false,"timeout phase="+harness.phase+" first="+(harness.first?JSON.stringify({opened:harness.first.opened,want:harness.first.wantOpen,health:harness.first.mode.health,reason:harness.first.mode.reason,choice:harness.first.modeChoice,feedback:harness.first.feedback}):"gone"));return}
   const live=harness.slots.filter(s=>s!==null&&s.mode!==undefined)
   if(live.filter(s=>s.mode.observer!==null).length>1){harness.check(false,"observer-overlap");return}
   if(live.filter(s=>s.opened).length>1){harness.check(false,"window-overlap");return}
@@ -160,7 +162,10 @@ ShellRoot {
    if(!harness.check(harness.second===null||!harness.second.opened,"destroy"))return
    if(!harness.check(harness.first!==null&&!harness.first.opened&&harness.first.mode.isStopped,"no-migration"))return
    harness.first.open();harness.phase=12
-  }else if(harness.phase===12 && harness.first.mode.observerReady) {
+  }else if(harness.phase===12 && harness.first.modeInitialized) {
+   if(!harness.check(harness.first.modeChoice==="auto","output-preferences-isolated"))return
+   harness.phase=121
+  }else if(harness.phase===121 && harness.first.mode.observerReady) {
    if(!harness.check(harness.first.opened,"retry-after-destroy"))return
    harness.first.close();harness.phase=13
   }else if(harness.phase===13 && harness.first.mode.isStopped) {
@@ -171,4 +176,4 @@ ShellRoot {
 '''
     path=temp/'ownership.qml';path.write_text(fixture)
     attachment_check(path,[helper,*[root/n for n in ('ModeSession.qml','ModeProtocol.js','ContractState.qml','ContractModel.js')]],
-                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy','periodic-no-restart','explicit-refresh-recovered'],verify_children=True)
+                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy','output-preferences-isolated','periodic-no-restart','explicit-refresh-recovered'],verify_children=True)

@@ -34,7 +34,7 @@ Item {
   function toggle(page:string):void {if(root.opened)root.close();else root.openPage(page)}
   function open(page:string):void {root.openPage(page)}
   function close():void {root.close()}
-  function state():string{return JSON.stringify({version:"0.1.1",opened:root.opened,page:root.page,width:card.width,height:card.height})}
+  function state():string{return JSON.stringify({version:"0.1.2",opened:root.opened,page:root.page,width:card.width,height:card.height})}
  }
  Process {
   id:loader;command:["python",root.helper,"snapshot"]
