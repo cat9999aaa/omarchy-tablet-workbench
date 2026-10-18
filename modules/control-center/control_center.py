@@ -11,15 +11,16 @@ import re
 import signal
 from privileged_control import process_start
 from pathlib import Path
-from adapters import snapshot, read_touch_state, thermal_values, field
+from adapters import snapshot, read_touch_state, touch_field, thermal_values, field
+import contract_host
 
 ROOT=Path(__file__).resolve().parents[1]
 NETWORK=ROOT/'network-center/network.py'
 IME=ROOT/'omarchy-touch-ime/control.py'
 
-def read_lock():
+def read_lock(reader=None):
     try:
-        value=subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True,timeout=2).strip()
+        value=(reader(['omarchy-shell','lock','isLocked'],2) if reader else subprocess.check_output(['omarchy-shell','lock','isLocked'],text=True,timeout=2)).strip()
         return False if value=='false' else True if value=='true' else None
     except (OSError,subprocess.SubprocessError):return None
 
@@ -165,11 +166,11 @@ def prepare_open():
         time.sleep(.05)
     return False
 
-def nightlight_status(now=None):
+def nightlight_status(now=None, reader=None):
     now=time.time() if now is None else now
     temperature=None
     try:
-        value=json.loads(subprocess.check_output(['omarchy','toggle','nightlight','--status'],text=True,timeout=3))
+        value=json.loads(reader(['omarchy','toggle','nightlight','--status'],3) if reader else subprocess.check_output(['omarchy','toggle','nightlight','--status'],text=True,timeout=3))
         temp=value.get('temperature')
         if type(temp) in (int,float) and 1000<=temp<=20000:
             temperature=temp
@@ -179,15 +180,24 @@ def nightlight_status(now=None):
     state['temperature']=temperature
     return state
 
-def status():
+def collect_status(reader=None):
+    def read(args, timeout):
+        return reader(args, timeout) if reader else subprocess.check_output(args,text=True,timeout=timeout)
     now=time.time();network={};monitor={}
-    try:network=json.loads(subprocess.check_output(['python',str(NETWORK),'status'],text=True,timeout=12))
+    try:network=json.loads(read(['python',str(NETWORK),'status'],12))
     except (OSError,ValueError,subprocess.SubprocessError):pass
-    try:monitor=json.loads(subprocess.check_output(['omarchy-shell','omarchy.monitor','state'],text=True,timeout=2))
+    try:monitor=json.loads(read(['omarchy-shell','omarchy.monitor','state'],2))
     except (OSError,ValueError,subprocess.SubprocessError):pass
+    if type(network) is not dict:network={}
+    if type(monitor) is not dict:monitor={}
     network['flight_saved']=Path('/var/lib/pcadmin-network/flight.json').exists()
-    d=snapshot(now,network,read_touch_state('/run/pcadmin-touch-mode/state.json',now),thermal_values())
-    d['nightlight']=nightlight_status()
+    cache,trusted=contract_host.read_touch_cache('/run/pcadmin-touch-mode/state.json')
+    started=contract_host.boottime_ms()
+    thermal=thermal_values()
+    ended=contract_host.boottime_ms()
+    if started is None or ended is None or ended<started:started=None
+    d=snapshot(now,network,touch_field(cache,now),thermal)
+    d['nightlight']=nightlight_status(reader=reader) if reader else nightlight_status()
     d['brightness']=None
     if monitor.get('brightnessAvailable'):
         for p in Path('/sys/class/backlight').glob('*'):
@@ -196,14 +206,31 @@ def status():
                 if maximum>0:d['brightness']=round(actual/maximum*100);break
             except (OSError,ValueError):pass
     d['power_profile']='unknown'
-    try:d['power_profile']=subprocess.check_output(['powerprofilesctl','get'],text=True,timeout=2).strip()
+    try:d['power_profile']=read(['powerprofilesctl','get'],2).strip()
     except (OSError,subprocess.SubprocessError):pass
-    d['locked']=read_lock()
-    return d
+    d['locked']=read_lock(reader=reader) if reader else read_lock()
+    return contract_host.Sample(d,started,cache.get('observation'),trusted)
+
+def status():
+    return collect_status().legacy
+
+def status_readonly():
+    try:
+        with contract_host.ReadBudget() as budget:
+            sample=collect_status(reader=budget.run_read)
+            budget.remaining_s()
+            result=contract_host.response(sample)
+            budget.remaining_s()
+            return result
+    except contract_host.ReadDeadline:
+        return contract_host.failure('read_timeout')
+    except Exception:
+        return contract_host.failure('read_failed')
 
 def main():
     op=sys.argv[1] if len(sys.argv)==2 else ''
     if op=='status':return status()
+    if op=='status-readonly':return status_readonly()
     if op=='lock-state':return {'locked':read_lock()}
     if op=='prepare-open':return {'ok':prepare_open()}
     if op!='action':raise ValueError('未知请求')
