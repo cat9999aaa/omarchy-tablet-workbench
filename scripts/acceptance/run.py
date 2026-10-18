@@ -165,6 +165,7 @@ def checks_for(suite):
             checks.append(Check(name, directory, [sys.executable, __file__, '--python-suite',
                                 str(p.parent), p.name]))
         for name, directory, file in [
+            ('navigation-session', 'window-controls', 'test-navigation-session.cjs'),
             ('control-model', 'control-center', 'test-model.cjs'),
             ('contract-model', 'control-center', 'test-contract-model.cjs'),
             ('output-route', 'control-center', 'test-output-route.cjs'),
