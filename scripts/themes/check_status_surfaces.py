@@ -35,7 +35,7 @@ NETWORK = '''
  QtObject {id:entertainment;property bool running:false}
  TestCase {
   name:'NetworkThemeState';when:windowShown
-  function findButtons(item,out){if(item.minimumTouchHeight!==undefined)out.push(item);for(const child of item.children)findButtons(child,out)}
+  function findButtons(item,out){if(item.minimumTouchHeight!==undefined)out.push(item);for(let i=0;i<item.children.length;i++)findButtons(item.children[i],out)}
   function test_theme_keeps_unknown_and_confirmation() {
    verify('themeTokens' in hub,'network themeTokens API missing');hub.observedAt=100;hub.now=100;hub.selectedTab='cell';hub.confirmFlight=true
    const snapshot={wifi_enabled:false,wwan:true,signal:null,traffic:{day:null,month:null},policy:{proxy_enabled:false,mode:'auto'},health:{internet:'unknown'},wifi_connection:'合成中文网络'.repeat(20)}
@@ -55,7 +55,7 @@ NETWORK = '''
 BATTERY = '''
  TestCase {
   name:'BatteryThemeState';when:windowShown
-  function texts(item,out){if(item.text!==undefined)out.push(item);for(const child of item.children)texts(child,out)}
+  function texts(item,out){if(item.text!==undefined)out.push(item);for(let i=0;i<item.children.length;i++)texts(item.children[i],out)}
   function test_theme_keeps_missing_bays_tabs_and_scroll() {
    verify('themeTokens' in view,'history themeTokens API missing')
    view.statusData={available:true,batteries:{},current_session:null};view.selected=0;wait(10)
