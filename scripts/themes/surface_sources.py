@@ -42,8 +42,8 @@ def write_sources(output):
     button=block(ctl['source'],' component CButton:')
     (output/'ControlSurface.qml').write_text(prefix+'property alias contractReadings: readings\n'+body+button+'}\n')
     prefix=nav['prefix'].replace('import QtTest','import qs.Commons').replace('property color fg:"#eeeeee"','property color fg:Color.foreground').replace('property color bg:"#202020"','property color bg:Color.popups.background')
-    prefix=theme_binding(prefix,nav['source'])
-    body=block(nav['source'],'   ColumnLayout {').replace('root.data','root.snapshot')
+    prefix=re.sub(r'property var themeTokens:[^\n]+','readonly property var themeTokens:themeContext.tokens',prefix)+'WB.ThemeContext {id:themeContext}\n'
+    body=block(nav['source'],'   WB.PanelBody {').replace('root.data','root.snapshot')
     (output/'NavigationSurface.qml').write_text(prefix+body+'}\n')
     # Source functions/status labels stay intact; replace unavailable host I/O only.
     network=remove_io((ROOT/'modules/network-center/TravelControls.qml').read_text()).replace('testColor.','Color.').replace('testStyle.','Style.')

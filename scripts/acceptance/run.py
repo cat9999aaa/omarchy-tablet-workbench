@@ -158,6 +158,7 @@ def checks_for(suite):
             ('ime-control', 'modules/touch-ime-prototype', 'tests/test_control.py'),
             ('navigation', 'modules/window-controls', 'test_navigation.py'),
             ('navigation-read', 'modules/window-controls', 'test_navigation_read.py'),
+            ('navigation-cancel', 'modules/window-controls', 'test_navigation_cancel.py'),
             ('edge-menu', 'modules/edge-gestures', 'test_menu.py'),
         ]
         for name, directory, pattern in python_suites:

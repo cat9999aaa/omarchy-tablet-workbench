@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Tablet navigation and key actions. Fixed actions only, no shell evaluation."""
-import json,os,re,subprocess,sys,tempfile
+import json,os,re,signal,subprocess,sys,tempfile
 from pathlib import Path
 from navigation_read import ReadBudget,ReadError,read_json,check_lock,focused_output,window_identity,workspace,workspace_counts
 DEFAULTS={'P1':'keyboard','P2':'voice','P3':'authorize','rotation':'windows'}
@@ -81,7 +81,11 @@ def action(request):
 def main():
  try:
   args=sys.argv[1:]
-  if args==['snapshot']:result=snapshot()
+  if args==['snapshot']:
+   def cancelled(signum,frame):raise SystemExit(128+signum)
+   previous=signal.signal(signal.SIGTERM,cancelled)
+   try:result=snapshot()
+   finally:signal.signal(signal.SIGTERM,previous)
   elif len(args)==2 and args[0]=='key':result={'ok':key_action(args[1])}
   elif args==['action']:
    raw=sys.stdin.read(8193)
