@@ -74,6 +74,32 @@ fn main() {
         }
         return;
     }
+    if args.get(1).map(String::as_str) == Some("core-recovery-hash") && args.len() == 4 {
+        use sha2::{Digest, Sha256};
+        let result = omt_proxy::storage::Store::open(std::path::Path::new(&args[2]))
+            .and_then(|store| omt_proxy::runtime::candidate(&store, &args[3]));
+        match result {
+            Ok(bytes) => println!(
+                "{}",
+                json!({"sha256":format!("{:x}",Sha256::digest(&bytes))})
+            ),
+            Err(e) => {
+                println!("{}", json!({"error_code":e}));
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    if args.get(1).map(String::as_str) == Some("core-recover-offline") && args.len() == 3 {
+        match omt_proxy::runtime::recover_offline(std::path::Path::new(&args[2])) {
+            Ok(value) => println!("{}", value),
+            Err(e) => {
+                println!("{}", json!({"error_code":e}));
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if args.get(1).map(String::as_str) == Some("core-preview") && args.len() == 3 {
         let mut input = Vec::new();
         let _ = io::stdin().take(1024 * 1024 + 1).read_to_end(&mut input);
@@ -92,22 +118,13 @@ fn main() {
     {
         let recovery = args[1] == "core-recover";
         let result = (|| {
-            if (recovery && args.len() != 3) || (!recovery && args.len() != 5) {
+            if args.len() != 5 {
                 return Err("invalid_runtime_arguments".to_string());
             }
-            let expected = if recovery {
-                0
-            } else {
-                args[3]
-                    .parse()
-                    .map_err(|_| "invalid_generation".to_string())?
-            };
-            omt_proxy::runtime::run(
-                std::path::Path::new(&args[2]),
-                expected,
-                if recovery { "" } else { &args[4] },
-                recovery,
-            )
+            let expected = args[3]
+                .parse()
+                .map_err(|_| "invalid_generation".to_string())?;
+            omt_proxy::runtime::run(std::path::Path::new(&args[2]), expected, &args[4], recovery)
         })();
         match result {
             Ok(report) => {

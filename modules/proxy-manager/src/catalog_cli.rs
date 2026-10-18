@@ -39,7 +39,9 @@ pub fn run(root: &Path, bytes: &[u8]) -> Result<Value, String> {
     }
     let store = Store::open(root)?;
     if action == "list" {
-        return Ok(public(store.catalog()?));
+        let mut result = public(store.catalog()?);
+        result["applied"] = store.applied()?;
+        return Ok(result);
     }
     if action == "commit" {
         return Ok(public(store.commit(

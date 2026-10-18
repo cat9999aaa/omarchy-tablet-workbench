@@ -52,3 +52,21 @@ fn preview_is_private_checked_and_does_not_activate() {
     assert!(!root.join("active.json").exists());
     std::fs::remove_dir_all(root).unwrap();
 }
+#[test]
+fn applied_selection_requires_matching_active_hash() {
+    use sha2::{Digest, Sha256};
+    let root = std::env::temp_dir().join(format!("omt-applied-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let store = omt_proxy::storage::Store::open(&root).unwrap();
+    store.write("active.json", b"working").unwrap();
+    store.write("applied.json",serde_json::to_string(&json!({"sha256":format!("{:x}",Sha256::digest(b"working")),"node_id":"node","mode":"global"})).unwrap().as_bytes()).unwrap();
+    drop(store);
+    let v = omt_proxy::catalog_cli::run(&root, b"{\"action\":\"list\"}").unwrap();
+    assert_eq!(v["applied"]["mode"], "global");
+    let store = omt_proxy::storage::Store::open(&root).unwrap();
+    store.write("active.json", b"restored").unwrap();
+    drop(store);
+    let v = omt_proxy::catalog_cli::run(&root, b"{\"action\":\"list\"}").unwrap();
+    assert!(v["applied"].is_null());
+    std::fs::remove_dir_all(root).unwrap();
+}

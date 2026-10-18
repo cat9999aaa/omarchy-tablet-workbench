@@ -1,0 +1,12 @@
+[Unit]
+Description=Recover interrupted native proxy configuration before initial core start
+Before=omt-proxy-core.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=%h/.local/lib/omt-proxy/omt-proxy core-recover-offline %h/.local/state/omt-proxy
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=30
+UMask=0077

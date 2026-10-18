@@ -15,6 +15,13 @@ QtObject {
  readonly property string tunLabel:known(snapshot.tun)?(snapshot.tun.value?"开启":"关闭"):"未知"
  property var catalog:({nodes:[],revision:0,current:null})
  property var preview:({})
+ property var coreCandidate:({})
+ property bool corePending:false
+ property string coreFeedback:""
+ property string pendingAction:""
+ signal coreRequested(var command)
+ readonly property string modeLabel:({rules:"规则分流",global:"全局代理",direct:"业务直连"})[(catalog.applied||{}).mode]||"待核对"
+ readonly property string nodeLabel:(catalog.nodes.filter(function(n){return n.id===(catalog.applied||{}).node_id})[0]||{}).name||"待核对"
  property bool catalogPending:false
  property string catalogFeedback:""
  signal catalogRequested(var command)
@@ -28,9 +35,12 @@ QtObject {
   else if(value.nodes){catalog=value;preview={};catalogFeedback="本机目录已读回，运行网络未改变"}
  }
  function commitPreview(confirmed){if(!preview.preview_id)return;catalogAction({action:"commit",preview_id:preview.preview_id,confirmed:!!confirmed})}
- function selectNode(id){draft=Object.assign({},draft,{node_id:id,dirty:true,mode:draft.mode||"rules",base_revision:catalog.revision,rules:draft.rules||[]})}
- function selectMode(mode){if(["rules","global","direct"].indexOf(mode)<0)return;draft=Object.assign({},draft,{mode:mode,dirty:true,base_revision:catalog.revision,rules:draft.rules||[]})}
+ function selectNode(id){if(pending)return;coreCandidate={};draft=Object.assign({},draft,{node_id:id,dirty:true,mode:draft.mode||"rules",base_revision:catalog.revision,rules:draft.rules||[]})}
+ function selectMode(mode){if(pending)return;if(["rules","global","direct"].indexOf(mode)<0)return;coreCandidate={};draft=Object.assign({},draft,{mode:mode,dirty:true,base_revision:catalog.revision,rules:draft.rules||[]})}
  function saveRoutingDraft(){if(!draft.node_id)return;catalogAction({action:"routing-preview",draft:{mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[]}})}
+ function prepareCore(){if(pending||corePending||!draft.node_id)return;coreCandidate={};corePending=true;coreFeedback="正在生成候选配置…";coreRequested({mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[],port:10818})}
+ function acceptCore(value){corePending=false;if(value.candidate_hash){coreCandidate=value;coreFeedback="候选已准备。确认应用时执行核心校验、切换、联网检查；失败恢复。"}else{coreCandidate={};coreFeedback="无法生成候选配置，当前网络保持。"}}
+ function applyCandidate(confirmed){if(!confirmed||!coreCandidate.candidate_hash||!allowed("apply"))return;submit("apply",true)}
  property var updates:({observed_at:null,proposals:[],checks:[]})
  property bool updatesPending:false
  property string updatesFeedback:""
@@ -42,15 +52,15 @@ QtObject {
  function allowed(action){return !readOnly&&!pending&&(snapshot.capabilities||[]).indexOf(action)>=0}
  function submit(action,confirmed){
   if(pending||!allowed(action))return
-  pending=true;pendingId="ui-"+Date.now()+"-"+Math.floor(Math.random()*100000);lastError=""
-  requested({id:pendingId,expected_revision:snapshot.revision||0,action:action,confirmed:!!confirmed})
+  pending=true;pendingAction=action;pendingId="ui-"+Date.now()+"-"+Math.floor(Math.random()*100000);lastError=""
+  let command={id:pendingId,expected_revision:snapshot.revision||0,action:action,confirmed:!!confirmed};if(action==="apply")command.candidate_hash=coreCandidate.candidate_hash;requested(command)
  }
  function refresh(){if(pending)return;requested({id:"status-"+Date.now(),expected_revision:0,action:"status",confirmed:false})}
  function accept(value){
   now=Date.now()/1000
   if(value.error_code){snapshot={};pending=false;lastError=errorText(value.error_code);return}
   if(value.snapshot && (value.snapshot.revision||0)>=(snapshot.revision||0))snapshot=value.snapshot
-  if(value.outcome && value.outcome.id===pendingId){pending=false;lastError=value.outcome.verified?"":errorText(value.outcome.error_code||value.outcome.stage)}
+  if(value.outcome && value.outcome.id===pendingId){pending=false;if(value.outcome.verified&&pendingAction==="apply"){draft=Object.assign({},draft,{dirty:false});coreCandidate={};coreFeedback="已应用，新的代理与 TUN 请求通过。";catalogAction({action:"list"})}lastError=value.outcome.verified?"":errorText(value.outcome.error_code||value.outcome.stage)}
  }
  function errorText(code){return ({service_unavailable:"管理服务暂不可用，状态未知",ownership_conflict:"控制归属待确认，保留当前连接",revision_conflict:"状态已变化，请核对后再操作",authorization_cancelled:"已取消系统授权，修改未生效",locked_or_unknown:"锁屏中或无法确认桌面状态",flight_or_unknown:"飞行状态不允许启动",busy:"另一项操作正在进行",timeout:"操作超时，请检查诊断",not_verified:"操作未通过读回确认"})[code]||"操作未完成，请查看诊断"}
 }

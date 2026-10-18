@@ -7,6 +7,7 @@ pub enum Action {
     Status,
     Enable,
     Disable,
+    Apply,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -15,6 +16,8 @@ pub struct Command {
     pub expected_revision: u64,
     pub action: Action,
     pub confirmed: bool,
+    #[serde(default)]
+    pub candidate_hash: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Outcome {
@@ -33,6 +36,9 @@ pub struct Observation {
 pub trait Driver: Send + Sync {
     fn observe(&self) -> Observation;
     fn apply(&self, enabled: bool, confirmed: bool) -> String;
+    fn apply_candidate(&self, _hash: &str) -> String {
+        "unsupported".into()
+    }
 }
 struct State {
     observation: Observation,
@@ -125,18 +131,36 @@ impl Engine {
             Some("locked_or_unknown")
         } else if !observed.ownership {
             Some("ownership_conflict")
-        } else if c.action == Action::Enable && observed.snapshot.flight != Some(false) {
+        } else if c.action != Action::Disable && observed.snapshot.flight != Some(false) {
             Some("flight_or_unknown")
-        } else if c.action == Action::Disable && !c.confirmed {
+        } else if matches!(c.action, Action::Disable | Action::Apply) && !c.confirmed {
             Some("confirmation_required")
+        } else if c.action == Action::Apply
+            && (observed.snapshot.user_enabled != Some(true)
+                || observed.snapshot.proxy.value != Some(true)
+                || observed.snapshot.tun.value != Some(true))
+        {
+            Some("proxy_not_running")
+        } else if c.action == Action::Apply
+            && !c
+                .candidate_hash
+                .as_ref()
+                .is_some_and(|h| h.len() == 64 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+        {
+            Some("candidate_required")
         } else {
             None
         };
         if let Some(error) = error {
             return make("conflict", Some(error), revision);
         }
-        let enabled = c.action == Action::Enable;
-        let result = self.driver.apply(enabled, c.confirmed);
+        let enabled = c.action != Action::Disable;
+        let result = if c.action == Action::Apply {
+            self.driver
+                .apply_candidate(c.candidate_hash.as_deref().unwrap())
+        } else {
+            self.driver.apply(enabled, c.confirmed)
+        };
         let after = self.driver.observe();
         let verified = result == "submitted"
             && after.snapshot.proxy.value == Some(enabled)

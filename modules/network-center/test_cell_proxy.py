@@ -28,6 +28,6 @@ class CellProxyTests(unittest.TestCase):
  def test_off_stops_client_and_system_proxy(self):
   with patch('network.tun_control') as tun,patch('network.set_system_proxy') as settings,patch('network.call') as call,patch('network.close_extra_clients') as close:
    network.action('proxy-off');tun.assert_called_once_with('stop');settings.assert_called_once_with(False)
-   call.assert_called_once_with(['systemctl','--user','stop','app-v2rayN@autostart.service'],25);close.assert_called_once_with(0)
+   call.assert_called_once_with(['systemctl','--user','stop','v2rayn.service'],25);close.assert_called_once_with(0)
 if __name__=='__main__':unittest.main()
 

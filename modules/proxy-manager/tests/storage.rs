@@ -56,3 +56,41 @@ fn symlink_directory_and_secret_file_rejected() {
     fs::remove_file(other).unwrap();
     fs::remove_dir_all(p).unwrap();
 }
+#[test]
+fn releasing_store_unlocks_even_during_concurrent_child_exec() {
+    use std::os::fd::RawFd;
+    let p = root();
+    let store = Store::open(&p).unwrap();
+    let mut pipe: [RawFd; 2] = [-1, -1];
+    assert_eq!(
+        unsafe { libc::pipe2(pipe.as_mut_ptr(), libc::O_CLOEXEC) },
+        0
+    );
+    let child = unsafe { libc::fork() };
+    assert!(child >= 0);
+    if child == 0 {
+        // Only async-signal-safe operations between fork and _exit.
+        unsafe {
+            libc::close(pipe[1]);
+            let mut byte = 0u8;
+            libc::read(pipe[0], &mut byte as *mut _ as *mut libc::c_void, 1);
+            libc::_exit(0);
+        }
+    }
+    unsafe {
+        libc::close(pipe[0]);
+    }
+    drop(store);
+    let reopened = Store::open(&p);
+    unsafe {
+        libc::write(pipe[1], b"x".as_ptr() as *const libc::c_void, 1);
+        libc::close(pipe[1]);
+        libc::waitpid(child, std::ptr::null_mut(), 0);
+    }
+    assert!(
+        reopened.is_ok(),
+        "store lock must be released before a forked child execs"
+    );
+    drop(reopened);
+    fs::remove_dir_all(p).unwrap();
+}

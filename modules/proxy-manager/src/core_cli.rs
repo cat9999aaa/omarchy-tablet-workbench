@@ -49,6 +49,7 @@ pub fn preview(root: &Path, bytes: &[u8]) -> Result<Value, String> {
     let config = crate::core::build_xray(node, &c, &template, r.port)?;
     let data = serde_json::to_vec(&config).map_err(|_| "invalid_core_candidate")?;
     store.write("candidate.json", &data)?;
+    store.write("candidate-meta.json",&serde_json::to_vec(&json!({"candidate_hash":format!("{:x}",Sha256::digest(&data)),"node_id":draft.node_id,"mode":draft.mode})).map_err(|_|"invalid_metadata")?)?;
     Ok(
         json!({"candidate_hash":format!("{:x}",Sha256::digest(&data)),"catalog_revision":catalog.revision,"applied":false,"native_checked":false}),
     )

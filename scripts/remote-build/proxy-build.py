@@ -30,7 +30,7 @@ def execute(root, job_id, phase):
         raise ValueError('scope: explicit non-symlink build root required')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9-]{0,63}', job_id):
         raise ValueError('job: invalid identifier')
-    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve', 'coretest', 'format-write', 'updates'):
+    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve', 'coretest', 'format-write', 'updates', 'installtest', 'clienttest', 'frontendtest', 'guardtest', 'entrytest', 'rootfronttest', 'handovertest'):
         raise ValueError('phase: unsupported operation')
     job = checked(root, 'jobs/'+job_id)
     source = checked(root, 'jobs/'+job_id+'/source')
@@ -66,8 +66,23 @@ def execute(root, job_id, phase):
                  ['--chdir','/work','python','modules/proxy-manager/tests/test_owned_core.py'],
                  ['--chdir','/work','python','scripts/test_proxy_upstream.py'],
                  ['--chdir','/work','python','scripts/check_proxy_workflows.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/install_test.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_frontend.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_client.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_guarded_apply.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_handover.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_prepare_runtime.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_root_frontend.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_entrypoints.py'],
                  ['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],
         'build': [['--chdir','/work/modules/proxy-manager','cargo','build','--release','--locked','--offline','-j2']],
+        'rootfronttest': [['--chdir','/work','python','modules/proxy-manager/tests/test_root_frontend.py']],
+        'handovertest': [['--chdir','/work','python','modules/proxy-manager/tests/test_handover.py']],
+        'entrytest': [['--chdir','/work','python','modules/proxy-manager/tests/test_entrypoints.py']],
+        'guardtest': [['--chdir','/work','python','modules/proxy-manager/tests/test_guarded_apply.py']],
+        'clienttest': [['--chdir','/work','python','modules/proxy-manager/tests/test_client.py']],
+        'frontendtest': [['--chdir','/work','python','modules/proxy-manager/tests/test_frontend.py']],
+        'installtest': [['--chdir','/work','python','modules/proxy-manager/tests/install_test.py'],['--chdir','/work','python','modules/proxy-manager/tests/test_frontend.py']],
         'updates': [['--chdir','/work','python','scripts/test_proxy_upstream.py']],
         'coretest': [['--chdir','/work','python','modules/proxy-manager/tests/network_namespace.py']],
         'qml': [['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],

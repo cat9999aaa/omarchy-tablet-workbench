@@ -59,7 +59,10 @@ def policy_state():
 def main():
     if len(sys.argv) != 3:raise ValueError('unsupported_core_action')
     op=sys.argv[1];path=Path(sys.argv[2]).absolute()
-    if op=='check':result=check(path)
+    if op=='intent':
+        from client import native
+        state=policy_state();result={'ok':native() and state[1] is False and state[2] is True}
+    elif op=='check':result=check(path)
     elif op in ('activate','restore','probe'):
         expected=Path.home()/'.local/state/omt-proxy/active.json'
         if path!=expected:raise ValueError('unexpected_active_path')

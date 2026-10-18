@@ -13,6 +13,10 @@ struct Mock {
     delay: bool,
 }
 impl Driver for Mock {
+    fn apply_candidate(&self, _: &str) -> String {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        "submitted".into()
+    }
     fn observe(&self) -> Observation {
         self.state.lock().unwrap().clone()
     }
@@ -54,6 +58,7 @@ fn cmd(id: &str, action: Action, rev: u64) -> Command {
         expected_revision: rev,
         action,
         confirmed: true,
+        candidate_hash: None,
     }
 }
 #[test]
@@ -163,4 +168,40 @@ fn frames_are_bounded_and_strict() {
         decode_frame(br#"{"id":"a","expected_revision":1,"action":"enable","confirmed":true}"#)
             .is_ok()
     );
+}
+
+#[test]
+fn apply_never_reenables_manual_off() {
+    let (d, e) = fixture(false);
+    let mut c = cmd("apply-off", Action::Apply, e.snapshot().revision);
+    c.candidate_hash = Some("a".repeat(64));
+    let result = e.dispatch(c);
+    assert_eq!(result.error_code.as_deref(), Some("proxy_not_running"));
+    assert_eq!(d.calls.load(Ordering::SeqCst), 0);
+}
+#[test]
+fn apply_requires_hash_confirmation_and_keeps_core_running() {
+    let (d, e) = fixture(false);
+    assert!(
+        e.dispatch(cmd("on", Action::Enable, e.snapshot().revision))
+            .verified
+    );
+    let mut c = cmd("apply-missing", Action::Apply, e.snapshot().revision);
+    assert_eq!(
+        e.dispatch(c.clone()).error_code.as_deref(),
+        Some("candidate_required")
+    );
+    c.id = "apply-unconfirmed".into();
+    c.candidate_hash = Some("a".repeat(64));
+    c.confirmed = false;
+    assert_eq!(
+        e.dispatch(c.clone()).error_code.as_deref(),
+        Some("confirmation_required")
+    );
+    c.id = "apply-now".into();
+    c.confirmed = true;
+    let out = e.dispatch(c);
+    assert!(out.verified);
+    assert_eq!(e.snapshot().proxy.value, Some(true));
+    assert_eq!(d.calls.load(Ordering::SeqCst), 2);
 }

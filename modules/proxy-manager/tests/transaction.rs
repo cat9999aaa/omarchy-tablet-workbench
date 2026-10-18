@@ -171,3 +171,13 @@ fn commit_record_failure_rolls_back_live_candidate() {
     assert!(r.restored);
     assert_eq!(d.disk.files["active.json"], b"old");
 }
+#[test]
+fn watchdog_never_restores_another_transaction() {
+    let (mut d, mut c) = fixture();
+    seed_pending(&mut d, b"old", b"new", 7).unwrap();
+    let j: Journal = serde_json::from_slice(&d.files["transaction.json"]).unwrap();
+    assert!(!recover_exact(&mut d, &mut c, 9, &j.candidate_hash).restored);
+    assert!(!recover_exact(&mut d, &mut c, 8, &"f".repeat(64)).restored);
+    assert_eq!(c.restores, 0);
+    assert!(recover_exact(&mut d, &mut c, 8, &j.candidate_hash).restored);
+}

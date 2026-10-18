@@ -27,6 +27,15 @@ pub struct Store {
     pub root: PathBuf,
     _lock: File,
 }
+impl Drop for Store {
+    fn drop(&mut self) {
+        // An unrelated concurrent spawn may inherit this open-file description until exec.
+        // Explicit unlock releases ownership now, rather than waiting for that child close.
+        unsafe {
+            libc::flock(self._lock.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
 impl Store {
     pub fn open(path: &Path) -> Result<Self, String> {
         let root = std::path::absolute(path).map_err(|_| "invalid_store")?;
@@ -144,7 +153,22 @@ impl Store {
                 return Err("catalog_integrity_failed".into());
             }
         }
+        if let Some(id) = self.applied()?.get("node_id").and_then(|v| v.as_str()) {
+            c.current = Some(id.to_owned());
+        }
         Ok(c)
+    }
+    pub fn applied(&self) -> Result<serde_json::Value, String> {
+        let active = self.read("active.json")?;
+        let metadata = self.read("applied.json")?;
+        if let (Some(active), Some(metadata)) = (active, metadata) {
+            let v: serde_json::Value =
+                serde_json::from_slice(&metadata).map_err(|_| "invalid_applied_metadata")?;
+            if v["sha256"] == format!("{:x}", Sha256::digest(active)) {
+                return Ok(serde_json::json!({"node_id":v["node_id"],"mode":v["mode"]}));
+            }
+        }
+        Ok(serde_json::Value::Null)
     }
     pub fn stage(&self, p: &ImportPreview) -> Result<String, String> {
         let c = self.catalog()?;

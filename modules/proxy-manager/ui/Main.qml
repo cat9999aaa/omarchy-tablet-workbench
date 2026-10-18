@@ -18,7 +18,7 @@ Rectangle {
  Connections {target:root.model;function onEditRoutingRequested(){root.page=3}}
  function choosePage(index){if(index<0||index>6||index===page)return;if(model.draft.dirty){requestedPage=index;closeAfterDiscard=false;leavePrompt=true;leave.open()}else page=index}
  function requestClose(){if(model.draft.dirty){closeAfterDiscard=true;leavePrompt=true;leave.open()}else closeRequested()}
- function discardAndContinue(){model.draft={dirty:false,mode:"rules"};leavePrompt=false;leave.close();if(closeAfterDiscard)closeRequested();else page=requestedPage}
+ function discardAndContinue(){model.coreCandidate={};model.draft={dirty:false,mode:"rules"};leavePrompt=false;leave.close();if(closeAfterDiscard)closeRequested();else page=requestedPage}
  ColumnLayout {
   anchors.fill:parent;anchors.margins:16;spacing:12
   RowLayout {Layout.fillWidth:true
@@ -29,7 +29,7 @@ Rectangle {
    WB.TouchButton {objectName:"closeProxy";text:"收起";foreground:root.foreground;accent:root.accent;onClicked:root.requestClose()}
   }
   Rectangle {Layout.fillWidth:true;implicitHeight:statusText.implicitHeight+24;radius:10;color:Qt.rgba(root.accent.r,root.accent.g,root.accent.b,.10)
-   PText {id:statusText;anchors.fill:parent;anchors.margins:12;color:root.foreground;text:"当前网络："+model.physicalLabel+"    代理："+model.proxyLabel+"    TUN："+model.tunLabel+"\n分流：待核对    ·    "+(model.online?"最近检测正常":"访问状态待确认")}
+   PText {id:statusText;anchors.fill:parent;anchors.margins:12;color:root.foreground;text:"当前网络："+model.physicalLabel+"    代理："+model.proxyLabel+"    TUN："+model.tunLabel+"\n分流："+model.modeLabel+"    ·    "+(model.online?"最近检测正常":"访问状态待确认")}
   }
   RowLayout {Layout.fillWidth:true;Layout.fillHeight:true;spacing:16
    ColumnLayout {visible:root.width>=1000;Layout.preferredWidth:136;Layout.fillHeight:true;spacing:8

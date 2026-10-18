@@ -233,10 +233,21 @@ def close_extra_clients(keep):
    if Path('/proc/'+item+'/exe').resolve()==Path('/opt/v2rayn-bin/v2rayN'):os.kill(pid,signal.SIGTERM)
   except (OSError,ProcessLookupError):pass
 
+
+def native_client():
+ import importlib.util
+ p=Path.home()/'.local/lib/omt-proxy/client.py'
+ if not p.exists():return None
+ spec=importlib.util.spec_from_file_location('omt_proxy_client',p)
+ module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
+ return module.active_client()
+
 def start_proxy_client():
  if flight_requested():return
- call(['systemctl','--user','start','app-v2rayN@autostart.service'],20)
- pid=int(call(['systemctl','--user','show','app-v2rayN@autostart.service','-p','MainPID','--value']))
+ if native_client():
+  call(['systemctl','--user','start','omt-proxy-core.service'],20);return
+ call(['systemctl','--user','start','v2rayn.service'],20)
+ pid=int(call(['systemctl','--user','show','v2rayn.service','-p','MainPID','--value']))
  if not pid:raise RuntimeError('V2Ray 客户端未启动')
  close_extra_clients(pid)
 
@@ -250,6 +261,12 @@ def tun_control(op):
  call(args,90)
 
 def ensure_proxy():
+ client=native_client()
+ if client and os.environ.get('PCADMIN_PROXY_CONTROLLER')!='1':
+  if not read_policy()['proxy_enabled']:return
+  result=client.dispatch(Path.home(),'enable',True)
+  if not result['verified']:raise RuntimeError('代理控制未通过验证：'+str(result.get('error_code','unknown')))
+  return
  directory=Path.home()/'.local/state/pcadmin-network';directory.mkdir(parents=True,exist_ok=True)
  with (directory/'cell-proxy.lock').open('w') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX)
@@ -277,9 +294,20 @@ def ensure_proxy():
    raise RuntimeError('4G 已连接，但 V2Ray 联动失败：'+str(e)[:120]) from e
 
 def action(op):
+ client=native_client()
+ if client:
+  if op=='proxy-open':
+   subprocess.Popen([str(Path.home()/'.local/bin/omt-proxy')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True);return
+  if op=='proxy-user-exit':return
+  if os.environ.get('PCADMIN_PROXY_CONTROLLER')!='1' and op in ('proxy-on','proxy-off','proxy-off-confirmed'):
+   if op=='proxy-off':raise RuntimeError('请确认关闭代理后再操作')
+   result=client.dispatch(Path.home(),'enable' if op=='proxy-on' else 'disable',True)
+   if not result['verified']:raise RuntimeError('代理控制未通过验证：'+str(result.get('error_code','unknown')))
+   return
+ if not client and op=='proxy-off-confirmed':op='proxy-off'
  if flight_requested():
   if op in ('proxy-auto-on','cell-proxy-on','proxy-user-exit'):return
-  if op not in ('flight-on','flight-off','zero-refresh','cell-off','cell-radio-off','wifi-off','wired-off','gps-off'):
+  if op not in ('proxy-off','flight-on','flight-off','zero-refresh','cell-off','cell-radio-off','wifi-off','wired-off','gps-off'):
    raise RuntimeError('飞行娱乐模式中，请先退出飞行模式再连接网络')
  if op=='auto-mode':auto_mode();return
  if op in ('prefer-cell','prefer-wifi','prefer-wired'):
@@ -292,7 +320,7 @@ def action(op):
   return
  if op=='proxy-auto-on':ensure_proxy();return
  if op=='proxy-user-exit':
-  if optional(['systemctl','--user','is-active','app-v2rayN@autostart.service'])!='active':
+  if optional(['systemctl','--user','is-active','v2rayn.service'])!='active':
    if flight_requested():return
    update_policy(proxy_enabled=False);tun_control('stop');set_system_proxy(False)
   return
@@ -301,8 +329,8 @@ def action(op):
   update_policy(proxy_enabled=False)
   tun_control('stop')
   set_system_proxy(False)
-  call(['systemctl','--user','stop','app-v2rayN@autostart.service'],25)
-  close_extra_clients(0)
+  call(['systemctl','--user','stop','omt-proxy-core.service' if client else 'v2rayn.service'],25)
+  if not client:close_extra_clients(0)
   return
  if op=='proxy-open':update_policy(proxy_enabled=True);ensure_proxy();return
  args=wired_command(op) if op in ('wired-on','wired-off') else action_command(op)

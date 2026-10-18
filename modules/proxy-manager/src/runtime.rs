@@ -32,6 +32,7 @@ struct External {
     root: PathBuf,
     helper: PathBuf,
     validation_hash: String,
+    offline: bool,
 }
 impl External {
     fn call(&self, action: &str, file: &str, seconds: u64) -> bool {
@@ -59,7 +60,11 @@ impl CoreAdapter for External {
         self.call("probe", "active.json", 28)
     }
     fn restore(&mut self) -> bool {
-        self.call("restore", "active.json", 50)
+        if self.offline {
+            self.call("check", "active.json", 20)
+        } else {
+            self.call("restore", "active.json", 50)
+        }
     }
 }
 pub fn run(root: &Path, expected: u64, hash: &str, recover: bool) -> Result<Report, String> {
@@ -78,17 +83,64 @@ pub fn run(root: &Path, expected: u64, hash: &str, recover: bool) -> Result<Repo
         root: root.to_path_buf(),
         helper: home.join(".local/lib/omt-proxy/owned-core.py"),
         validation_hash: String::new(),
+        offline: false,
     };
     if recover {
-        return Ok(transaction::recover(&mut store, &mut adapter));
+        return Ok(transaction::recover_exact(
+            &mut store,
+            &mut adapter,
+            expected,
+            hash,
+        ));
     }
     let data = candidate(&store, hash)?;
     store.write("validation.json", &data)?;
     adapter.validation_hash = format!("{:x}", Sha256::digest(&data));
-    Ok(transaction::activate(
+    let report = transaction::activate(&mut store, &mut adapter, &data, expected);
+    if report.verified {
+        if let Some(meta) = store.read("candidate-meta.json")? {
+            let v: Value = serde_json::from_slice(&meta).map_err(|_| "invalid_metadata")?;
+            if v["candidate_hash"] == hash {
+                store.write("applied.json",&serde_json::to_vec(&serde_json::json!({"sha256":format!("{:x}",Sha256::digest(&data)),"node_id":v["node_id"],"mode":v["mode"]})).map_err(|_|"invalid_metadata")?)?;
+            }
+        }
+    }
+    Ok(report)
+}
+
+pub fn recover_offline(root: &Path) -> Result<Value, String> {
+    let home = PathBuf::from(std::env::var("HOME").map_err(|_| "home_unavailable")?);
+    if root != home.join(".local/state/omt-proxy") {
+        return Err("unexpected_store_path".into());
+    }
+    let mut store = Store::open(root)?;
+    let owner: Value =
+        serde_json::from_slice(&store.read("owner.json")?.ok_or("native_owner_required")?)
+            .map_err(|_| "invalid_owner")?;
+    if owner["owner"] != "omt-proxy" {
+        return Err("native_owner_required".into());
+    }
+    let Some(bytes) = store.read("transaction.json")? else {
+        return Ok(serde_json::json!({"config_recovery":"not_needed","network_verified":false}));
+    };
+    let journal: transaction::Journal =
+        serde_json::from_slice(&bytes).map_err(|_| "invalid_journal")?;
+    let mut adapter = External {
+        root: root.to_path_buf(),
+        helper: home.join(".local/lib/omt-proxy/owned-core.py"),
+        validation_hash: String::new(),
+        offline: true,
+    };
+    let report = transaction::recover_exact(
         &mut store,
         &mut adapter,
-        &data,
-        expected,
-    ))
+        journal.generation,
+        &journal.candidate_hash,
+    );
+    if !report.restored && report.error_code.is_some() {
+        return Err(report.error_code.unwrap());
+    }
+    Ok(
+        serde_json::json!({"config_recovery":report.stage,"config_restored":report.restored,"network_verified":false}),
+    )
 }

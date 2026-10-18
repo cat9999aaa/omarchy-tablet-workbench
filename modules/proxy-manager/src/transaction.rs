@@ -204,3 +204,16 @@ impl JournalIo for crate::storage::Store {
         crate::storage::Store::write(self, key, data)
     }
 }
+
+/// A stale watchdog must never undo a newer operation. Called under Store's lock.
+pub fn recover_exact(
+    io: &mut dyn JournalIo,
+    core: &mut dyn CoreAdapter,
+    generation: u64,
+    hash: &str,
+) -> Report {
+    match read(io) {
+        Ok(Some(j)) if j.generation == generation && j.candidate_hash == hash => recover(io, core),
+        _ => failed("recovery_identity_conflict", generation),
+    }
+}

@@ -8,7 +8,9 @@ ProxyPage {
  Repeater {model:[{value:"rules",name:"规则模式 · 按规则分流"},{value:"global",name:"全局模式 · 业务流量走代理"},{value:"direct",name:"直连模式 · 业务流量直连"}]
   WB.TouchButton {required property var modelData;Layout.fillWidth:true;foreground:root.foreground;accent:root.accent;text:modelData.name;selected:root.model.draft.mode===modelData.value;onClicked:root.model.selectMode(modelData.value)}
  }
- WB.TouchButton {Layout.fillWidth:true;text:"校验并保存草稿";foreground:root.foreground;accent:root.accent;enabled:!!model.draft.node_id&&!model.catalogPending;onClicked:model.saveRoutingDraft()}
- PText {Layout.fillWidth:true;color:root.foreground;text:model.catalogFeedback}
- PText {Layout.fillWidth:true;color:root.foreground;text:"运行配置尚未切换。候选通过核心校验和恢复检查后，才开放应用入口。"}
+ WB.TouchButton {Layout.fillWidth:true;text:model.corePending?"准备中…":"准备候选配置";foreground:root.foreground;accent:root.accent;enabled:!!model.draft.node_id&&!model.corePending;onClicked:model.prepareCore()}
+ PText {Layout.fillWidth:true;color:root.foreground;text:model.coreFeedback}
+ WB.TouchButton {Layout.fillWidth:true;text:"应用候选配置…";foreground:root.foreground;accent:root.accent;enabled:!!model.coreCandidate.candidate_hash&&model.allowed("apply");onClicked:confirm.open()}
+ PText {Layout.fillWidth:true;color:root.foreground;text:"当前分流："+model.modeLabel+"。先开启代理后才能切换运行配置。"}
+ ConfirmDialog {id:confirm;title:"应用节点与分流？";description:"将短暂重启代理核心。先建立独立恢复计时器，访问检查失败会恢复上一配置。Wi-Fi／4G 保持。";onAccepted:model.applyCandidate(true)}
 }

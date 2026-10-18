@@ -38,3 +38,40 @@ fn staging_port_becomes_one_loopback_production_listener() {
     assert_eq!(result["inbounds"][0]["port"], 10808);
     std::fs::remove_dir_all(root).unwrap();
 }
+#[test]
+fn boot_recovery_restores_config_without_starting_core() {
+    use std::os::unix::fs::PermissionsExt;
+    let home = std::env::temp_dir().join(format!("omt-boot-recovery-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    let root = home.join(".local/state/omt-proxy");
+    let mut store = Store::open(&root).unwrap();
+    store
+        .write("owner.json", b"{\"owner\":\"omt-proxy\"}")
+        .unwrap();
+    omt_proxy::transaction::seed_pending(&mut store, b"previous", b"unverified", 0).unwrap();
+    store.write("active.json", b"unverified").unwrap();
+    drop(store);
+    let lib = home.join(".local/lib/omt-proxy");
+    std::fs::create_dir_all(&lib).unwrap();
+    std::fs::write(
+        lib.join("owned-core.py"),
+        "import sys\nassert sys.argv[1]=='check'\nprint('{\"ok\":true}')\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(
+        lib.join("owned-core.py"),
+        std::fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_omt-proxy"))
+        .args(["core-recover-offline", root.to_str().unwrap()])
+        .env("HOME", &home)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "offline recovery failed");
+    assert_eq!(
+        std::fs::read(root.join("active.json")).unwrap(),
+        b"previous"
+    );
+    std::fs::remove_dir_all(home).unwrap();
+}

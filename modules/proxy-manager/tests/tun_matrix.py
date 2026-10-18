@@ -43,6 +43,17 @@ def exercise(root,stack,run,start,private):
    with socket.create_connection(('127.0.0.1',10818),.1):break
   except OSError:time.sleep(.05)
  tunconfig={'log':{'level':'warn'},'inbounds':[{'type':'tun','tag':'tun-in','interface_name':'omt-test','address':['172.31.254.1/30','fdfe:dcba:9876::1/126'],'auto_route':True,'strict_route':True,'stack':'gvisor','route_exclude_address':['198.19.0.2/32','127.0.0.0/8','10.0.0.0/8','172.16.0.0/12','192.168.0.0/16','2001:db8:1::2/128']}],'outbounds':[{'type':'socks','tag':'proxy','server':'127.0.0.1','server_port':10818},{'type':'direct','tag':'direct'}],'route':{'auto_detect_interface':True,'rules':[{'process_path':['/cores/xray','/cores/sing-box'],'outbound':'direct'},{'ip_is_private':True,'outbound':'direct'}],'final':'proxy'}}
+ # Exercise the production legacy-to-transport converter before running the real TUN.
+ import importlib.util
+ spec=importlib.util.spec_from_file_location('fixture_frontend',Path(__file__).parents[1]/'integration/frontend.py')
+ frontend=importlib.util.module_from_spec(spec);spec.loader.exec_module(frontend)
+ tunconfig['outbounds'][0]['server_port']=10808
+ tunconfig['route']['rules'][0]['process_path'].append('/opt/v2rayn-bin/bin/xray/xray')
+ tunconfig['route']['rules'].append({'ip_cidr':['203.0.113.2/32'],'outbound':'direct'})
+ tunconfig=frontend.build(tunconfig)
+ assert not any('ip_cidr' in r for r in tunconfig['route']['rules'])
+ # Only the fixture listener differs; production remains the fixed 10808 port.
+ tunconfig['outbounds'][0]['server_port']=10818
  private(root/'tun.json',tunconfig);run(['/cores/sing-box','check','-c',str(root/'tun.json')])
  tun=start('/cores/sing-box','tun')
  for _ in range(80):

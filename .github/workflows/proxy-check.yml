@@ -36,7 +36,8 @@ jobs:
       - name: Private-boundary and update metadata fixtures
         run: |
           python3 scripts/remote-build/test_proxy_build.py
-          python3 modules/proxy-manager/tests/test_owned_core.py
+          python3 -m unittest discover -s modules/proxy-manager/tests -p 'test_*.py'
+          python3 modules/proxy-manager/tests/install_test.py
           python3 scripts/test_proxy_upstream.py
           python3 scripts/check_proxy_workflows.py
       - name: Offscreen native UI checks

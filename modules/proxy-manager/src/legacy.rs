@@ -134,7 +134,7 @@ impl crate::command::Driver for LegacyDriver {
         if ownership && locked == Some(false) {
             snapshot
                 .capabilities
-                .extend(["enable".into(), "disable".into()]);
+                .extend(["enable".into(), "disable".into(), "apply".into()]);
         }
         crate::command::Observation {
             snapshot,
@@ -169,6 +169,36 @@ impl crate::command::Driver for LegacyDriver {
                     ]
                     .contains(&s.as_str())
                 })
+                .unwrap_or("failed".into()),
+            Err(e) => {
+                if e == "timeout" {
+                    e
+                } else {
+                    "failed".into()
+                }
+            }
+        }
+    }
+    fn apply_candidate(&self, hash: &str) -> String {
+        let data = serde_json::to_vec(
+            &serde_json::json!({"action":"apply","confirmed":true,"candidate_hash":hash}),
+        )
+        .unwrap();
+        match run_bounded(
+            &[
+                "/usr/bin/python3".into(),
+                self.adapter.clone(),
+                self.tools_root.clone(),
+                "action".into(),
+            ],
+            &data,
+            Duration::from_secs(110),
+            4096,
+        ) {
+            Ok(bytes) => serde_json::from_slice::<Value>(&bytes)
+                .ok()
+                .and_then(|v| v["stage"].as_str().map(str::to_owned))
+                .filter(|s| ["submitted", "failed", "busy", "conflict"].contains(&s.as_str()))
                 .unwrap_or("failed".into()),
             Err(e) => {
                 if e == "timeout" {
