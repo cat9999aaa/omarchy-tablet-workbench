@@ -126,6 +126,11 @@ Item {
     onCloseRequested:root.close()
     ColumnLayout {
       id:body;width:parent.width;spacing:root.themeTokens.metrics.gap
+      TextMetrics {id:desktopNumberMetrics;text:"10";font.family:root.themeTokens.font.family;font.pixelSize:root.themeTokens.font.body}
+      function numberColumns(available,gap,limit) {
+       const minimum=Math.max(48,Math.ceil(desktopNumberMetrics.advanceWidth)+2*root.themeTokens.metrics.paddingX)
+       return Math.max(1,Math.min(limit,Math.floor((available+gap)/(minimum+gap))))
+      }
     RowLayout {
      Layout.fillWidth:true;spacing:root.themeTokens.metrics.gapSmall
      Repeater{model:["开始","桌面","窗口","按键"]
@@ -153,7 +158,7 @@ Item {
        }
 
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"移动打开时的窗口到桌面";color:root.fg;role:"body"}
-       GridLayout{Layout.fillWidth:true;columns:5;rowSpacing:8;columnSpacing:8
+       GridLayout{Layout.fillWidth:true;columns:body.numberColumns(width,columnSpacing,5);rowSpacing:8;columnSpacing:8
         Repeater{model:10
          WB.TouchButton{themeTokens:root.themeTokens;required property int index;Layout.fillWidth:true;text:String(index+1);foreground:root.fg;accent:root.themeTokens.colors.accent;enabled:!root.busy&&!!root.snapshot.target;onClicked:root.act("move",{workspace:index+1})}
         }
@@ -168,7 +173,7 @@ Item {
         onTriggered:function(action,payload){root.act(action,payload)}
        }
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"切换桌面";color:root.fg;role:"body"}
-       GridLayout{Layout.fillWidth:true;columns:width>=550?9:5;rowSpacing:8;columnSpacing:6
+       GridLayout{Layout.fillWidth:true;columns:body.numberColumns(width,columnSpacing,width>=550?9:5);rowSpacing:8;columnSpacing:6
         Repeater{model:9
          WB.TouchButton{themeTokens:root.themeTokens;required property int index;objectName:"quickDesktop"+(index+1);Layout.fillWidth:true;Layout.minimumHeight:52;text:String(index+1);selected:root.snapshot.current===index+1;foreground:root.fg;accent:root.themeTokens.colors.accent;enabled:!root.busy;onClicked:root.act("switch",{workspace:index+1})}
         }

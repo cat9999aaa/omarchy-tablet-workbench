@@ -35,7 +35,7 @@
 | C08 | StyledText.qml | text＋body/subtitle/title＋normal/muted/urgent | C2导航四页 | 已接导航候选；软件通过，未安装 | 中文换行、字体缩放、非法语义回退通过 |
 | C09 | ActionGrid.qml | items＋列数＋busy；只发action/payload信号 | C2开始／窗口动作组；桌面保持数据生成的专用密度 | 已接导航候选；软件通过，未安装 | 模型以整体替换通知更新；同数量按位置保留按钮，数据变化取消在途点击，主题变化保持按压；Qt 6.4兼容回归进行中 |
 | C10 | 开始入口组 | 文件、浏览器、键盘、语音、控制台等数据 | window-controls/Navigation.qml | 已改用C09；实际内容回归通过 | 保留固定动作白名单及原入口 |
-| C11 | 桌面／窗口操作组 | 桌面编号、数量、动作目标来自业务数据 | window-controls/Navigation.qml | 窗口改用C09；桌面编号网格保留专用组合 | 屏幕及窗口身份核验独立于展示组件 |
+| C11 | 桌面／窗口操作组 | 桌面编号、数量、动作目标来自业务数据 | window-controls/Navigation.qml | 窗口改用C09；数字网格共用实际字体测量，自适应列数 | 屏幕及窗口身份核验独立于展示组件 |
 | C12 | 按键选择行 | 原Qt ComboBox＋按键标签／合法选项 | 导航按键页 | 专用组合，复用主题 | 不重做ComboBox皮肤；配置保存和P3限制保留 |
 | C13 | Wi-Fi表单 | 官方派生表单、共享动作及主题 | network-center/Panel.qml | 专用视图，不假装通用动作组 | C1实际表单渲染已验；后续迁移单独记录 |
 | C14 | 电池历史曲线 | 专用Canvas图表，使用统一主题字号 | battery-manager/panel/BatteryHistory.qml | 专用图表，复用主题 | C1非空曲线／大字体标签已验，不做万能图表引擎 |
@@ -61,5 +61,7 @@
 | 2026-10-19 C2任务5/6候选 | 未改变视觉参数；动作上下文保护、0.1.3完整导入与helper摘要打包 | 任务5统一37组通过；候选与导航定向31项通过；最终统一38组通过；独立静态审查无Critical/Important | 未安装；真实compositor、官方交接和组合恢复仍是门槛 | 保持C1生产，完成剩余门槛后交付 |
 
 | 2026-10-19 C2兼容性修复 | C09改为数量模型与更新代次保护，四份副本同步；禁止原地深改items | 新增按钮身份红绿测试；GitHub Qt 6.4.2原导航序列SIGSEGV正在复验 | 未安装 | 不以新版Qt通过替代GitHub结果 |
+
+| 2026-10-19 C2窄屏数字布局 | C11两个数字网格共用TextMetrics与列数计算，按主题字体和padding自动换行 | GitHub320宽/1.5字号4个裁字红例；修复后远程150项布局通过，旧Qt待复验 | 未安装 | 保留全部裁切断言 |
 
 证据：[C1报告](validation/2026-10-18-eva-shell-stage-c1.md)；[批准的C2计划](https://github.com/cat9999aaa/dashen-overdrive/blob/a8d7b39/docs/superpowers/plans/2026-10-19-navigation-stage-c2.md)。

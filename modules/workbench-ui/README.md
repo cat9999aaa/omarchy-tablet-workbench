@@ -25,7 +25,7 @@ PanelBody、PanelHeader、TouchButton 的 themeTokens 默认为null；旧显式�
 
 `StyledText` 接受 themeTokens、role（body/subtitle/title）及 tone（normal/muted/urgent）；保留 Text 的 text/wrap/elide 属性，默认纯文本和自动换行。未知语义回正文/普通。Qt 会将像素字号取整，令牌仍保留缩放值。
 
-`ActionGrid` 接受 items、columns、busy、themeTokens，发出 triggered(action,payload)，不执行命令。items 是普通数组或 QML QVariantList；每项 id/label/action 必须为非空字符串、id唯一，enabled/selected 可选布尔，tone 可选normal/urgent。无效模型整体不可用并显示中文错误，modelError返回短原因码；busy或disabled禁止发动作。payload只透传，业务方仍负责白名单/权限/目标身份校验。替换items更新内容；换tokens不重建按钮。
+`ActionGrid` 接受 items、columns、busy、themeTokens，发出 triggered(action,payload)，不执行命令。items 是普通数组或 QML QVariantList；每项 id/label/action 必须为非空字符串、id唯一，enabled/selected 可选布尔，tone 可选normal/urgent。无效模型整体不可用并显示中文错误，modelError返回短原因码；busy或disabled禁止发动作。payload只透传，业务方仍负责白名单/权限/目标身份校验。必须整体替换items通知更新，不支持深层原地修改。相同数量更新按位置保留按钮对象（不是按id复用）；任何items替换取消更新前的在途点击，下一次按压使用新数据。换tokens不重建按钮，也不取消当前按压。
 
 页面接线示例：
 
