@@ -8,6 +8,10 @@ from run import Check, run_checks, verify_shared_ui, run_python_suite, qml_resul
 
 
 class RunnerTests(unittest.TestCase):
+    def test_c2_navigation_groups_are_required(self):
+        checks={c.name for c in checks_for("all")}
+        self.assertTrue({"navigation", "navigation-read", "navigation-session", "navigation-cancel", "navigation-scope", "navigation-candidate", "navigation-layout", "shared-qml"}<=checks)
+
     def test_c1_theme_groups_are_required(self):
         checks={c.name:c for c in checks_for('all')}
         for name in ('theme-validation','theme-tokens','theme-contrast','theme-sync','theme-surfaces'):
