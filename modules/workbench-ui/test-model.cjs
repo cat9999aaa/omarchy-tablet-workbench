@@ -26,4 +26,19 @@ assert.equal(S.fieldState({available:true,actual:null,observed_at:100,stale_afte
 assert.equal(S.freshSnapshot({},100,30),false);
 assert.equal(S.freshSnapshot({observed_at:99},100,30),true);
 assert.equal(S.freshSnapshot({observed_at:1},100,30),false);
-console.log('shared geometry and unknown/fresh/stale state checks passed');
+
+for(const health of ['unknown','error','stale','unavailable','new-unsupported',null,false]) {
+ const field={available:true,actual:false,observed_at:100,stale_after:45,health};
+ assert.equal(S.fieldState(field,100).known,false,'explicit health '+String(health)+' must never look off');
+ assert.equal(S.fieldState(field,100).value,null);
+}
+for(const value of [false,0,true]) {
+ const field={available:true,actual:value,observed_at:100,stale_after:45,health:'observed'};
+ assert.equal(S.fieldState(field,100).known,true);
+ assert.equal(S.fieldState(field,100).value,value);
+}
+for(const value of [NaN,Infinity,-Infinity]) {
+ assert.equal(S.fieldState({available:true,actual:value,observed_at:100,stale_after:45,health:'observed'},100).known,false);
+}
+
+console.log('shared geometry, explicit source health, legacy fields and finite values passed');

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pcadmin.control-center",
   "name": "启明 · 随身控制台",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "本机触屏状态与常用控制",
   "kinds": [
     "bar-widget"
