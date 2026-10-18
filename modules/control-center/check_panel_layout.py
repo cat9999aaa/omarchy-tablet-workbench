@@ -54,7 +54,7 @@ Item {
 tests = '''
  TestCase {
   name:"ControlPanelLayout";when:windowShown
-  function buttons(item,list){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)list.push(item);for(const c of item.children)buttons(c,list)}
+  function buttons(item,list){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)list.push(item);for(let i=0;i<item.children.length;i++)buttons(item.children[i],list)}
   function test_sizes_data(){return [640,480,320].map(w=>({tag:String(w),width:w}))}
   function test_sizes(d){
    root.width=d.width;root.height=604;root.expanded=false;wait(30)
