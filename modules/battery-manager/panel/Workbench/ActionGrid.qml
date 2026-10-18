@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Layouts
 import "Theme.js" as Theme
 Column {
  id:root
@@ -41,8 +40,10 @@ Column {
   width:parent.width;visible:root.modelError!==""
   themeTokens:root.resolved;tone:"urgent";text:visible?"操作列表不可用":""
  }
- GridLayout {
-  width:parent.width;columns:Math.max(1,root.columns)
+ // A positioner avoids the Qt 6.4 GridLayout crash path on model removal.
+ Grid {
+  width:Math.max(0,parent.width)
+  columns:Math.max(1,Math.min(root.columns,Math.floor((width+columnSpacing)/(48+columnSpacing))))
   rowSpacing:root.resolved.metrics.gap;columnSpacing:root.resolved.metrics.gap
   Repeater {
    model:root.modelError===""?root.items.length:0
@@ -51,11 +52,11 @@ Column {
     readonly property var modelData:root.modelError===""&&index>=0&&index<root.items.length?root.items[index]:({id:"",label:"",action:"",enabled:false})
     property int pressedRevision:-1
     objectName:"action-"+modelData.id
-    Layout.fillWidth:true;Layout.minimumWidth:48
+    width:(parent.width-(parent.columns-1)*parent.columnSpacing)/parent.columns
     themeTokens:root.resolved;text:modelData.label
     selected:modelData.selected===true
     accent:modelData.tone==="urgent"?root.resolved.colors.urgent:root.resolved.colors.accent
-    enabled:!root.busy&&root.modelError===""&&modelData.enabled!==false
+    enabled:width>=48&&!root.busy&&root.modelError===""&&modelData.enabled!==false
     onPressed:pressedRevision=root.modelRevision
     onClicked:if(enabled&&pressedRevision===root.modelRevision)root.triggered(modelData.action,modelData.payload===undefined?null:modelData.payload)
    }

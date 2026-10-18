@@ -52,6 +52,12 @@ TestCase {
    g.destroy();wait(10)
   }
  }
+ function test_requested_columns_keep_minimum_touch_width() {
+  const g=make('ActionGrid',{width:320,columns:8,themeTokens:tokens(),items:entries()});wait(20)
+  const a=findChild(g,'action-files');verify(a.width>=48);verify(a.x+a.width<=g.width)
+  g.width=24;wait(20);verify(a.width>=0&&a.width<=g.width);verify(!a.enabled)
+  g.destroy()
+ }
  function test_invalid_models() {
   const g=make('ActionGrid',{width:320,themeTokens:tokens()})
   for(const value of [null,{},{length:1,0:{id:"x",label:"X",action:"go"}},[{}],[{id:'x',label:'X',action:'go'},{id:'x',label:'Y',action:'go'}],[{id:'x',label:'X',action:'go',enabled:'yes'}]]) {

@@ -65,3 +65,7 @@ C2尚未安装；动作提交时的Hyprland原子边界、官方菜单交接及�
 stable-model-all：远程统一38组通过，包括原navigation-layout。独立复审未发现新增Critical/Important；按建议加强重排测试，使两个项目均启用，排除仅禁用导致零动作。GitHub Qt 6.4.2仍待本修复提交后复验。
 
 2ccd274的GitHub run39161867126：原导航崩溃未再发生，但导航146通过/4失败，均为320宽/1.5字号数字标签裁切；shared-qml在新增模型删除边界测试异常退出。bc2bcf9添加失败时gdb诊断，不放宽门槛。数字布局改为两网格共用TextMetrics与主题padding计算列数，numeric-layout-green远程150项通过，等待旧Qt复验。
+
+run39162098702的失败后gdb捕获shared-qml SIGSEGV：qmlAttachedPropertiesObject → Qt6QuickLayouts → QGridLayoutEngine::fillRowData/setGeometries → QQuickGridLayoutBase::rearrange/geometryChange → QQuickColumn::doPositioning。栈定位到布局重排路径，尚不足以证明底层释放机制。ActionGrid改用基础Grid positioner等宽排列，保留数量模型、索引安全回退及revision防误触；原回归断言全部保留。
+
+grid-positioner-all远程38组通过。独立复审发现过多columns可能失去48触摸宽度，新grid-columns-red复现；加入按宽度限制列数及不足48禁用，保持无负宽度和无横向溢出。
