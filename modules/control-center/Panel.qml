@@ -76,7 +76,7 @@ Ui.Panel {
  function route(method) {
   const current=currentPanel()
   if(method==="close" || (method==="toggle" && current)) {peers().filter(p=>p.opened||p.wantOpen||p.transferPending).forEach(p=>p.close());return}
-  if((method==="gesture"||method==="expand") && current){current.expanded=true;current.refresh();return}
+  if((method==="gesture"||method==="expand") && current){current.expanded=true;current.refreshFromUser();return}
   const target=focusedTarget()
   if(target){if(method==="expand")target.expanded=true;target.open()}
  }
@@ -202,9 +202,13 @@ Ui.Panel {
   }
   if(opened&&!sinkPoll.running)sinkPoll.running=true
  }
+ function refreshFromUser() {
+  refresh()
+  if(opened && modeInitialized)deviceMode.refresh()
+ }
  function open() {
   if(!attachedScreen || targetFor(attachedScreen.name)!==root)return
-  if(opened){refresh();return}
+  if(opened){refreshFromUser();return}
   const list=peers()
   OutputRoute.handoff(list,root,()=>!root.destroying && root.attachedScreen!==null && root.targetFor(root.attachedScreen.name)===root)
  }
@@ -216,7 +220,7 @@ Ui.Panel {
   controller.hide();confirmation=null;allowed=false
  }
  function close() {routeEpoch++;transferPending=false;closeInternal()}
- function gesture() {if(!opened)open();else {expanded=true;refresh()}}
+ function gesture() {if(!opened)open();else {expanded=true;refreshFromUser()}}
  function act(name,params,confirmed) {
   if(actionProcess.running || !allowed)return
   if(!confirmed && (name==="proxy-off" || name==="flight-on" || name==="touch-normal")) {
