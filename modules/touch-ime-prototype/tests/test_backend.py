@@ -24,6 +24,7 @@ class Bridge(dbus.service.Object):
         self.context = 7
         self.focused = True
         self.sensitive = False
+        self.no_keyboard = False
         self.commits = []
         self.keys = []
         self.state_calls = 0
@@ -32,7 +33,7 @@ class Bridge(dbus.service.Object):
 
     def snapshot(self):
         return json.dumps(dict(protocol=2, generation=self.generation, context=self.context, focused=self.focused,
-                               sensitive=self.sensitive, noKeyboard=False))
+                               sensitive=self.sensitive, noKeyboard=self.no_keyboard))
 
     @dbus.service.method('org.pcadmin.TouchIme1', in_signature='', out_signature='s', async_callbacks=('reply','error'))
     def State(self, reply, error):
@@ -81,7 +82,7 @@ while True: time.sleep(.05)
     (binaries/'voxtype').write_text('#!/usr/bin/python3\nimport sys\nprint(\'Loading audio file: "/tmp/speech.wav"\\nAudio format: 16000 Hz, 1 channel(s), Int\\nProcessing 32000 samples (2.00s)...\\n\\n你好测试\')\n')
     for f in binaries.iterdir(): f.chmod(0o700)
     env=dict(os.environ, PATH=str(binaries)+':'+os.environ['PATH'], XDG_RUNTIME_DIR=tmp)
-    process = subprocess.Popen([str(root/'build/omt-backend'), str(root/'rime'), tmp],
+    process = subprocess.Popen([os.environ.get('OMT_TEST_BACKEND', str(root/'build/omt-backend')), str(root/'rime'), tmp],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, text=True, env=env)
     def reader():
@@ -261,7 +262,53 @@ while True: time.sleep(.05)
         assert 'stale-after-restart' not in bridge.commits
         calls=bridge.state_calls;time.sleep(.65)
         assert bridge.state_calls==calls, 'Reconnect must return to event-only idle'
-        print('PASS backend: T9 commit, hide, focus change, stale requests, sensitive fields, focus loss')
+        # A manual panel belongs to one compositor surface, not a volatile
+        # editor focus. Real backend behavior with a private D-Bus focus source.
+        action('surface', epoch=1, valid=True)
+        action('show');wait(lambda s:s['visible'])
+        bridge.focused=False;bridge.generation+=1;bridge.notify()
+        lost=wait(lambda s:not s['focused'])
+        assert lost['visible'], 'Same-window transient blur must retain the manual panel'
+        before=list(bridge.commits)
+        action('text',text='must-not-leak');wait(lambda s:bool(s['error']))
+        assert bridge.commits==before, 'Retained panel must not grant input permission'
+        time.sleep(2.1)
+        assert not any(not s['visible'] for s in list(states.queue)), 'Two-second blur must not hide panel'
+        bridge.focused=True;bridge.generation+=1;bridge.notify()
+        wait(lambda s:s['focused'] and s['visible'])
+        action('text',text='resumed')
+        deadline=time.monotonic()+2
+        while bridge.commits[-1:]!=['resumed'] and time.monotonic()<deadline:time.sleep(.01)
+        assert bridge.commits[-1]=='resumed'
+        bridge.no_keyboard=True;bridge.generation+=1;bridge.notify()
+        wait(lambda s:not s['visible'])
+        bridge.no_keyboard=False;bridge.generation+=1;bridge.notify()
+        wait(lambda s:s['focused'] and not s['visible'])
+        action('show');wait(lambda s:s['visible'])
+        bridge.state_delay=300
+        action('surface',epoch=2,valid=True)
+        wait(lambda s:not s['visible'] and not s['focused'])
+        action('show');wait(lambda s:s['visible'] and not s['focused'])
+        action('text',text='old-window');wait(lambda s:bool(s['error']))
+        assert bridge.commits[-1]=='resumed', 'Surface change must invalidate pending input'
+        action('hide');wait(lambda s:not s['visible'])
+        bridge.state_delay=0
+        bridge.generation+=1;bridge.notify();wait(lambda s:s['focused'] and not s['visible'])
+        action('show');wait(lambda s:s['visible'])
+        action('hide');wait(lambda s:not s['visible'])
+        bridge.focused=False;bridge.generation+=1;bridge.notify();wait(lambda s:not s['focused'])
+        bridge.focused=True;bridge.generation+=1;bridge.notify();wait(lambda s:s['focused'] and not s['visible'])
+        action('show');wait(lambda s:s['visible'])
+        action('surface',epoch=3,valid=False)
+        wait(lambda s:not s['visible'])
+        action('show');time.sleep(.1)
+        assert not any(s['visible'] for s in list(states.queue)), 'No active surface must block show'
+        action('surface',epoch=4,valid=True)
+        bridge.generation+=1;bridge.notify();wait(lambda s:s['focused'] and not s['visible'])
+        action('show');wait(lambda s:s['visible'])
+        new_bus.release_name('org.fcitx.Fcitx5')
+        wait(lambda s:not s['visible'] and not s['focused'])
+        print('PASS backend: existing input regressions plus same-surface blur, permission gating, switch, no-surface, hide and owner loss')
     finally:
         process.stdin.close()
         process.wait(timeout=5)
