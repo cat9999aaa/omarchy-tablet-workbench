@@ -2,6 +2,7 @@
 """Tablet navigation and key actions. Fixed actions only, no shell evaluation."""
 import json,os,re,subprocess,sys,tempfile
 from pathlib import Path
+from navigation_read import ReadBudget,ReadError,read_json,check_lock,focused_output,window_identity,workspace,workspace_counts
 DEFAULTS={'P1':'keyboard','P2':'voice','P3':'authorize','rotation':'windows'}
 LABELS={'keyboard':'输入法开关','voice':'语音开始 / 停止','authorize':'系统窗口授权','navigation':'开始菜单','desktops':'选择桌面','windows':'当前窗口操作','control-center':'随身控制台','disabled':'不执行操作'}
 CONFIG=Path.home()/'.config/omarchy-tablet-workbench/buttons.json'
@@ -47,15 +48,22 @@ def window_script(action,target,workspace=None):
  else:raise ValueError('未知窗口操作')
  return f'local w=hl.get_active_window(); assert(w and w.address=="{address}" and w.pid=={pid} and w.active,"window changed"); hl.dispatch({expression})'
 def snapshot():
- if not unlocked():return {'ok':False,'reason':'锁屏或状态未知'}
+ budget=ReadBudget()
  try:
-  active=json.loads(output(['hyprctl','activewindow','-j']));work=json.loads(output(['hyprctl','activeworkspace','-j']));clients=json.loads(output(['hyprctl','clients','-j']))
- except (ValueError,TypeError):return {'ok':False,'reason':'无法读取桌面'}
- counts={i:0 for i in range(1,11)}
- for client in clients:
-  ws=client.get('workspace',{}).get('id');
-  if ws in counts:counts[ws]+=1
- return {'ok':True,'target':{'address':active.get('address',''),'pid':active.get('pid',0)},'windowLabel':active.get('class','') or '当前没有应用窗口','current':work.get('id'),'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS}
+  check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+  output_name=focused_output(read_json(['hyprctl','monitors','-j'],budget))
+  active=read_json(['hyprctl','activewindow','-j'],budget);target=window_identity(active)
+  current=workspace(read_json(['hyprctl','activeworkspace','-j'],budget))
+  counts=workspace_counts(read_json(['hyprctl','clients','-j'],budget))
+  after=window_identity(read_json(['hyprctl','activewindow','-j'],budget))
+  output_after=focused_output(read_json(['hyprctl','monitors','-j'],budget))
+  check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+  budget.timeout()
+  if target!=after or output_name!=output_after:raise ReadError('context-changed')
+  return {'ok':True,'reason_code':'','output':output_name,'target':target,'windowLabel':active.get('class','') or '当前没有应用窗口','current':current,'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS}
+ except ReadError as error:
+  reasons={'locked':'设备已锁屏','lock-unknown':'锁屏状态未知','output-unavailable':'无法确定操作屏幕','context-changed':'操作目标已变化，请重新打开','timeout':'读取超时，请重试','invalid-data':'桌面数据无效','read-failed':'无法读取桌面'}
+  return {'ok':False,'reason_code':error.code,'reason':reasons.get(error.code,'无法读取桌面')}
 def action(request):
  if not unlocked():return {'ok':False,'reason':'锁屏或状态未知，操作已取消'}
  name=request.get('action')

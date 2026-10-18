@@ -157,6 +157,7 @@ def checks_for(suite):
             ('arcade-catalog', 'modules/offline-arcade/catalog', 'test_*.py'),
             ('ime-control', 'modules/touch-ime-prototype', 'tests/test_control.py'),
             ('navigation', 'modules/window-controls', 'test_navigation.py'),
+            ('navigation-read', 'modules/window-controls', 'test_navigation_read.py'),
             ('edge-menu', 'modules/edge-gestures', 'test_menu.py'),
         ]
         for name, directory, pattern in python_suites:
