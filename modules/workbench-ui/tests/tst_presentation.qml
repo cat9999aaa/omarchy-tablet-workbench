@@ -27,6 +27,31 @@ TestCase {
   g.items=[{id:'desktop',label:'桌面一',action:'switch',payload:{workspace:1}}];wait(20)
   const d=findChild(g,'action-desktop');verify(d);mouseClick(d,d.width/2,d.height/2);compare(calls.length,2);compare(calls[1][1].workspace,1);g.destroy()
  }
+ function test_model_update_preserves_delegate_but_cancels_pending_action() {
+  const g=make('ActionGrid',{width:320,themeTokens:tokens(),items:entries()});wait(20)
+  const a=findChild(g,'action-files');let calls=[];g.triggered.connect(function(action,payload){calls.push(payload)})
+  a.forceActiveFocus();mousePress(a,a.width/2,a.height/2)
+  g.items=[{id:'files',label:'文件新目标',action:'files',payload:{kind:'new'},enabled:true},{id:'close',label:'关闭窗口',action:'close',enabled:false}];wait(20)
+  compare(findChild(g,'action-files'),a);verify(a.activeFocus)
+  mouseRelease(a,a.width/2,a.height/2);compare(calls.length,0)
+  mouseClick(a,a.width/2,a.height/2);compare(calls.length,1);compare(calls[0].kind,'new');g.destroy()
+ }
+ function test_pending_action_cancelled_by_reorder_disable_shrink_or_invalid_model() {
+  for(const mode of ['reorder','disable','shrink','invalid']) {
+   const g=make('ActionGrid',{width:320,themeTokens:tokens(),items:entries()});wait(20)
+   const a=findChild(g,'action-files');let calls=0;g.triggered.connect(function(){calls++})
+   mousePress(a,a.width/2,a.height/2)
+   if(mode==='reorder') {let next=entries().reverse();next[0].enabled=true;next[1].enabled=true;g.items=next}
+   if(mode==='disable') {let next=entries();next[0].enabled=false;g.items=next}
+   if(mode==='shrink')g.items=[]
+   if(mode==='invalid')g.items=[{}]
+   wait(20)
+   mouseRelease(g,20,20);compare(calls,0)
+   if(mode==='disable') {compare(findChild(g,'action-files'),a);verify(!a.enabled)}
+   if(mode==='reorder')compare(findChild(g,'action-close'),a)
+   g.destroy();wait(10)
+  }
+ }
  function test_invalid_models() {
   const g=make('ActionGrid',{width:320,themeTokens:tokens()})
   for(const value of [null,{},{length:1,0:{id:"x",label:"X",action:"go"}},[{}],[{id:'x',label:'X',action:'go'},{id:'x',label:'Y',action:'go'}],[{id:'x',label:'X',action:'go',enabled:'yes'}]]) {

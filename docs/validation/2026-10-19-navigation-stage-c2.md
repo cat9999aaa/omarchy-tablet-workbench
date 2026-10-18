@@ -57,3 +57,9 @@ C2尚未安装；动作提交时的Hyprland原子边界、官方菜单交接及�
 三项Minor：样式表断行已修正；准备失败的reason_code可通过state查询，但中文reason未形成可见用户反馈，仍会表现为未打开；关闭停止新锁屏检查，但已有检查最多等待1秒watchdog清理，不承诺立即进程归零。后两项保留体验待办，需实际关闭后进程测量，不写成已经验收。
 
 真实Hyprland、官方菜单/中文交接、helper/UI组合恢复、生产安装和实体性能门槛仍未通过；独立静态审查及38组软件结果都不能替代这些证据。
+
+## GitHub兼容性回归
+
+7b542ce的GitHub acceptance在Qt 6.4.2执行navigation-layout时SIGSEGV，地图检查通过；远程Qt 6.11.2的38组通过不能替代该失败。新增红例确认旧ActionGrid在同数量数据替换时销毁按钮；现改为数量模型按位置保留delegate，非法或越界数据安全回退，items替换递增revision取消在途点击。主题变更不取消按压；深层原地修改不在通知契约内。新增替换、重排、禁用、缩小和非法模型回归，保留原navigation-layout顺序与断言。此为兼容性修复候选，尚无native backtrace证明SIGSEGV根因。
+
+stable-model-all：远程统一38组通过，包括原navigation-layout。独立复审未发现新增Critical/Important；按建议加强重排测试，使两个项目均启用，排除仅禁用导致零动作。GitHub Qt 6.4.2仍待本修复提交后复验。
