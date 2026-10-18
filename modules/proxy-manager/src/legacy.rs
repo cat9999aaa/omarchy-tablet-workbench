@@ -51,3 +51,24 @@ pub fn read_network(helper: &str, now: u64) -> Result<Value, String> {
     raw["observed_at"] = Value::from(now);
     Ok(raw)
 }
+
+pub struct LegacyDriver { pub adapter:String, pub tools_root:String }
+impl crate::command::Driver for LegacyDriver {
+ fn observe(&self)->crate::command::Observation {
+  let bytes=run_bounded(&["/usr/bin/python3".into(),self.adapter.clone(),self.tools_root.clone(),"observe".into()],b"",Duration::from_secs(20),262144);
+  let mut raw:Value=bytes.ok().and_then(|b|serde_json::from_slice(&b).ok()).unwrap_or(Value::Null);
+  let locked=raw["locked"].as_bool();let ownership=raw["ownership"].as_bool()==Some(true);
+  let now=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+  if raw.is_object(){raw["observed_at"]=Value::from(now);}
+  let mut snapshot=crate::state::normalize(raw,now);
+  if ownership && locked==Some(false){snapshot.capabilities.extend(["enable".into(),"disable".into()]);}
+  crate::command::Observation{snapshot,locked,ownership}
+ }
+ fn apply(&self,enabled:bool,confirmed:bool)->String {
+  let data=serde_json::to_vec(&serde_json::json!({"action":if enabled{"enable"}else{"disable"},"confirmed":confirmed})).unwrap();
+  match run_bounded(&["/usr/bin/python3".into(),self.adapter.clone(),self.tools_root.clone(),"action".into()],&data,Duration::from_secs(100),4096) {
+   Ok(bytes)=>serde_json::from_slice::<Value>(&bytes).ok().and_then(|v|v["stage"].as_str().map(str::to_owned)).filter(|s|["submitted","cancelled","busy","locked","failed","conflict"].contains(&s.as_str())).unwrap_or("failed".into()),
+   Err(e)=>if e=="timeout" {e}else{"failed".into()}
+  }
+ }
+}
