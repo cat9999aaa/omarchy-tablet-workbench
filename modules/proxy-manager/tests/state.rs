@@ -1,5 +1,5 @@
 use omt_proxy::state::normalize as normalize_snapshot;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn normalize(raw: Value, now: u64) -> Value {
     serde_json::to_value(normalize_snapshot(raw, now)).unwrap()

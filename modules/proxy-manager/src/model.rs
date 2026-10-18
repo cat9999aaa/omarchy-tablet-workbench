@@ -2,7 +2,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum Freshness { Observed, Stale, Unknown, Unavailable }
+pub enum Freshness {
+    Observed,
+    Stale,
+    Unknown,
+    Unavailable,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Field<T> {

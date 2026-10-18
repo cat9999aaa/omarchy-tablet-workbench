@@ -30,7 +30,7 @@ def execute(root, job_id, phase):
         raise ValueError('scope: explicit non-symlink build root required')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9-]{0,63}', job_id):
         raise ValueError('job: invalid identifier')
-    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve'):
+    if phase not in ('fetch', 'test', 'build', 'baseline', 'format', 'qml', 'resolve', 'coretest', 'format-write'):
         raise ValueError('phase: unsupported operation')
     job = checked(root, 'jobs/'+job_id)
     source = checked(root, 'jobs/'+job_id+'/source')
@@ -55,14 +55,20 @@ def execute(root, job_id, phase):
         '--setenv','CARGO_HOME','/home/build/cargo','--setenv','XDG_RUNTIME_DIR','/run/user/0',
         '--setenv','QT_QPA_PLATFORM','offscreen','--setenv','QT_QUICK_BACKEND','software',
         '--setenv','LC_ALL','C.UTF-8']
+    if phase == 'coretest':
+        cores = checked(root, 'jobs/'+job_id+'/cores')
+        sandbox += ['--ro-bind',str(cores),'/cores','--cap-add','CAP_NET_ADMIN','--cap-add','CAP_NET_RAW','--cap-add','CAP_SYS_ADMIN','--dev-bind-try','/dev/net/tun','/dev/net/tun','--ro-bind','/sys','/sys','--setenv','OMT_ISOLATED_NETWORK','1']
     commands = {
         'resolve': [['--share-net','--chdir','/work/modules/proxy-manager','cargo','generate-lockfile']],
         'fetch': [['--share-net','--chdir','/work/modules/proxy-manager','cargo','fetch','--locked']],
         'test': [['--chdir','/work/modules/proxy-manager','cargo','test','--no-fail-fast','--locked','--offline','-j2'],
                  ['--chdir','/work','python','scripts/remote-build/test_proxy_build.py'],
+                 ['--chdir','/work','python','modules/proxy-manager/tests/test_owned_core.py'],
                  ['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],
         'build': [['--chdir','/work/modules/proxy-manager','cargo','build','--release','--locked','--offline','-j2']],
+        'coretest': [['--chdir','/work','python','modules/proxy-manager/tests/network_namespace.py']],
         'qml': [['--chdir','/work','/usr/lib/qt6/bin/qmltestrunner','-input','modules/proxy-manager/tests/qml']],
+        'format-write': [['--chdir','/work/modules/proxy-manager','cargo','fmt']],
         'format': [['--chdir','/work/modules/proxy-manager','cargo','fmt','--check']],
         'baseline': [['--chdir','/work','python','scripts/acceptance/run.py','--output','/work/report-'+str(time.time_ns())]],
     }
