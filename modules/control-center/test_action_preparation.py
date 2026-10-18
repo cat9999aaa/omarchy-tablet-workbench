@@ -46,11 +46,14 @@ class ActionPreparationTests(unittest.TestCase):
                 self.assertIs(result['requires_confirmation'], confirmation)
 
     def test_audio_uses_resolved_sink_and_shared_resource(self):
-        with patch.object(control, 'audio_sink', return_value='alsa_test'), \
-             patch.object(control, 'power_context', side_effect=AssertionError('unrelated power probe')):
-            volume = control.prepare('volume', {'percent': 0}, False)
-            mute = control.prepare('mute', {}, False)
-            self.assertEqual(volume['argv'], ['pactl', 'set-sink-volume', 'alsa_test', '0%'])
-            self.assertEqual(mute['argv'], ['pactl', 'set-sink-mute', 'alsa_test', 'toggle'])
-            self.assertEqual(volume['resource'], 'audio-output')
-            self.assertEqual(mute['resource'], 'audio-output')
+        cases = [
+            ('volume', {'percent': 0}, ['pactl', 'set-sink-volume', 'alsa_test', '0%']),
+            ('mute', {}, ['pactl', 'set-sink-mute', 'alsa_test', 'toggle']),
+        ]
+        for action, params, expected in cases:
+            with self.subTest(action=action), \
+                 patch.object(control, 'audio_sink', side_effect=['alsa_test', AssertionError('duplicate audio probe')]), \
+                 patch.object(control, 'power_context', side_effect=AssertionError('unrelated power probe')):
+                result = control.prepare(action, params, False)
+                self.assertEqual(result['argv'], expected)
+                self.assertEqual(result['resource'], 'audio-output')
