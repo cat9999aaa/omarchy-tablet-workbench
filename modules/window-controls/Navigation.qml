@@ -69,17 +69,17 @@ Item {
    ColumnLayout {
     anchors.fill:parent;anchors.margins:16;spacing:12
     WB.PanelHeader{themeTokens:root.themeTokens;Layout.fillWidth:true;title:"平板导航";subtitle:"应用 · 桌面 · 当前窗口";foreground:root.fg;accent:Color.accent;fontFamily:Style.font.family;onCloseRequested:root.close()}
-    RowLayout {
-     Layout.fillWidth:true;spacing:6
-     Repeater{model:["开始","桌面","窗口","按键"]
-      WB.TouchButton{themeTokens:root.themeTokens;required property string modelData;Layout.fillWidth:true;text:modelData;foreground:root.fg;accent:Color.accent;selected:root.page===modelData;onClicked:{root.page=modelData;root.feedback=""}}
-     }
-    }
-    Text{visible:!!root.feedback;Layout.fillWidth:true;text:root.feedback;color:Color.urgent;wrapMode:Text.Wrap;font.pixelSize:root.themeTokens.font.body}
     Flickable {
      Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentWidth:width;contentHeight:body.implicitHeight;boundsBehavior:Flickable.StopAtBounds
      ColumnLayout {
       id:body;width:parent.width;spacing:12
+    RowLayout {
+     Layout.fillWidth:true;spacing:6
+     Repeater{model:["开始","桌面","窗口","按键"]
+      WB.TouchButton{themeTokens:root.themeTokens;required property string modelData;objectName:"navigation-tab-"+modelData;Layout.fillWidth:true;text:modelData;foreground:root.fg;accent:Color.accent;selected:root.page===modelData;onClicked:{root.page=modelData;root.feedback=""}}
+     }
+    }
+    Text{visible:!!root.feedback;Layout.fillWidth:true;text:root.feedback;color:Color.urgent;wrapMode:Text.Wrap;font.pixelSize:root.themeTokens.font.body}
       ColumnLayout {
        visible:root.page==="开始";Layout.fillWidth:true;spacing:12
        Text{Layout.fillWidth:true;text:"开始使用";color:root.fg;font.pixelSize:root.themeTokens.font.body*24/16}

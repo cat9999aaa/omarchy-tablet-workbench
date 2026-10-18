@@ -130,10 +130,11 @@ tests = '''
  }
 }
 '''
-with tempfile.TemporaryDirectory(prefix='control-layout-') as tmp:
-    p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench')
-    for name in ('ControlActions.js','ControlModel.js','ContractModel.js','ContractState.qml'):
-        shutil.copy2(root/name,p/name)
-    (p/'tst_layout.qml').write_text(prefix+layout+button+tests)
-    runner=shutil.which('qmltestrunner') or next((v for v in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(v).is_file()),'qmltestrunner')
-    subprocess.run([runner,'-platform','offscreen','-input',str(p/'tst_layout.qml')],check=True)
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory(prefix='control-layout-') as tmp:
+        p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench')
+        for name in ('ControlActions.js','ControlModel.js','ContractModel.js','ContractState.qml'):
+            shutil.copy2(root/name,p/name)
+        (p/'tst_layout.qml').write_text(prefix+layout+button+tests)
+        runner=shutil.which('qmltestrunner') or next((v for v in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(v).is_file()),'qmltestrunner')
+        subprocess.run([runner,'-platform','offscreen','-input',str(p/'tst_layout.qml')],check=True)

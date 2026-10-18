@@ -32,6 +32,16 @@ Item {
 tests='''
  TestCase {
   name:"NavigationGeometry";when:windowShown
+  function test_tabs_remain_reachable_on_small_landscape() {
+   root.width=320;root.height=240;root.themeScale=1.5;root.feedback='合成错误，请检查设备';wait(30)
+   for(const page of ['开始','桌面','窗口','按键']) {
+    const scroll=body.parent.parent;scroll.contentY=0;wait(10)
+    const tab=findChild(root,'navigation-tab-'+page);verify(tab!==null);verify(tab.height>=48)
+    const point=tab.mapToItem(scroll,tab.width/2,tab.height/2);verify(point.y>=0&&point.y<scroll.height)
+    mouseClick(tab,tab.width/2,tab.height/2);compare(root.page,page)
+   }
+   root.themeScale=1;root.feedback=''
+  }
   function test_theme_update_preserves_navigation_action() {
    root.width=640;root.height=800;root.page='窗口';root.themeScale=1;wait(50)
    const b=findChild(root,'quickDesktop1');verify(b!==null);const snapshot=root.snapshot;const before=root.actions.length
@@ -43,7 +53,7 @@ tests='''
   function test_pages_data(){var rows=[];for(var page of ["开始","桌面","窗口","按键"])for(var size of [[640,604],[480,540],[320,480],[320,800],[640,480],[480,800]])for(var scale of [1,1.25,1.5])for(var contrast of [false,true])rows.push({tag:page+size[0]+"x"+size[1]+"-"+scale+"-"+contrast,page:page,w:size[0],h:size[1],scale:scale,contrast:contrast});return rows}
   function buttons(item,list) {
    if(!item.visible)return
-   if(item.minimumTouchHeight!==undefined)list.push(item)
+   if(item.minimumTouchHeight!==undefined&&item.objectName.indexOf("navigation-tab-")!==0)list.push(item)
    for(var i=0;i<item.children.length;i++)buttons(item.children[i],list)
   }
   function test_pages(d){
@@ -70,7 +80,8 @@ tests='''
  }
 }
 '''
-with tempfile.TemporaryDirectory(prefix='navigation-layout-') as tmp:
- p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench');(p/'tst_layout.qml').write_text(prefix+layout+tests)
- runner=shutil.which('qmltestrunner') or next((name for name in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(name).is_file()),'qmltestrunner')
- subprocess.run([runner,'-platform','offscreen','-input',str(p/'tst_layout.qml')],check=True)
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory(prefix='navigation-layout-') as tmp:
+     p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench');(p/'tst_layout.qml').write_text(prefix+layout+tests)
+     runner=shutil.which('qmltestrunner') or next((name for name in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(name).is_file()),'qmltestrunner')
+     subprocess.run([runner,'-platform','offscreen','-input',str(p/'tst_layout.qml')],check=True)

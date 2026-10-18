@@ -389,14 +389,20 @@ Ui.Panel {
      foreground:root.fg;accent:root.purple;fontFamily:Style.font.family
      onCloseRequested:root.close()
     }
-    Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
-    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+readings.temperatureText;color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
-    Text {Layout.fillWidth:true;text:"最近一次采样结果 · 触摸开机默认："+readings.bootDefaultLabel;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap}
     Flickable {
      id:scroll
      Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentWidth:width;contentHeight:body.implicitHeight;boundsBehavior:Flickable.StopAtBounds
      ColumnLayout {
       id:body;width:parent.width;spacing:10
+    ColumnLayout {
+     visible:root.confirmation!==null;Layout.fillWidth:true
+     onVisibleChanged:if(visible)Qt.callLater(function(){scroll.contentY=0})
+     Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;text:root.confirmation&&root.confirmation.name==="touch-normal"?"切换普通模式后，原装无源笔可能不能使用；重启仍恢复手套模式。":root.confirmation&&root.confirmation.name==="proxy-off"?"关闭代理可能中断 ChatGPT 等应用的联网。":"进入离线娱乐：关闭 Wi-Fi、4G 射频和蓝牙，停止网络连接。蓝牙手柄和耳机也会断开；现有工作保留。退出后恢复原开关。"}
+     RowLayout {Layout.fillWidth:true;CButton {Layout.fillWidth:true;text:"取消";onClicked:root.confirmation=null}CButton {Layout.fillWidth:true;objectName:"confirm-action";text:"确认执行";onClicked:{const c=root.confirmation;root.confirmation=null;if(c)root.act(c.name,c.params,true)}}}
+    }
+    Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+readings.temperatureText;color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:"最近一次采样结果 · 触摸开机默认："+readings.bootDefaultLabel;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap}
       Text {objectName:"mode-status";Layout.fillWidth:true;text:Model.modeLabel(root.modeChoice,deviceMode.health,root.appliedMode,root.modeSaved);color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
       RowLayout {
        Layout.fillWidth:true;spacing:8
@@ -475,11 +481,7 @@ Ui.Panel {
       Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;visible:root.feedback!=="";text:root.feedback}
      }
     }
-    ColumnLayout {
-     visible:root.confirmation!==null;Layout.fillWidth:true
-     Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;text:root.confirmation&&root.confirmation.name==="touch-normal"?"切换普通模式后，原装无源笔可能不能使用；重启仍恢复手套模式。":root.confirmation&&root.confirmation.name==="proxy-off"?"关闭代理可能中断 ChatGPT 等应用的联网。":"进入离线娱乐：关闭 Wi-Fi、4G 射频和蓝牙，停止网络连接。蓝牙手柄和耳机也会断开；现有工作保留。退出后恢复原开关。"}
-     RowLayout {Layout.fillWidth:true;CButton {Layout.fillWidth:true;text:"取消";onClicked:root.confirmation=null}CButton {Layout.fillWidth:true;objectName:"confirm-action";text:"确认执行";onClicked:{const c=root.confirmation;root.confirmation=null;if(c)root.act(c.name,c.params,true)}}}
-    }
+
    }
    focus:true
    Keys.onEscapePressed:root.close()

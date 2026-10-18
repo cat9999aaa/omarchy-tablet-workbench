@@ -19,7 +19,7 @@ Button {
   radius:root.themeTokens?root.themeTokens.metrics.radius:8
   color:Qt.rgba(root.accent.r,root.accent.g,root.accent.b,root.down?(root.themeTokens?root.themeTokens.states.pressedAlpha:.28):root.selected?(root.themeTokens?root.themeTokens.states.selectedAlpha:.18):(root.themeTokens?root.themeTokens.states.normalAlpha:.05))
   border.width:root.activeFocus&&root.themeTokens?root.themeTokens.states.focusBorderWidth:root.bordered||root.activeFocus?1:0
-  border.color:root.activeFocus||root.selected?root.accent:Qt.rgba(root.foreground.r,root.foreground.g,root.foreground.b,root.enabled?0.35:0.15)
+  border.color:root.themeTokens||root.activeFocus||root.selected?root.accent:Qt.rgba(root.foreground.r,root.foreground.g,root.foreground.b,root.enabled?0.35:0.15)
  }
  contentItem:Text {
   text:root.text;textFormat:Text.PlainText;color:root.foreground;opacity:root.enabled?1:root.themeTokens?root.themeTokens.states.disabledTextAlpha:.45

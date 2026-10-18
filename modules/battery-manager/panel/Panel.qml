@@ -382,7 +382,7 @@ Panel {
           Text {
             id: heroPercent
             textFormat: Text.PlainText
-            text: Math.round(root.batteryFraction * 100) + "%"
+            text: root.batteryPresent ? Math.round(root.batteryFraction * 100) + "%" : "未知"
             color: root.bar.foreground
             font.family: root.bar.fontFamily
             font.pixelSize: Style.font.displayLarge
@@ -498,6 +498,7 @@ Panel {
                 required property var modelData
                 required property int index
                 width: profileRow.cellWidth
+                height: Math.max(48, implicitHeight)
                 iconText: root.profileIcon(String(modelData))
                 iconSize: Style.font.title
                 text: modelData === "power-saver" ? "省电" : modelData === "balanced" ? "均衡" : "性能"
