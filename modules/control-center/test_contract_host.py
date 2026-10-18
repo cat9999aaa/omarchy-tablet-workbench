@@ -180,3 +180,16 @@ except ReadDeadline:
             with patch.object(cc,'collect_status',side_effect=error):result=cc.status_readonly()
             self.assertEqual(result['contracts']['reason_code'],code)
             self.assertIsNone(result['legacy']['locked']);self.assertNotIn('private',json.dumps(result))
+
+class DeviceBudgetTests(unittest.TestCase):
+    def test_budget_output_limits(self):
+        import contract_host
+        import sys
+        for limit in (16384, 65536):
+            with self.subTest(limit=limit), contract_host.ReadBudget(max_bytes=limit) as budget:
+                self.assertEqual(len(budget.run_read([sys.executable, '-c',
+                    f'import sys;sys.stdout.write("x"*{limit})'], 2)), limit)
+                with self.assertRaises(contract_host.ReadFailure):
+                    budget.run_read([sys.executable, '-c',
+                        f'import sys;sys.stdout.write("x"*{limit+1})'], 2)
+                self.assertIsNone(budget.process)
