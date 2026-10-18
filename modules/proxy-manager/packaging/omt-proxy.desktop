@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=代理工作台
+Comment=Omarchy 平板网络代理、节点与分流管理
+Exec=omt-proxy
+Icon=network-vpn
+Terminal=false
+Categories=Network;Settings;
+StartupNotify=false

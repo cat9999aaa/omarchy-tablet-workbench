@@ -1,0 +1,63 @@
+name: Native proxy checks
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+    paths: ['modules/proxy-manager/**', 'modules/workbench-ui/**', 'scripts/*proxy*', '.github/workflows/proxy-*.yml']
+  pull_request:
+    paths: ['modules/proxy-manager/**', 'modules/workbench-ui/**', 'scripts/*proxy*', '.github/workflows/proxy-*.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-proxy-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  software:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+      - name: Install fixed Rust toolchain and test-only Qt
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --no-self-update
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qt6-declarative-dev-tools qml6-module-qttest \
+            qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-templates \
+            qml6-module-qtquick-layouts qml6-module-qtquick-window qml6-module-qtqml-workerscript qml6-module-qtquick-dialogs
+      - name: Locked dependency tests and release build
+        working-directory: modules/proxy-manager
+        run: |
+          cargo +1.98.1 fetch --locked
+          cargo +1.98.1 test --locked --offline --no-fail-fast -j2
+          cargo +1.98.1 build --release --locked --offline -j2
+          cargo +1.98.1 fmt --check
+      - name: Private-boundary and update metadata fixtures
+        run: |
+          python3 scripts/remote-build/test_proxy_build.py
+          python3 -m unittest discover -s modules/proxy-manager/tests -p 'test_*.py'
+          python3 modules/proxy-manager/tests/install_test.py
+          python3 scripts/test_proxy_upstream.py
+          python3 scripts/check_proxy_workflows.py
+      - name: Offscreen native UI checks
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+        run: |
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/proxy-runtime"
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          unset DISPLAY WAYLAND_DISPLAY DBUS_SESSION_BUS_ADDRESS
+          /usr/lib/qt6/bin/qmltestrunner -input modules/proxy-manager/tests/qml
+      - name: Record candidate build hashes
+        run: |
+          mkdir -p "$RUNNER_TEMP/proxy-evidence"
+          sha256sum modules/proxy-manager/target/release/omt-proxy > "$RUNNER_TEMP/proxy-evidence/SHA256SUMS"
+          printf '%s\n' '${{ github.sha }}' > "$RUNNER_TEMP/proxy-evidence/source-commit"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-proxy-candidate-${{ github.sha }}
+          path: ${{ runner.temp }}/proxy-evidence
+          if-no-files-found: error
+          retention-days: 14

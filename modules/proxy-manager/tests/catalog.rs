@@ -1,0 +1,102 @@
+use omt_proxy::catalog::*;
+use omt_proxy::subscription::*;
+const URI: &str = "vless://11111111-2222-3333-4444-555555555555@proxy.example:443?type=ws&security=tls&sni=proxy.example&path=%2Fws#Example";
+#[test]
+fn uri_import_preserves_transport() {
+    let p = import_preview(URI.as_bytes(), ImportFormat::Uri).unwrap();
+    assert_eq!(p.nodes.len(), 1);
+    assert_eq!(p.nodes[0].path, "/ws");
+    assert_eq!(p.nodes[0].security, "tls");
+}
+#[test]
+fn limits_and_empty_are_not_candidates() {
+    for data in [
+        vec![b'x'; 8 * 1024 * 1024 + 1],
+        b"".to_vec(),
+        b"<html>error</html>".to_vec(),
+    ] {
+        assert!(import_preview(&data, ImportFormat::Uri).is_err());
+    }
+}
+#[test]
+fn unknown_fields_protocols_and_insecure_rejected() {
+    for uri in [
+        URI.replace("vless:", "vmess:"),
+        format!("{}&evil=SECRET", URI.replace("#Example", "")),
+        URI.replace("security=tls", "security=none"),
+        URI.replace("type=ws", "type=grpc"),
+        URI.replace("#Example", "&allowInsecure=1"),
+    ] {
+        let err = import_preview(uri.as_bytes(), ImportFormat::Uri)
+            .err()
+            .expect("must fail");
+        assert!(!err.contains("SECRET"));
+        assert!(!err.contains("11111111"));
+    }
+}
+#[test]
+fn public_preview_never_serializes_credentials() {
+    let p = import_preview(URI.as_bytes(), ImportFormat::Uri).unwrap();
+    let s = serde_json::to_string(&p.public()).unwrap();
+    for secret in ["11111111", "proxy.example", "/ws"] {
+        assert!(!s.contains(secret), "{s}");
+    }
+    assert!(s.contains("Example"));
+}
+#[test]
+fn current_removal_requires_confirmation() {
+    let p = import_preview(URI.as_bytes(), ImportFormat::Uri).unwrap();
+    assert!(preview_replace(&p, &[], Some("old-node"), false).is_err());
+    assert!(preview_replace(&p, &[], Some("old-node"), true).is_ok());
+}
+#[test]
+fn base64_strict_and_https_url_boundaries() {
+    use base64::Engine;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(URI);
+    assert_eq!(
+        import_preview(encoded.as_bytes(), ImportFormat::Base64)
+            .unwrap()
+            .nodes
+            .len(),
+        1
+    );
+    assert!(validate_url("https://example.org/sub?token=private").is_ok());
+    for u in [
+        "http://example.org/",
+        "file:///etc/passwd",
+        "https://example.org/\nurl=bad",
+        "https://user:pass@example.org/",
+    ] {
+        assert!(validate_url(u).is_err());
+    }
+}
+#[test]
+fn tls_reality_fields_required() {
+    let uri = URI
+        .replace("type=ws", "type=tcp")
+        .replace("security=tls", "security=reality");
+    assert!(import_preview(uri.as_bytes(), ImportFormat::Uri).is_err());
+}
+#[test]
+fn invalid_percent_and_duplicate_fields_are_errors_not_panics() {
+    for uri in [
+        URI.replace("#Example", "#%你"),
+        URI.replace("#Example", "&security=reality"),
+    ] {
+        assert!(import_preview(uri.as_bytes(), ImportFormat::Uri).is_err());
+    }
+}
+#[test]
+fn reality_preserves_omitted_core_fingerprint() {
+    let u = "vless://11111111-2222-3333-4444-555555555555@proxy.example:443?security=reality&type=tcp&sni=example.org&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=abcd#Default";
+    let p = import_preview(u.as_bytes(), ImportFormat::Uri).unwrap();
+    assert_eq!(p.nodes[0].fingerprint, "");
+}
+#[test]
+fn alpn_allows_bounded_custom_protocol_identifiers() {
+    let uri = URI.replace("#Example", "&alpn=custom-protocol-v1#Example");
+    let p = import_preview(uri.as_bytes(), ImportFormat::Uri).unwrap();
+    assert_eq!(p.nodes[0].alpn, vec!["custom-protocol-v1"]);
+    let bad = URI.replace("#Example", &format!("&alpn={}#Example", "x".repeat(256)));
+    assert!(import_preview(bad.as_bytes(), ImportFormat::Uri).is_err());
+}

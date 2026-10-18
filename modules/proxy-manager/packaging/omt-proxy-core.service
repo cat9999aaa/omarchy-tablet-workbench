@@ -1,0 +1,24 @@
+[Unit]
+Description=Omarchy Tablet owned Xray core
+Requires=omt-proxy-recovery.service
+After=network.target omt-proxy-recovery.service
+
+[Service]
+Type=simple
+UMask=0077
+Environment=XRAY_LOCATION_ASSET=%h/.local/share/v2rayN/bin
+ExecCondition=/usr/bin/python3 %h/.local/lib/omt-proxy/owned-core.py intent %h/.local/state/omt-proxy/active.json
+ExecStartPre=/usr/bin/python3 %h/.local/lib/omt-proxy/owned-core.py check %h/.local/state/omt-proxy/active.json
+# Keep this installed path: the existing TUN bypass identifies it by process_path.
+ExecStart=/opt/v2rayn-bin/bin/xray/xray run -c %h/.local/state/omt-proxy/active.json
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=8
+NoNewPrivileges=true
+PrivateTmp=true
+# Core output can contain destination names. Diagnostics use the redacted controller.
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=default.target

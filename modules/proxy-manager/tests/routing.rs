@@ -1,0 +1,42 @@
+use omt_proxy::routing::*;
+#[test]
+fn all_modes_preserve_protection_and_do_not_apply() {
+    for mode in [Mode::Rules, Mode::Global, Mode::Direct] {
+        let draft = RoutingDraft {
+            mode: mode.clone(),
+            node_id: "id".into(),
+            base_revision: 42,
+            rules: vec![],
+        };
+        let c = validate_draft(
+            &draft,
+            &Capabilities {
+                tun: true,
+                zerotier_bypass: true,
+            },
+        )
+        .unwrap();
+        assert!(c.bypass_lan && c.bypass_zerotier);
+        assert_eq!(c.base_revision, 42);
+        assert_eq!(draft.mode, mode);
+    }
+}
+#[test]
+fn missing_bypass_cannot_apply() {
+    let draft = RoutingDraft {
+        mode: Mode::Global,
+        node_id: "id".into(),
+        base_revision: 1,
+        rules: vec![],
+    };
+    assert!(
+        validate_draft(
+            &draft,
+            &Capabilities {
+                tun: true,
+                zerotier_bypass: false
+            }
+        )
+        .is_err()
+    );
+}

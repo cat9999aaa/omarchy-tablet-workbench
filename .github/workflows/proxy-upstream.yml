@@ -1,0 +1,28 @@
+name: Proxy upstream proposals
+on:
+  schedule:
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: proxy-upstream-proposals
+  cancel-in-progress: false
+jobs:
+  proposal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          persist-credentials: false
+      - name: Fetch allowlisted stable metadata without installing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/proxy-upstream.py --online --output "$RUNNER_TEMP/proxy-update-proposals.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: proxy-upstream-proposals-${{ github.run_id }}
+          path: ${{ runner.temp }}/proxy-update-proposals.json
+          if-no-files-found: error
+          retention-days: 30

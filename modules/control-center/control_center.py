@@ -160,6 +160,15 @@ def status():
     d['locked']=read_lock()
     return d
 
+
+def native_client():
+ import importlib.util
+ p=Path.home()/'.local/lib/omt-proxy/client.py'
+ if not p.exists():return None
+ spec=importlib.util.spec_from_file_location('omt_proxy_client',p)
+ module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
+ return module.active_client()
+
 def main():
     op=sys.argv[1] if len(sys.argv)==2 else ''
     if op=='status':return status()
@@ -170,6 +179,11 @@ def main():
     if len(raw)>4096:raise ValueError('请求过大')
     d=json.loads(raw)
     if set(d)-{'action','params','confirmed'}:raise ValueError('未知字段')
+    client=native_client() if d['action'] in ('proxy-on','proxy-off') else None
+    if client:
+        # Delegate BEFORE acquiring the existing resource lock to avoid recursive deadlock.
+        result=client.dispatch(Path.home(),'enable' if d['action']=='proxy-on' else 'disable',d.get('confirmed',False))
+        return dict(result,ok=result.get('verified') is True,stage='submitted' if result.get('verified') else result['stage'])
     r=prepare(d['action'],d.get('params',{}),read_lock())
     return execute(r,d.get('confirmed',False),read_lock,run)
 

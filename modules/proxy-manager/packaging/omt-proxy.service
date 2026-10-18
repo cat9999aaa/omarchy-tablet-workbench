@@ -1,0 +1,15 @@
+[Unit]
+Description=Omarchy Tablet Proxy Controller
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/lib/omt-proxy/omt-proxy serve %t/omt-proxy %h/.local/lib/omt-proxy/legacy-control.py %h/Projects/pcadmin/tools
+Restart=on-failure
+RestartSec=5
+UMask=0077
+# Proxy authority remains with the existing narrow Polkit controller.
+
+[Install]
+WantedBy=graphical-session.target
