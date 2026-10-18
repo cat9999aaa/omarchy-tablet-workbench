@@ -17,6 +17,7 @@ import "ControlModel.js" as Model
 import "ContractModel.js" as ContractModel
 import "Workbench" as WB
 import "Workbench/Layout.js" as LayoutModel
+import "Workbench/Theme.js" as Theme
 import "Workbench/State.js" as SharedState
 
 Ui.Panel {
@@ -162,6 +163,9 @@ Ui.Panel {
   else {readings.closeSession();if(activeRead)activeRead.cancelRead();deviceMode.close();if(activeSettings)activeSettings.cancel();allowed=false}
  }
  readonly property string helper: Quickshell.env("PCADMIN_CONTROL_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/control-center/control_center.py"
+ readonly property var themeTokens:Theme.resolve({schemaVersion:1,foreground:Color.foreground,
+  background:Color.popups.background,accent:Color.accent,urgent:Color.urgent,muted:Color.muted,
+  fontFamily:Style.font.family,fontScale:Style.font.body/12,cornerRadius:Style.cornerRadius})
  readonly property color bg: Color.popups.background
  readonly property color fg: Color.foreground
  readonly property color purple: Color.accent
@@ -379,21 +383,21 @@ Ui.Panel {
    MouseArea {anchors.fill:parent}
    ColumnLayout {
     anchors.fill:parent;anchors.margins:16;spacing:10
-    WB.PanelHeader {
+    WB.PanelHeader {themeTokens:root.themeTokens;
      Layout.fillWidth:true;Layout.preferredHeight:implicitHeight
      title:root.flight.entertainment?"飞行娱乐":"启明 · 随身控制台"
      foreground:root.fg;accent:root.purple;fontFamily:Style.font.family
      onCloseRequested:root.close()
     }
-    Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:15;wrapMode:Text.Wrap}
-    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+readings.temperatureText;color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
-    Text {Layout.fillWidth:true;text:"最近一次采样结果 · 触摸开机默认："+readings.bootDefaultLabel;color:root.fg;opacity:.65;font.pixelSize:12;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+readings.temperatureText;color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:"最近一次采样结果 · 触摸开机默认："+readings.bootDefaultLabel;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap}
     Flickable {
      id:scroll
      Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentWidth:width;contentHeight:body.implicitHeight;boundsBehavior:Flickable.StopAtBounds
      ColumnLayout {
       id:body;width:parent.width;spacing:10
-      Text {objectName:"mode-status";Layout.fillWidth:true;text:Model.modeLabel(root.modeChoice,deviceMode.health,root.appliedMode,root.modeSaved);color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
+      Text {objectName:"mode-status";Layout.fillWidth:true;text:Model.modeLabel(root.modeChoice,deviceMode.health,root.appliedMode,root.modeSaved);color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
       RowLayout {
        Layout.fillWidth:true;spacing:8
        CButton {id:modeAuto;objectName:"mode-auto";Layout.fillWidth:true;Layout.minimumWidth:0;text:"自动";selected:root.modeChoice==="auto";enabled:root.modeInitialized;onClicked:root.selectMode("auto")}
@@ -403,8 +407,8 @@ Ui.Panel {
       CButton {visible:!root.flight.entertainment;Layout.fillWidth:true;text:root.expanded?"返回快捷控制":"查看全部功能";onClicked:root.expanded=!root.expanded}
       ColumnLayout {
        visible:root.flight.entertainment;Layout.fillWidth:true;spacing:12
-       Text {Layout.fillWidth:true;text:"离线时间，随你安排";font.pixelSize:22;font.bold:true;color:root.fg}
-       Text {Layout.fillWidth:true;text:"使用已下载的内容和本地存档。此模式会关闭蓝牙，请准备触屏、USB 手柄或有线耳机。";font.pixelSize:15;color:root.fg;wrapMode:Text.Wrap}
+       Text {Layout.fillWidth:true;text:"离线时间，随你安排";font.pixelSize:root.themeTokens.font.body*22/16;font.bold:true;color:root.fg}
+       Text {Layout.fillWidth:true;text:"使用已下载的内容和本地存档。此模式会关闭蓝牙，请准备触屏、USB 手柄或有线耳机。";font.pixelSize:root.themeTokens.font.body;color:root.fg;wrapMode:Text.Wrap}
        GridLayout {
         columns:2;Layout.fillWidth:true;columnSpacing:10;rowSpacing:10
         Repeater {model:[{label:"游戏\n离线街机与存档",op:"games"},{label:"视频\n打开本地影片",op:"player"},{label:"音乐\n本地音乐库",op:"music"},{label:"阅读\n继续读书",op:"reader"}]
@@ -430,7 +434,7 @@ Ui.Panel {
          required property int index
          readonly property var entry:Actions.quick(root.quickView())[modelData]
          Layout.fillWidth:true;Layout.minimumWidth:0;spacing:4
-         Text {Layout.fillWidth:true;visible:root.appliedMode==="desktop"&&(index===0||Actions.quick(root.quickView())[Actions.ids(root.appliedMode)[index-1]].group!==entry.group);text:entry.group;color:root.purple;font.pixelSize:14;wrapMode:Text.Wrap}
+         Text {Layout.fillWidth:true;visible:root.appliedMode==="desktop"&&(index===0||Actions.quick(root.quickView())[Actions.ids(root.appliedMode)[index-1]].group!==entry.group);text:entry.group;color:root.purple;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
          CButton {
           Layout.fillWidth:true;Layout.minimumWidth:0;Layout.minimumHeight:root.appliedMode==="desktop"?48:68
           stableActionId:parent.modelData
@@ -449,8 +453,8 @@ Ui.Panel {
       }
       ColumnLayout {
        Layout.fillWidth:true;visible:root.expanded&&!root.flight.entertainment;spacing:8
-       Text {Layout.fillWidth:true;color:root.purple;font.pixelSize:18;text:root.page;wrapMode:Text.Wrap}
-       Text {Layout.fillWidth:true;color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap;text:root.page==="连接"?"网络详情保留 Wi-Fi、4G、有线、代理、ZeroTier 和 GPS。打开详情不会切网。":root.page==="设备"?"触摸模式仅影响本次。重启或触屏重连后默认恢复手套／原装笔模式。":root.page==="工作"?"输入法、声音与窗口操作沿用已有入口。AI 对话与任务编排尚未接入。":"已有离线播放器、阅读器和游戏。飞行模式会关闭 Wi-Fi、4G 和蓝牙，后台任务继续但网络会断开。"}
+       Text {Layout.fillWidth:true;color:root.purple;font.pixelSize:root.themeTokens.font.title;text:root.page;wrapMode:Text.Wrap}
+       Text {Layout.fillWidth:true;color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;text:root.page==="连接"?"网络详情保留 Wi-Fi、4G、有线、代理、ZeroTier 和 GPS。打开详情不会切网。":root.page==="设备"?"触摸模式仅影响本次。重启或触屏重连后默认恢复手套／原装笔模式。":root.page==="工作"?"输入法、声音与窗口操作沿用已有入口。AI 对话与任务编排尚未接入。":"已有离线播放器、阅读器和游戏。飞行模式会关闭 Wi-Fi、4G 和蓝牙，后台任务继续但网络会断开。"}
        GridLayout {
         Layout.fillWidth:true;columns:root.appliedMode==="desktop"?1:2;columnSpacing:8;rowSpacing:8
         Repeater {
@@ -459,21 +463,21 @@ Ui.Panel {
         }
        }
       }
-      Text {Layout.fillWidth:true;color:root.fg;text:"亮度 "+(root.data.brightness===null||root.data.brightness===undefined?"不可用":Math.round(brightness.value)+"%");font.pixelSize:15}
+      Text {Layout.fillWidth:true;color:root.fg;text:"亮度 "+(root.data.brightness===null||root.data.brightness===undefined?"不可用":Math.round(brightness.value)+"%");font.pixelSize:root.themeTokens.font.body}
       Slider {id:brightness;onActiveFocusChanged:if(activeFocus)root.ensureControlVisible(brightness);Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.data.brightness||0;enabled:root.data.brightness!==null&&root.data.brightness!==undefined&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("brightness",{percent:Math.round(value)})}
       RowLayout {
        Layout.fillWidth:true
-       Text {Layout.fillWidth:true;color:root.fg;text:"音量 "+(root.audioAvailable?Math.round(volumeSlider.value)+"%":"无输出设备");font.pixelSize:15}
+       Text {Layout.fillWidth:true;color:root.fg;text:"音量 "+(root.audioAvailable?Math.round(volumeSlider.value)+"%":"无输出设备");font.pixelSize:root.themeTokens.font.body}
        CButton {text:root.muted?"取消静音":"静音";enabled:root.audioAvailable&&!actionProcess.running;onClicked:root.act("mute",{})}
       }
       Slider {id:volumeSlider;onActiveFocusChanged:if(activeFocus)root.ensureControlVisible(volumeSlider);Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.volume;enabled:root.audioAvailable&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("volume",{percent:Math.round(value)})}
-      Text {Layout.fillWidth:true;color:root.fg;opacity:.65;font.pixelSize:13;wrapMode:Text.Wrap;text:"麦克风："+(root.source&&root.source.audio?(root.source.audio.muted?"已静音":"可用 · 静音关闭"):"未知")+"  ·  "+(root.data.observed_at?new Date(root.data.observed_at*1000).toLocaleTimeString():"读取中")}
-      Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:14;wrapMode:Text.Wrap;visible:root.feedback!=="";text:root.feedback}
+      Text {Layout.fillWidth:true;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap;text:"麦克风："+(root.source&&root.source.audio?(root.source.audio.muted?"已静音":"可用 · 静音关闭"):"未知")+"  ·  "+(root.data.observed_at?new Date(root.data.observed_at*1000).toLocaleTimeString():"读取中")}
+      Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;visible:root.feedback!=="";text:root.feedback}
      }
     }
     ColumnLayout {
      visible:root.confirmation!==null;Layout.fillWidth:true
-     Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:15;wrapMode:Text.Wrap;text:root.confirmation&&root.confirmation.name==="touch-normal"?"切换普通模式后，原装无源笔可能不能使用；重启仍恢复手套模式。":root.confirmation&&root.confirmation.name==="proxy-off"?"关闭代理可能中断 ChatGPT 等应用的联网。":"进入离线娱乐：关闭 Wi-Fi、4G 射频和蓝牙，停止网络连接。蓝牙手柄和耳机也会断开；现有工作保留。退出后恢复原开关。"}
+     Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;text:root.confirmation&&root.confirmation.name==="touch-normal"?"切换普通模式后，原装无源笔可能不能使用；重启仍恢复手套模式。":root.confirmation&&root.confirmation.name==="proxy-off"?"关闭代理可能中断 ChatGPT 等应用的联网。":"进入离线娱乐：关闭 Wi-Fi、4G 射频和蓝牙，停止网络连接。蓝牙手柄和耳机也会断开；现有工作保留。退出后恢复原开关。"}
      RowLayout {Layout.fillWidth:true;CButton {Layout.fillWidth:true;text:"取消";onClicked:root.confirmation=null}CButton {Layout.fillWidth:true;objectName:"confirm-action";text:"确认执行";onClicked:{const c=root.confirmation;root.confirmation=null;if(c)root.act(c.name,c.params,true)}}}
     }
    }
@@ -481,7 +485,7 @@ Ui.Panel {
    Keys.onEscapePressed:root.close()
   }
  }
- component CButton: WB.TouchButton {
+ component CButton: WB.TouchButton {themeTokens:root.themeTokens;
   id:controlButton
   Keys.onReturnPressed:event=>{if(enabled&&!event.isAutoRepeat){clicked();event.accepted=true}}
   Keys.onEnterPressed:event=>{if(enabled&&!event.isAutoRepeat){clicked();event.accepted=true}}
@@ -490,6 +494,6 @@ Ui.Panel {
   property bool trackedPress:false
   onPressedChanged:{if(pressed!==trackedPress){root.buttonPressCount+=pressed?1:-1;trackedPress=pressed}if(!pressed)Qt.callLater(root.applySuggestedMode)}
   Component.onDestruction:if(trackedPress)root.buttonPressCount--
-  foreground:root.fg;accent:root.purple;font.family:Style.font.family;font.pixelSize:15
+  foreground:root.fg;accent:root.purple;font.family:Style.font.family;font.pixelSize:root.themeTokens.font.body
  }
 }

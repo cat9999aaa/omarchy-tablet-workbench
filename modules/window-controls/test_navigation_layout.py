@@ -13,10 +13,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtTest
 import "Workbench" as WB
+import "Workbench/Theme.js" as Theme
 Item {
  id:root;width:640;height:604
  property string page:"开始"
  property string feedback:""
+ property real themeScale:1
+ property color themeAccent:"#ffb454"
+ property var themeTokens:Theme.resolve({schemaVersion:1,foreground:fg,background:bg,accent:themeAccent,fontScale:themeScale})
  property var actions:[]
  property color fg:"#eeeeee"
  property color bg:"#202020"
@@ -28,18 +32,26 @@ Item {
 tests='''
  TestCase {
   name:"NavigationGeometry";when:windowShown
-  function test_pages_data(){var rows=[];for(var page of ["开始","桌面","窗口","按键"])for(var size of [[640,604],[480,540]])rows.push({tag:page+size[0],page:page,w:size[0],h:size[1]});return rows}
+  function test_theme_update_preserves_navigation_action() {
+   root.width=640;root.height=800;root.page='窗口';root.themeScale=1;wait(50)
+   const b=findChild(root,'quickDesktop1');verify(b!==null);const snapshot=root.snapshot;const before=root.actions.length
+   b.forceActiveFocus();mousePress(b,b.width/2,b.height/2);verify(b.down)
+   root.themeAccent='#00ffff';wait(20);compare(findChild(root,'quickDesktop1'),b);verify(b.down);verify(b.activeFocus)
+   mouseRelease(b,b.width/2,b.height/2);compare(root.actions.length,before+1);compare(root.actions[before].action,'switch');compare(root.actions[before].value.workspace,1)
+   root.themeScale=1.5;wait(20);compare(b.font.pixelSize,24);compare(root.snapshot,snapshot);compare(root.page,'窗口');root.themeScale=1
+  }
+  function test_pages_data(){var rows=[];for(var page of ["开始","桌面","窗口","按键"])for(var size of [[640,604],[480,540],[320,480],[320,800],[640,480],[480,800]])for(var scale of [1,1.25,1.5])for(var contrast of [false,true])rows.push({tag:page+size[0]+"x"+size[1]+"-"+scale+"-"+contrast,page:page,w:size[0],h:size[1],scale:scale,contrast:contrast});return rows}
   function buttons(item,list) {
    if(!item.visible)return
    if(item.minimumTouchHeight!==undefined)list.push(item)
    for(var i=0;i<item.children.length;i++)buttons(item.children[i],list)
   }
   function test_pages(d){
-   root.width=d.w;root.height=d.h;root.page=d.page;root.actions=[];root.snapshot={current:1,workspaces:Array.from({length:10},(_,i)=>({id:i+1,count:i})),windowLabel:"用于测试超长标题的窗口".repeat(20),bindings:{P1:"keyboard",P2:"voice",P3:"authorize",rotation:"navigation"},labels:{keyboard:"输入法",voice:"语音",authorize:"授权",navigation:"开始",desktops:"桌面",windows:"窗口",disabled:"不执行操作"}};wait(50)
+   root.themeScale=d.scale;root.fg=d.contrast?"#ffffff":"#e7e9df";root.bg=d.contrast?"#000000":"#0c1014";root.width=d.w;root.height=d.h;root.page=d.page;root.actions=[];root.snapshot={current:1,workspaces:Array.from({length:10},(_,i)=>({id:i+1,count:i})),windowLabel:"用于测试超长标题的窗口".repeat(20),bindings:{P1:"keyboard",P2:"voice",P3:"authorize",rotation:"navigation"},labels:{keyboard:"输入法",voice:"语音",authorize:"授权",navigation:"开始",desktops:"桌面",windows:"窗口",disabled:"不执行操作"}};wait(50)
    if(d.page==="窗口") {
     var found=[];buttons(body,found)
     var quick=found.filter(b=>b.objectName.indexOf("quickDesktop")===0);compare(quick.length,9)
-    for(var q of quick){var qp=q.mapToItem(root,0,0);verify(qp.y>=0 && qp.y+q.height<=root.height,"quick desktop requires scrolling");var prior=root.actions.length;mouseClick(q,q.width/2,q.height/2);compare(root.actions.length,prior+1);compare(root.actions[prior].action,"switch");compare(root.actions[prior].value.workspace,Number(q.text))}
+    for(var q of quick){var qp=q.mapToItem(root,0,0);if(d.scale===1&&d.w>=480&&d.h>=540)verify(qp.y>=0 && qp.y+q.height<=root.height,"quick desktop requires scrolling");var sc=body.parent.parent;var pos=q.mapToItem(body,0,0);sc.contentY=Math.max(0,Math.min(pos.y,sc.contentHeight-sc.height));wait(10);var prior=root.actions.length;mouseClick(q,q.width/2,q.height/2);compare(root.actions.length,prior+1);compare(root.actions[prior].action,"switch");compare(root.actions[prior].value.workspace,Number(q.text))}
    }
    var list=[];buttons(body,list);verify(list.length>0,"page needs actual buttons")
    var scroll=body.parent.parent;verify(scroll.contentHeight>=body.implicitHeight,"content must be scrollable")
