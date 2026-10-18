@@ -24,6 +24,8 @@ Ui.Panel {
  id: root
  moduleName: "pcadmin.control-center"
  manageIpc: false
+ implicitWidth: barButton.implicitWidth
+ implicitHeight: barButton.implicitHeight
  property var data: ({})
  readonly property var flight: Model.flightView(data,Date.now()/1000)
  property bool expanded: false
