@@ -17,6 +17,10 @@ def block(marker):
         end+=1
     return source[start:end]
 
+# The periodic reader remains distinct; only user-triggered routes restart mode.
+assert 'deviceMode.refresh' not in block(' function refresh(')
+assert 'onTriggered:root.refresh()' in source
+
 with tempfile.TemporaryDirectory(prefix='ownership-fixture-') as folder:
     temp=Path(folder)
     helper=temp/'fixture.py'
@@ -92,7 +96,7 @@ ShellRoot {
    QtObject {id:control;property bool open:false;function show(){open=true}function hide(){open=false}}
    ContractState {id:readings}
    function refresh(){}
-'''+declarations+'\n'+ '\n'.join(block(' function '+name+'(') for name in ['open','toggle','closeInternal','close','gesture'])+'\n'+block(' Process {\n  id: opener')+'\n'+block(' Component {\n  id:settingsRequest')+'''
+'''+declarations+'\n'+ '\n'.join(block(' function '+name+'(') for name in ['refreshFromUser','open','toggle','closeInternal','close','gesture'])+'\n'+block(' Process {\n  id: opener')+'\n'+block(' Component {\n  id:settingsRequest')+'''
   }
  }
  Variants {
@@ -129,6 +133,16 @@ ShellRoot {
   }else if(harness.phase===5 && harness.second.mode.observerReady) {
    harness.first.route("gesture")
    if(!harness.check(harness.second.expanded&&harness.second.opened,"legacy-gesture"))return
+   harness.second.mode.fail("observer_lost");harness.phase=51
+  }else if(harness.phase===51 && harness.second.mode.isStopped) {
+   const epoch=harness.second.mode.generation
+   harness.second.refresh()
+   if(!harness.check(harness.second.mode.generation===epoch,"periodic-no-restart"))return
+   harness.first.route("gesture")
+   if(!harness.check(harness.second.mode.generation>epoch,"explicit-refresh-generation"))return
+   harness.phase=52
+  }else if(harness.phase===52 && harness.second.mode.observerReady) {
+   if(!harness.check(harness.second.opened,"explicit-refresh-recovered"))return
    harness.second.selectMode("tablet");harness.phase=7
   }else if(harness.phase===7 && harness.second.mode.isStopped && harness.second.modeSaved) {
    harness.second.close();harness.phase=8
@@ -157,4 +171,4 @@ ShellRoot {
 '''
     path=temp/'ownership.qml';path.write_text(fixture)
     attachment_check(path,[helper,*[root/n for n in ('ModeSession.qml','ModeProtocol.js','ContractState.qml','ContractModel.js')]],
-                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy'],verify_children=True)
+                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy','periodic-no-restart','explicit-refresh-recovered'],verify_children=True)
