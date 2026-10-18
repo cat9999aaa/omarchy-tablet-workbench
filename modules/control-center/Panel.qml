@@ -3,11 +3,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 import qs.Ui as Ui
 import qs.Commons
+import "OutputRoute.js" as OutputRoute
+import "ModeProtocol.js" as ModeProtocol
 import "ControlModel.js" as Model
 import "ContractModel.js" as ContractModel
 import "Workbench" as WB
@@ -27,10 +30,90 @@ Ui.Panel {
  property bool allowed: false
  property bool wantOpen: false
  property var activeRead: null
+ property int routeEpoch: 0
+ property bool transferPending: false
+ property var transferCallbacks: []
+ property bool destroying: false
+ property var hostScreen: null
+ readonly property var attachedScreen: {
+  const w=root.QsWindow.window
+  return w && Quickshell.screens.indexOf(w.screen)>=0 ? w.screen : null
+ }
+ property var activeSettings: null
+ property string modeChoice: "auto"
+ property bool modeEligible: false
+ property bool modeInitialized: false
+ property bool modeSaved: true
+ property string savePending: ""
+ property string suggestedMode: "tablet"
+ property string appliedMode: "tablet"
+ onAttachedScreenChanged: if((opened||wantOpen||transferPending) && attachedScreen!==hostScreen)close()
+ onActiveReadChanged: releaseTransfer()
+ onActiveSettingsChanged: releaseTransfer()
+ ModeSession {
+  id:deviceMode
+  observerCommand:[Qt.resolvedUrl("bin/pcadmin-device-observer").toString().replace("file://","")]
+  sampleCommand:["python",root.helper,"mode-step"]
+  onModeSuggested:mode=>root.suggestedMode=mode
+  onStopped:Qt.callLater(root.releaseTransfer)
+ }
+ function peers() {return bar && typeof bar.moduleWidgets==="function" ? bar.moduleWidgets(moduleName).filter(p=>p && p.destroying===false && typeof p.requestOpen==="function") : []}
+ function targetFor(name) {
+  const list=peers(), candidates=list.map((p,i)=>({id:String(i),screenName:p.attachedScreen?p.attachedScreen.name:"",attached:p.attachedScreen!==null,visibleSlot:p.width>0&&p.height>0}))
+  const id=OutputRoute.pickTarget(candidates,name)
+  return id===null?null:list[Number(id)]
+ }
+ function focusedTarget() {return targetFor(Hyprland.focusedMonitor?Hyprland.focusedMonitor.name:"")}
+ function currentPanel() {const items=peers().filter(p=>p.opened);return items.length===1?items[0]:null}
+ function route(method) {
+  const current=currentPanel()
+  if(method==="close" || (method==="toggle" && current)) {peers().filter(p=>p.opened||p.wantOpen||p.transferPending).forEach(p=>p.close());return}
+  if((method==="gesture"||method==="expand") && current){current.expanded=true;current.refresh();return}
+  const target=focusedTarget()
+  if(target){if(method==="expand")target.expanded=true;target.open()}
+ }
+ function releaseTransfer() {
+  if(!deviceMode.isStopped || activeRead || activeSettings || opener.running)return
+  const callbacks=transferCallbacks;transferCallbacks=[];callbacks.forEach(f=>f())
+ }
+ function closeForTransfer(callback) {transferCallbacks=transferCallbacks.concat([callback]);closeInternal();releaseTransfer()}
+ function requestOpen() {
+  if(destroying || !attachedScreen || targetFor(attachedScreen.name)!==root || opener.running)return
+  hostScreen=attachedScreen;modeInitialized=false;wantOpen=true;opener.running=true
+ }
+ function startSettings(op, choice) {
+  if(!opened || !hostScreen || activeSettings)return
+  const value={output_key:hostScreen.name};if(op==="mode-preference-write")value.choice=choice
+  activeSettings=settingsRequest.createObject(root,{operation:op,epoch:routeEpoch,payload:JSON.stringify(value)})
+  if(activeSettings)activeSettings.running=true
+  else {modeSaved=false;finishModeSetup(false)}
+ }
+ function finishModeSetup(eligible) {
+  if(!opened)return
+  modeEligible=eligible;modeInitialized=true
+  deviceMode.begin(eligible,modeChoice,appliedMode)
+ }
+ function settingsResult(op, text, code, epoch) {
+  if(epoch!==routeEpoch || !opened)return
+  let value=null
+  try {if(code===0 && ModeProtocol.size(text)<=65536)value=JSON.parse(text)}catch(e){}
+  if(op==="mode-preference-read") {
+   modeChoice=value&&value.schema_version===1&&["auto","tablet","desktop"].indexOf(value.choice)>=0?value.choice:"auto"
+   modeSaved=!!(value&&value.reason_code==="ok")
+   startSettings("output-policy","")
+  } else if(op==="output-policy")finishModeSetup(!!(value&&value.schema_version===1&&value.eligible===true))
+  else {modeSaved=!!(value&&value.saved===true);if(savePending){const next=savePending;savePending="";startSettings("mode-preference-write",next)}}
+ }
+ function selectMode(choice) {
+  if(!modeInitialized || ["auto","tablet","desktop"].indexOf(choice)<0)return
+  modeChoice=choice;modeSaved=false;deviceMode.choose(choice)
+  if(activeSettings)savePending=choice;else startSettings("mode-preference-write",choice)
+ }
+ Component.onDestruction:{destroying=true;routeEpoch++;deviceMode.close();if(activeSettings)activeSettings.signal(9);if(activeRead)activeRead.signal(9);if(opener.running)opener.signal(9)}
  ContractState { id: readings }
  onOpenedChanged: {
   if(opened){readings.beginOpen();refresh()}
-  else {readings.closeSession();if(activeRead)activeRead.cancelRead();allowed=false}
+  else {readings.closeSession();if(activeRead)activeRead.cancelRead();deviceMode.close();if(activeSettings)activeSettings.cancel();allowed=false}
  }
  readonly property string helper: Quickshell.env("PCADMIN_CONTROL_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/control-center/control_center.py"
  readonly property color bg: Color.popups.background
@@ -73,10 +156,21 @@ Ui.Panel {
   }
   if(opened&&!sinkPoll.running)sinkPoll.running=true
  }
- function open() { if(!opener.running&&!opened){wantOpen=true;opener.running=true} }
- function toggle() { if(opened)close();else open() }
- function close() { wantOpen=false;readings.closeSession();if(activeRead)activeRead.cancelRead();controller.hide();confirmation=null;allowed=false }
- function gesture() { if(!opened)open();else {expanded=true;refresh()} }
+ function open() {
+  if(!attachedScreen || targetFor(attachedScreen.name)!==root)return
+  if(opened){refresh();return}
+  const list=peers()
+  OutputRoute.handoff(list,root,()=>!root.destroying && root.attachedScreen!==null && root.targetFor(root.attachedScreen.name)===root)
+ }
+ function toggle() {if(opened)close();else open()}
+ function closeInternal() {
+  wantOpen=false;readings.closeSession();if(activeRead)activeRead.cancelRead()
+  deviceMode.close();if(activeSettings)activeSettings.cancel();savePending=""
+  if(opener.running)opener.signal(15)
+  controller.hide();confirmation=null;allowed=false
+ }
+ function close() {routeEpoch++;transferPending=false;closeInternal()}
+ function gesture() {if(!opened)open();else {expanded=true;refresh()}}
  function act(name,params,confirmed) {
   if(actionProcess.running || !allowed)return
   if(!confirmed && (name==="proxy-off" || name==="flight-on" || name==="touch-normal")) {
@@ -93,22 +187,63 @@ Ui.Panel {
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
     "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
+ function serializedState() {return JSON.stringify({uiRevision:5,version:"0.1.9",nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
  IpcHandler {
   target: "pcadmin.controlCenter"
-  function ready(): bool {return true}
-  function open(): void {root.open()}
-  function close(): void {root.close()}
-  function toggle(): void {root.toggle()}
-  function gesture(): void {root.gesture()}
-  function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({uiRevision:4,version:"0.1.9",nightlight:root.data.nightlight,flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function ready(): bool {return root.focusedTarget()!==null && !root.peers().some(p=>p.transferPending)}
+  function open(): void {root.route("open")}
+  function close(): void {root.route("close")}
+  function toggle(): void {root.route("toggle")}
+  function gesture(): void {root.route("gesture")}
+  function expand(): void {root.route("expand")}
+  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:5,version:"0.1.9",opened:false,locked:true,available:false})}
+
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
-  id: opener;command:["python",root.helper,"prepare-open"]
+  id: opener;onExited:function(code){if(code!==0&&root.wantOpen)root.close();root.releaseTransfer()}
+  command:["python",root.helper,"prepare-open"]
   stdout: StdioCollector { onStreamFinished: {
-   try {const d=JSON.parse(text);if(d.ok===true&&root.wantOpen){root.allowed=true;root.controller.show()}else root.feedback="锁屏或键盘未收起，暂未打开"}catch(e){root.feedback="无法确认打开条件"}
+   try {const d=JSON.parse(text);if(d.ok===true&&root.wantOpen&&root.attachedScreen===root.hostScreen){root.allowed=true;root.controller.show();root.startSettings("mode-preference-read","")}else root.feedback="锁屏或键盘未收起，暂未打开"}catch(e){root.feedback="无法确认打开条件"}
   } }
+ }
+ Component {
+  id:settingsRequest
+  Process {
+   id:request
+   required property string operation
+   required property int epoch
+   required property string payload
+   property bool cancelled:false
+   property bool timedOut:false
+   property bool disposed:false
+   property bool started:false
+   property bool streamDone:false
+   property bool exitSeen:false
+   property int code:-1
+   command:["python",root.helper,operation]
+   stdinEnabled:true
+   function cancel(){cancelled=true;deadline.stop();if(running)signal(15);reap.start()}
+   function complete(text,resultCode) {
+    if(disposed)return
+    disposed=true;deadline.stop();reap.stop()
+    const op=operation,token=epoch,deliver=!cancelled||timedOut
+    if(root.activeSettings===request)root.activeSettings=null
+    if(deliver)root.settingsResult(op,text,resultCode,token)
+    destroy();root.releaseTransfer()
+   }
+   function finish(){if(streamDone&&exitSeen)complete(output.text,code)}
+   onStarted:{started=true;write(payload);stdinEnabled=false}
+   stdout:StdioCollector {
+    id:output;waitForEnd:false
+    onDataChanged:if(ModeProtocol.size(text)>65536){request.timedOut=true;request.cancel()}
+    onStreamFinished:{request.streamDone=true;request.finish()}
+   }
+   onExited:function(exitCode,exitStatus){code=exitStatus===0?exitCode:-1;exitSeen=true;finish()}
+   onRunningChanged:if(!running&&!started)Qt.callLater(function(){if(!disposed&&!running&&!started)complete("",-1)})
+   property Timer deadline:Timer {interval:6000;running:true;onTriggered:{request.timedOut=true;request.cancel()}}
+   property Timer reap:Timer {interval:500;onTriggered:{if(request.running){request.signal(9);restart()}else request.complete("",-1)}}
+  }
  }
  Component {
   id: readRequest
@@ -176,7 +311,7 @@ Ui.Panel {
  PanelWindow {
   id: window
   visible:root.opened
-  screen:Quickshell.screens[0]
+  screen:root.hostScreen
   anchors {top:true;bottom:true;left:true;right:true}
   color:"transparent"
   exclusionMode:ExclusionMode.Ignore

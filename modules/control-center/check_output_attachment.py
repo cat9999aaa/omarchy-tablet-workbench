@@ -15,7 +15,7 @@ import tempfile
 import time
 
 
-def main():
+def main(fixture_path=None, extra_files=(), extra_required=(), verify_children=False):
     if os.environ.get('B2_ISOLATED_TEST') != '1':
         raise RuntimeError('isolated test namespace required')
     for tool in ('sway', 'swaymsg', 'qs'):
@@ -26,7 +26,9 @@ def main():
         runtime = root / 'runtime'
         runtime.mkdir(mode=0o700)
         fixture = root / 'OutputAttachment.qml'
-        shutil.copy2(Path(__file__).parent / 'tests/OutputAttachment.qml', fixture)
+        shutil.copy2(fixture_path or Path(__file__).parent / 'tests/OutputAttachment.qml', fixture)
+        for source in extra_files:
+            shutil.copy2(source, root / Path(source).name)
         shutil.copy2(Path(__file__).parent / 'OutputRoute.js', root / 'OutputRoute.js')
         config = root / 'sway.conf'
         config.write_text('output HEADLESS-1 resolution 640x480 position 0 0\n'
@@ -70,6 +72,7 @@ def main():
                         if chunk:
                             data += chunk
                             if len(data) > 65536:
+                                print(data[:2000].decode(errors='replace') + '\n...\n' + data[-2000:].decode(errors='replace'))
                                 raise RuntimeError('oversize test output')
                     if b'B2_FAIL:' in data:
                         break
@@ -81,9 +84,20 @@ def main():
                         break
                 text = data.decode(errors='replace')
                 print(text)
-                required = ['attachment', 'two-outputs', 'destroy', 'ambiguous', 'no-migration']
+                required = ['attachment', 'two-outputs', 'destroy', 'ambiguous', 'no-migration'] + list(extra_required)
                 if shell.poll() != 0 or 'B2_COMPLETE' not in text or 'B2_FAIL:' in text or not all('B2_PASS:'+s in text for s in required):
                     raise RuntimeError('output attachment gate failed')
+                if verify_children:
+                    active=set();pids=set()
+                    for row in (root/'events').read_text().splitlines():
+                        event,pid=row.split();pids.add(int(pid))
+                        if event=='start':active.add(pid)
+                        else:active.discard(pid)
+                        if len(active)>1:raise RuntimeError('observer lifetime overlap')
+                    for pid in pids:
+                        try:os.kill(pid,0)
+                        except ProcessLookupError:continue
+                        raise RuntimeError('observer remains after output teardown')
                 print('real output attachment gate passed')
             finally:
                 for child in (shell, compositor):

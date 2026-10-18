@@ -1,3 +1,4 @@
+import select
 import io
 import json
 import os
@@ -73,6 +74,18 @@ class PreferenceTests(unittest.TestCase):
             self.assertEqual(self.file.read_bytes(),old)
         for i in range(15):self.assertTrue(write_preference('DP-'+str(i),'auto')['saved'])
         old=self.file.read_bytes();self.assertFalse(write_preference('DP-new','desktop')['saved']);self.assertEqual(self.file.read_bytes(),old)
+    def test_killed_writer_does_not_make_old_preference_unreadable(self):
+        self.assertTrue(write_preference('eDP-1','tablet')['saved'])
+        code="import device_session as d,time;d.os.replace=lambda *a,**k:(print('READY',flush=True),time.sleep(30));d.write_preference('eDP-1','desktop')"
+        p=subprocess.Popen([sys.executable,'-c',code],cwd=Path(__file__).parent,stdout=subprocess.PIPE)
+        try:
+            self.assertTrue(select.select([p.stdout],[],[],3)[0])
+            self.assertEqual(p.stdout.readline(),b'READY\n');p.kill();p.wait(timeout=2)
+        finally:
+            if p.poll() is None:p.kill();p.wait()
+            p.stdout.close()
+        self.assertEqual(read_preference('eDP-1')['choice'],'tablet')
+
     def test_directory_sync_failure_restores_old_file(self):
         self.assertTrue(write_preference('eDP-1','tablet')['saved']);old=self.file.read_bytes()
         original=os.fsync
@@ -80,7 +93,7 @@ class PreferenceTests(unittest.TestCase):
         def fail_directory_once(fd):
             nonlocal calls
             calls+=1
-            if calls==2:raise OSError('directory sync failed')
+            if calls==3:raise OSError('directory sync failed')
             return original(fd)
         with patch('device_session.os.fsync',side_effect=fail_directory_once):
             self.assertFalse(write_preference('eDP-1','desktop')['saved'])

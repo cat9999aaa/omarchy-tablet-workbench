@@ -10,4 +10,25 @@ function pickTarget(candidates, focusedName) {
     });
     return matches.length === 1 ? matches[0].id : null;
 }
-if (typeof module !== 'undefined') module.exports = {pickTarget: pickTarget};
+// Every peer is asked to close; the barrier also includes asynchronous reap.
+function handoff(peers, target, current) {
+    if (!Array.isArray(peers) || peers.indexOf(target)<0 || typeof current!=='function')return false;
+    peers.forEach(function(peer){peer.routeEpoch++;peer.transferPending=false;});
+    const epoch=target.routeEpoch;
+    target.transferPending=true;
+    let waiting=peers.length;
+    peers.forEach(function(peer){
+        let called=false;
+        peer.closeForTransfer(function(){
+            if(called)return;called=true;waiting--;
+            if(waiting!==0)return;
+            try {
+                if(target.routeEpoch!==epoch || !target.transferPending)return;
+                target.transferPending=false;
+                if(current())target.requestOpen();
+            } catch(e) { /* A destroyed target cannot be opened. */ }
+        });
+    });
+    return true;
+}
+if (typeof module !== 'undefined') module.exports = {pickTarget:pickTarget,handoff:handoff};

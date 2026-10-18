@@ -211,8 +211,27 @@ def write_preference(output_key, choice):
             fd = None
             try:
                 try:
-                    os.link('modes.json', backup, src_dir_fd=directory, dst_dir_fd=directory,
-                            follow_symlinks=False)
+                    old_fd = os.open('modes.json', os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                     dir_fd=directory)
+                    try:
+                        _regular(old_fd)
+                        old_raw = os.read(old_fd, LIMIT + 1)
+                        if len(old_raw) > LIMIT:
+                            raise ValueError('invalid_state')
+                    finally:
+                        os.close(old_fd)
+                    backup_fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC,
+                                        0o600, dir_fd=directory)
+                    try:
+                        old_view = memoryview(old_raw)
+                        while old_view:
+                            count = os.write(backup_fd, old_view)
+                            if count <= 0:
+                                raise OSError('write_failed')
+                            old_view = old_view[count:]
+                        os.fsync(backup_fd)
+                    finally:
+                        os.close(backup_fd)
                     had_old = True
                 except FileNotFoundError:
                     pass
@@ -237,7 +256,7 @@ def write_preference(output_key, choice):
                             os.unlink('modes.json', dir_fd=directory)
                         os.fsync(directory)
                     except OSError:
-                        # Preserve the recovery hardlink if the filesystem also rejects rollback.
+                        # Preserve the recovery copy if the filesystem also rejects rollback.
                         keep_backup = True
                 raise
             finally:
