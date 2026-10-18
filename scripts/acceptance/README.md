@@ -10,7 +10,11 @@ python3 scripts/acceptance/run.py --output /tmp/new-workbench-report
 
 覆盖网络、控制台、电池、远程构建边界、插件发布恢复边界、触摸模式、笔数据、离线目录、输入法控制、共享组件与几何模型。`Workbench` 的生成副本必须逐字节匹配共享权威源；缺少、过期或修改都会失败。
 
-依赖：Python 3.10+、Node.js、Qt 6 的 qmltestrunner 与 QtQuick/Controls/Layouts/QtTest 模块。测试权限门禁会在 `/run/user/<uid>` 创建临时请求，因此远程运行必须隔离 `/run`、`/tmp`、HOME、网络与真实桌面总线；GitHub 使用一次性托管机器。Linux 设备上的网络服务不在测试范围内。
+验收工具依赖：Python 3.11+（主题 TOML 校验使用标准库 tomllib）、Node.js、Qt 6 的 qmltestrunner 与 QtQuick/Controls/Layouts/QtTest 模块。现有产品 helper 的 Python 3.10 兼容底线不因此改变。测试权限门禁会在 `/run/user/<uid>` 创建临时请求，因此远程运行必须隔离 `/run`、`/tmp`、HOME、网络与真实桌面总线；GitHub 使用一次性托管机器。Linux 设备上的网络服务不在测试范围内。
+
+C1 主题格式与失败检测、共享主题参数、对比度计算、生成副本同步器和网络/电池内容状态检查均为 `all` 的必需组。源码摘要包含 `themes/`，以及 `scripts/themes/` 的 Python/JS/QML 源码和 `scripts/workbench-ui/` 的 Python/Markdown；生成的 PNG、日志、结果 JSON 与 Python 缓存不进入这些工具目录的源码摘要。新增其他类型的测试输入时需要同步扩展摘要范围。
+
+完整官方解析与 940 个实际内容截图案例另由 `scripts/themes/check_shell_theme.py` 和 `check_workbench_theme.py` 在授权隔离构建区执行，要求固定官方源码、Quickshell 和私有无头合成器。普通 CI 没有该环境，不能把基础 Qt 检查写成官方 Shell 或实机主题验收。
 
 GitHub 的 push、pull request、手动运行使用相同入口。Action 固定提交，工作流令牌只读、不留 checkout 凭据；不连接私人构建机、不部署、不修改路由。Dependabot 每周提出 Action 更新 PR，需检查通过与审查后合入，不自动合并。依据 [GitHub 权限说明](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions) 和 [安全使用指南](https://docs.github.com/en/actions/reference/security/secure-use)。
 

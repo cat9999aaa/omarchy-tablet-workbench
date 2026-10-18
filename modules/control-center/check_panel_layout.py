@@ -21,6 +21,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtTest
 import "Workbench" as WB
+import "Workbench/Theme.js" as Theme
 import "ControlModel.js" as Model
 import "ControlActions.js" as Actions
 Item {
@@ -40,6 +41,9 @@ Item {
  property color purple:"#cc88ff"
  property color green:"#cc88ff"
  property color orange:"#ffaa66"
+ property real themeScale:1
+ property color themeAccent:"#ffb454"
+ property var themeTokens:Theme.resolve({schemaVersion:1,foreground:fg,background:bg,accent:themeAccent,urgent:orange,fontScale:themeScale})
  property var actions:[]
  property string appliedMode:"tablet"
  property string suggestedMode:"tablet"
@@ -72,8 +76,19 @@ tests = '''
   name:"ControlPanelLayout";when:windowShown
   function buttons(item,list){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)list.push(item);for(let i=0;i<item.children.length;i++)buttons(item.children[i],list)}
   function bring(button){wait(30);const y=button.mapToItem(body,0,0).y;scroll.contentY=Math.max(0,Math.min(y,scroll.contentHeight-scroll.height));wait(20)}
-  function test_sizes_data(){let rows=[];for(const w of [640,480,320])for(const h of [480,800])for(const mode of ["tablet","desktop"])rows.push({tag:w+"x"+h+"-"+mode,width:w,height:h,mode:mode});return rows}
-  function init(){root.confirmation=null;actionProcess.running=false;root.flight={entertainment:false,verified:false};root.expanded=false;root.suggestedMode="tablet";root.appliedMode="tablet";wait(30)}
+  function test_sizes_data(){let rows=[];for(const w of [640,480,320])for(const h of [480,800])for(const mode of ["tablet","desktop"])for(const scale of [1,1.25,1.5])for(const contrast of [false,true])rows.push({tag:w+"x"+h+"-"+mode+"-"+scale+"-"+contrast,width:w,height:h,mode:mode,scale:scale,contrast:contrast});return rows}
+  function init(){root.themeScale=1;root.themeAccent="#ffb454";root.confirmation=null;actionProcess.running=false;root.flight={entertainment:false,verified:false};root.expanded=false;root.suggestedMode="tablet";root.appliedMode="tablet";wait(30)}
+  function test_theme_update_preserves_pressed_action_and_focus() {
+   root.width=640;root.height=800
+   const b=findChild(root,"quick-touch-refresh");bring(b);b.forceActiveFocus();const original=b;const oldMode=root.modeChoice;const identity=window;const before=root.actions.length
+   mousePress(b,b.width/2,b.height/2);verify(b.down);root.themeAccent='#00ffff';wait(30)
+   compare(findChild(root,"quick-touch-refresh"),original);verify(b.down);verify(b.activeFocus)
+   mouseRelease(b,b.width/2,b.height/2);compare(root.actions.length,before+1);compare(root.actions[root.actions.length-1],'touch-refresh')
+   root.confirmation={name:'flight-on',params:{}};const c=root.confirmation;root.themeScale=1.5;wait(30)
+   compare(b.font.pixelSize,24);compare(root.confirmation,c);compare(root.modeChoice,oldMode);compare(window,identity)
+   root.confirmation=null;bring(brightness);mousePress(brightness,brightness.width/2,brightness.height/2);verify(brightness.pressed)
+   root.themeAccent='#ffb454';wait(30);verify(brightness.pressed);mouseRelease(brightness,brightness.width/2,brightness.height/2)
+  }
   function test_pointer_slider_confirmation_and_action_defer() {
    root.width=640;root.height=800;const identity=window
    const touch=findChild(root,"quick-touch-refresh");bring(touch)
@@ -104,7 +119,7 @@ tests = '''
    const confirm=findChild(root,"confirm-action");verify(confirm!==null);verify(confirm.height>=48)
   }
   function test_sizes(d){
-   root.confirmation=null;root.width=d.width;root.height=d.height;root.appliedMode=d.mode;root.suggestedMode=d.mode;root.expanded=false;wait(30)
+   root.themeScale=d.scale;root.fg=d.contrast?"#ffffff":"#e7e9df";root.bg=d.contrast?"#000000":"#0c1014";root.confirmation=null;root.width=d.width;root.height=d.height;root.appliedMode=d.mode;root.suggestedMode=d.mode;root.expanded=false;wait(30)
    const touch=findChild(root,"quick-touch-refresh");verify(touch!==null,"touch button missing");verify(touch.visible,"touch button hidden");verify(touch.height>=48,"touch button height "+touch.height)
    bring(touch);mouseClick(touch,touch.width/2,touch.height/2);compare(root.actions[root.actions.length-1],"touch-refresh")
    root.expanded=true;wait(30)
@@ -115,10 +130,11 @@ tests = '''
  }
 }
 '''
-with tempfile.TemporaryDirectory(prefix='control-layout-') as tmp:
-    p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench')
-    for name in ('ControlActions.js','ControlModel.js','ContractModel.js','ContractState.qml'):
-        shutil.copy2(root/name,p/name)
-    (p/'tst_layout.qml').write_text(prefix+layout+button+tests)
-    runner=shutil.which('qmltestrunner') or next((v for v in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(v).is_file()),'qmltestrunner')
-    subprocess.run([runner,'-platform','offscreen','-input',str(p/'tst_layout.qml')],check=True)
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory(prefix='control-layout-') as tmp:
+        p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench')
+        for name in ('ControlActions.js','ControlModel.js','ContractModel.js','ContractState.qml'):
+            shutil.copy2(root/name,p/name)
+        (p/'tst_layout.qml').write_text(prefix+layout+button+tests)
+        runner=shutil.which('qmltestrunner') or next((v for v in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(v).is_file()),'qmltestrunner')
+        subprocess.run([runner,'-platform','offscreen','-input',str(p/'tst_layout.qml')],check=True)

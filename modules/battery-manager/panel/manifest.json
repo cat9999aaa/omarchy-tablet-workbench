@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "cat9999sss.power",
   "name": "本机双电池电源",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "author": "Omarchy",
   "description": "双电池实时状态、充放电计时、历史与后台活动",
   "kinds": [

@@ -8,9 +8,14 @@ import qs.Ui
 import qs.Commons
 import "Model.js" as Model
 import "Workbench/Layout.js" as LayoutModel
+import "Workbench/Theme.js" as Theme
+import "Workbench" as WB
 
 Panel {
   id: root
+  readonly property var themeTokens:Theme.resolve({schemaVersion:1,foreground:Color.foreground,
+    background:Color.popups.background,accent:Color.accent,urgent:Color.urgent,muted:Color.muted,
+    fontFamily:Style.font.family,fontScale:Style.font.body/12,cornerRadius:Style.cornerRadius})
   moduleName: "omarchy.network"
   ipcTarget: "omarchy.network"
   // manageIpc: false so this panel can own the single IpcHandler the target
@@ -216,7 +221,7 @@ Panel {
     function travelTab(tab: string): void { travel.selectedTab = tab }
     function travelGeometry(): string { return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,width:panel.contentWidth,height:panel.contentHeight,body:travel.height,tab:travel.selectedTab}) }
     function travelSelected(): string { return travel.selectedTab }
-    function travelVersion(): string { return "1.3.8" }
+    function travelVersion(): string { return "1.3.9" }
     function travelDiagnostics(): string { return JSON.stringify({proxy:travel.pageData("proxy",travel.state),zero:travel.pageData("zero",travel.state)}) }
     function open() { root.open() }
     function close() { root.close() }
@@ -1101,7 +1106,7 @@ Panel {
       id: column
       width: travelScroll.width
       spacing: Style.space(12)
-      TravelControls { id: travel; onCloseRequested:root.close(); opened: root.opened; width:parent.width; height:travelScroll.height
+      TravelControls { themeTokens:root.themeTokens; id: travel; onCloseRequested:root.close(); opened: root.opened; width:parent.width; height:travelScroll.height
       Column { width: parent.width; spacing: Style.space(12)
 
       // ---------- Hero: network icon · SSID + state · actions ----------
@@ -1340,6 +1345,8 @@ Panel {
             // plain verticalCenter would sit the switch visibly high.
             ToggleSwitch {
               id: bandAutoSwitch
+              implicitWidth: Math.max(48,trackWidth+cursorPad*2)
+              implicitHeight: Math.max(48,trackHeight+cursorPad*2)
               trackHeight: Math.round(bandAutoLabel.font.pixelSize * 1.2)
               cursorPad: Style.space(3)
               anchors.verticalCenter: bandAutoLabel.verticalCenter
@@ -1568,7 +1575,7 @@ Panel {
     foreground: root.bar.foreground
     fontFamily: root.bar.fontFamily
     horizontalPadding: Style.spacing.controlPaddingX
-    verticalPadding: Style.spacing.controlPaddingY + Style.space(2)
+    verticalPadding: Math.max(Style.spacing.controlPaddingY + Style.space(2),(48-fontSize)/2)
     bordered: true
 
     active: root.bandCurrent === band
@@ -1599,7 +1606,7 @@ Panel {
     foreground: root.bar.foreground
     fontFamily: root.bar.fontFamily
     horizontalPadding: Style.spacing.controlPaddingX
-    verticalPadding: Style.spacing.controlPaddingY + Style.space(2)
+    verticalPadding: Math.max(Style.spacing.controlPaddingY + Style.space(2),(48-fontSize)/2)
     bordered: true
 
     // Map the panel's domain semantics onto Button's structural props:
@@ -1756,8 +1763,8 @@ Panel {
       Item {
         id: rightAction
         visible: row.requiresCredentials || row.canForget
-        width: Style.space(22)
-        implicitHeight: lockIndicator.implicitHeight
+        width: Math.max(48,Style.space(22))
+        implicitHeight: Math.max(48,lockIndicator.implicitHeight)
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
 
@@ -1877,7 +1884,7 @@ Panel {
         font.pixelSize: Style.font.body
         foreground: root.bar.foreground
         horizontalPadding: Style.spacing.controlGap
-        verticalPadding: Style.spacing.controlPaddingY
+        verticalPadding: Math.max(Style.spacing.controlPaddingY,(48-font.pixelSize)/2)
         enabled: !row.isBusy
         text: row.isPasswordOpen ? root.identityText : ""
 
@@ -1903,7 +1910,7 @@ Panel {
         font.pixelSize: Style.font.body
         foreground: root.bar.foreground
         horizontalPadding: Style.spacing.controlGap
-        verticalPadding: Style.spacing.controlPaddingY
+        verticalPadding: Math.max(Style.spacing.controlPaddingY,(48-font.pixelSize)/2)
         enabled: !row.isBusy
         text: row.isPasswordOpen ? root.passwordText : ""
 
@@ -1938,20 +1945,23 @@ Panel {
         }
       }
 
-      // 22×22 right-anchored to line up with lockIndicator above. Esc closes
+      // Touch-sized confirmation stays aligned to the row action. Esc closes
       // the prompt (handled by pwField.Keys.onEscapePressed)
       // so there's no separate cancel button.
-      PanelActionButton {
+      WB.TouchButton {
         id: connectPwBtn
+        themeTokens: root.themeTokens
+        width: 48
+        Accessible.name: "连接 Wi-Fi"
         visible: !row.isBusy && !row.isFailed
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         enabled: row.net && pwField.text.length > 0 && (!row.isEnterprise || idField.text.length > 0)
-        iconText: "󰄬"
-        tooltipText: "Connect"
+        text: "󰄬"
         foreground: root.bar.foreground
-        fontFamily: root.bar.fontFamily
+        font.family: root.bar.fontFamily
         onClicked: row.submitCredentials()
+        PanelToolTip {visible:connectPwBtn.hovered;text:"Connect";fontFamily:root.bar.fontFamily}
       }
     }
   }

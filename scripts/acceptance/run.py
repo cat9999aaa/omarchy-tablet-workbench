@@ -80,12 +80,19 @@ def verify_shared_ui(root, destinations=DESTINATIONS):
 def source_digest(root):
     """Identify source bytes; no machine paths, environment or runtime data in reports."""
     digest = hashlib.sha256()
-    for directory in ('modules', 'scripts/acceptance'):
+    source_roots = {
+        'modules': None, 'scripts/acceptance': None, 'themes': None,
+        'scripts/themes': {'.py', '.js', '.cjs', '.qml'},
+        'scripts/workbench-ui': {'.py', '.md'},
+    }
+    for directory, suffixes in source_roots.items():
         for p in sorted((root / directory).rglob('*')):
             if not p.is_file() or p.is_symlink():
                 continue
             rel = p.relative_to(root)
             if any(part in ('build', 'target', '__pycache__', '.venv') for part in rel.parts):
+                continue
+            if suffixes is not None and p.suffix not in suffixes:
                 continue
             digest.update(str(rel).encode() + b'\0' + p.read_bytes() + b'\0')
     return digest.hexdigest()
@@ -138,6 +145,8 @@ def checks_for(suite):
                          ['cargo', 'test', '--locked', '--offline'])]
         python_suites = [
             ('acceptance-runner', 'scripts/acceptance', 'test_runner.py'),
+            ('theme-validation', 'scripts/themes', 'test_*.py'),
+            ('theme-sync', 'scripts/workbench-ui', 'test_sync.py'),
             ('network', 'modules/network-center', 'test_*.py'),
             ('control', 'modules/control-center', 'test_*.py'),
             ('battery', 'modules/battery-manager/recorder', 'tests/test_*.py'),
@@ -163,9 +172,11 @@ def checks_for(suite):
             ('battery-history', 'battery-manager/panel', 'test_history.js'),
             ('battery-icon', 'battery-manager/panel', 'test_icon.js'),
             ('shared-model', 'workbench-ui', 'test-model.cjs'),
+            ('theme-tokens', 'workbench-ui', 'test-theme.cjs'),
             ('edge-gesture', 'edge-gestures', 'test-gesture.cjs'),
         ]:
             checks.append(Check(name, 'modules/' + directory, ['node', file]))
+        checks.append(Check('theme-contrast', 'scripts/themes', ['node', 'test-contrast.cjs']))
     if suite in ('all', 'qml'):
         runner = shutil.which('qmltestrunner') or next(
             (p for p in ('/usr/lib/qt6/bin/qmltestrunner', '/usr/lib/qt6/qmltestrunner')
@@ -180,6 +191,8 @@ def checks_for(suite):
                             [sys.executable, 'test_navigation_layout.py']))
         checks.append(Check('ime-layout', 'modules/touch-ime-prototype',
                             [sys.executable, 'tests/test_layout.py']))
+        checks.append(Check('theme-surfaces', '.',
+                            [sys.executable, 'scripts/themes/check_status_surfaces.py']))
     return checks
 
 

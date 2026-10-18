@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run Panel's routing/settings/lifecycle methods on real headless QsWindow slots.
-Only the compositor focus provider and device/lock helper responses are synthetic.
+Focus, device/lock responses and the bar icon are synthetic. Slot dimensions
+follow the official host's implicit-size contract, not a fixed fixture size.
 """
 # SPDX-License-Identifier: GPL-3.0-only
 from pathlib import Path
@@ -50,16 +51,20 @@ if op=='observer':
  time.sleep(30)
 elif op=='prepare-open':print('{"ok":true}')
 elif op=='mode-preference-read':
- json.load(sys.stdin);p=root/'choice';print(json.dumps(dict(schema_version=1,choice=p.read_text() if p.exists() else 'auto',reason_code='ok')))
+ d=json.load(sys.stdin);p=root/('choice-'+d['output_key']);print(json.dumps(dict(schema_version=1,choice=p.read_text() if p.exists() else 'auto',reason_code='ok')))
 elif op=='mode-preference-write':
  d=json.load(sys.stdin)
+ # Keep an auto-mode save pending when its output is removed.
+ if d['choice']=='auto':time.sleep(1)
  if d['choice']=='desktop':print('{"schema_version":1,"saved":false}')
- else:(root/'choice').write_text(d['choice']);print('{"schema_version":1,"saved":true}')
+ else:(root/('choice-'+d['output_key'])).write_text(d['choice']);print('{"schema_version":1,"saved":true}')
 elif op=='output-policy':json.load(sys.stdin);print('{"schema_version":1,"eligible":true}')
 elif op=='mode-step':json.load(sys.stdin);time.sleep(30)
 ''')
     a=source.index(' property int routeEpoch:');b=source.index(' ContractState {',a)
     declarations=source[a:b]
+    intrinsic='\n'.join(line for line in source.splitlines()
+                        if line.startswith((' implicitWidth:', ' implicitHeight:')))
     declarations=declarations.replace('observerCommand:[Qt.resolvedUrl("bin/pcadmin-device-observer").toString().replace("file://","")]','observerCommand:["python3",root.helper,"observer"]')
     declarations=declarations.replace('function focusedTarget() {return targetFor(Hyprland.focusedMonitor?Hyprland.focusedMonitor.name:"")}','function focusedTarget() {return targetFor(harness.focusName)}')
     fixture='''import QtQuick
@@ -80,7 +85,8 @@ ShellRoot {
  Component {
   id:ownerFactory
   Item {
-   id:root;width:48;height:48
+   id:root;width:implicitWidth;height:implicitHeight
+   Item {id:barButton;anchors.fill:parent;implicitWidth:40;implicitHeight:32}
    property var bar:barApi
    property string moduleName:"pcadmin.control-center"
    property var activeRead:null
@@ -96,7 +102,7 @@ ShellRoot {
    QtObject {id:control;property bool open:false;function show(){open=true}function hide(){open=false}}
    ContractState {id:readings}
    function refresh(){}
-'''+declarations+'\n'+ '\n'.join(block(' function '+name+'(') for name in ['refreshFromUser','open','toggle','closeInternal','close','gesture'])+'\n'+block(' Process {\n  id: opener')+'\n'+block(' Component {\n  id:settingsRequest')+'''
+'''+intrinsic+'\n'+declarations+'\n'+ '\n'.join(block(' function '+name+'(') for name in ['refreshFromUser','open','toggle','closeInternal','close','gesture'])+'\n'+block(' Process {\n  id: opener')+'\n'+block(' Component {\n  id:settingsRequest')+'''
   }
  }
  Variants {
@@ -109,7 +115,7 @@ ShellRoot {
   }
  }
  Timer {interval:20;running:true;repeat:true;onTriggered:{
-  harness.ticks++;if(harness.ticks>850){harness.check(false,"timeout phase="+harness.phase+" first="+(harness.first?JSON.stringify({opened:harness.first.opened,want:harness.first.wantOpen,health:harness.first.mode.health,reason:harness.first.mode.reason,feedback:harness.first.feedback}):"gone"));return}
+  harness.ticks++;if(harness.ticks>850){harness.check(false,"timeout phase="+harness.phase+" first="+(harness.first?JSON.stringify({opened:harness.first.opened,want:harness.first.wantOpen,health:harness.first.mode.health,reason:harness.first.mode.reason,choice:harness.first.modeChoice,feedback:harness.first.feedback}):"gone"));return}
   const live=harness.slots.filter(s=>s!==null&&s.mode!==undefined)
   if(live.filter(s=>s.mode.observer!==null).length>1){harness.check(false,"observer-overlap");return}
   if(live.filter(s=>s.opened).length>1){harness.check(false,"window-overlap");return}
@@ -117,6 +123,7 @@ ShellRoot {
    harness.first=live.find(s=>s.attachedScreen.name==="HEADLESS-1");harness.second=live.find(s=>s.attachedScreen.name==="HEADLESS-2")
    if(!harness.check(harness.first!==null&&harness.second!==null,"attachment"))return
    if(!harness.check(harness.first.attachedScreen!==harness.second.attachedScreen,"two-outputs"))return
+   if(!harness.check(live.every(s=>s.width===40&&s.height===32),"host-intrinsic-size"))return
    const dup=ownerFactory.createObject(harness.first.parent);harness.slots=harness.slots.concat([dup])
    if(!harness.check(harness.first.focusedTarget()===null,"ambiguous"))return
    dup.destroy();harness.phase=1
@@ -160,7 +167,10 @@ ShellRoot {
    if(!harness.check(harness.second===null||!harness.second.opened,"destroy"))return
    if(!harness.check(harness.first!==null&&!harness.first.opened&&harness.first.mode.isStopped,"no-migration"))return
    harness.first.open();harness.phase=12
-  }else if(harness.phase===12 && harness.first.mode.observerReady) {
+  }else if(harness.phase===12 && harness.first.modeInitialized) {
+   if(!harness.check(harness.first.modeChoice==="auto","output-preferences-isolated"))return
+   harness.phase=121
+  }else if(harness.phase===121 && harness.first.mode.observerReady) {
    if(!harness.check(harness.first.opened,"retry-after-destroy"))return
    harness.first.close();harness.phase=13
   }else if(harness.phase===13 && harness.first.mode.isStopped) {
@@ -171,4 +181,4 @@ ShellRoot {
 '''
     path=temp/'ownership.qml';path.write_text(fixture)
     attachment_check(path,[helper,*[root/n for n in ('ModeSession.qml','ModeProtocol.js','ContractState.qml','ContractModel.js')]],
-                     ['ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy','periodic-no-restart','explicit-refresh-recovered'],verify_children=True)
+                     ['host-intrinsic-size','ipc-target','transfer-reaped','close-current','legacy-gesture','manual-reopen','save-failure-session','retry-after-destroy','output-preferences-isolated','periodic-no-restart','explicit-refresh-recovered'],verify_children=True)

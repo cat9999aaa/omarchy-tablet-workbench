@@ -1,0 +1,61 @@
+[bar]
+background = "#0C1014"
+background-alpha = 1.0
+text = "#E7E9DF"
+active = "#FF6778"
+
+[popups]
+background = "#0C1014"
+background-alpha = 1.0
+text = "#E7E9DF"
+border = "#FFB454"
+border-alpha = 1.0
+border-width = 2
+
+[menu]
+background = "#0C1014"
+background-alpha = 1.0
+text = "#E7E9DF"
+border = "#FFB454"
+border-alpha = 1.0
+border-width = 2
+scrim = "#0C1014"
+scrim-alpha = 0.5
+selected-background = "#FFB454"
+selected-background-alpha = 0.18
+selected-text = "#E7E9DF"
+selected-border = "#FFB454"
+selected-border-alpha = 1.0
+
+[notifications]
+background = "#0C1014"
+background-alpha = 1.0
+text = "#E7E9DF"
+border = "#FFB454"
+border-alpha = 1.0
+border-width = 2
+countdown = "#FFB454"
+
+[controls]
+normal-color = "#E7E9DF"
+normal-fill-alpha = 0.05
+normal-border = "#FFB454"
+normal-border-width = 1
+normal-border-alpha = 1.0
+hover-cursor-color = "#E7E9DF"
+hover-cursor-fill-alpha = 0.08
+hover-cursor-border = "#FFB454"
+hover-cursor-border-width = 1
+hover-cursor-border-alpha = 1.0
+focus-color = "#E7E9DF"
+focus-fill-alpha = 0.08
+focus-border = "#FFB454"
+focus-border-width = 2
+focus-border-alpha = 1.0
+selected-color = "#E7E9DF"
+selected-fill-alpha = 0.18
+selected-border = "#FFB454"
+selected-border-width = 1
+selected-border-alpha = 1.0
+pressed-fill-alpha = 0.28
+selection-fill-alpha = 0.35

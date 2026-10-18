@@ -8,9 +8,13 @@ import "Model.js" as Model
 import "Details.js" as Details
 import "Workbench" as WB
 import "Workbench/Layout.js" as LayoutModel
+import "Workbench/Theme.js" as Theme
 
 Panel {
   id: root
+  readonly property var themeTokens:Theme.resolve({schemaVersion:1,foreground:Color.foreground,
+    background:Color.popups.background,accent:Color.accent,urgent:Color.urgent,muted:Color.muted,
+    fontFamily:Style.font.family,fontScale:Style.font.body/12,cornerRadius:Style.cornerRadius})
   moduleName: "omarchy.power"
   ipcTarget: "omarchy.power"
   // manageIpc: false so this panel can own the single IpcHandler the target
@@ -185,7 +189,7 @@ Panel {
     function togglePercentage() { root.togglePercentage() }
     function history() { batteryHistory.selected = 2; root.open() }
     function activity() { batteryHistory.selected = 1; root.open() }
-    function workbenchState(): string {return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,version:"1.2.0",opened:root.opened,width:panel.contentWidth,height:panel.contentHeight,tab:batteryHistory.selected})}
+    function workbenchState(): string {return JSON.stringify({uiRevision:3,screenHeight:panel.screenH,barHeight:panel.barH,version:"1.2.1",opened:root.opened,width:panel.contentWidth,height:panel.contentHeight,tab:batteryHistory.selected})}
     function timing() { batteryHistory.selected = 0; root.open() }
   }
 
@@ -316,6 +320,7 @@ Panel {
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       WB.PanelBody {
+        themeTokens:root.themeTokens
         anchors.fill:parent;title:"电池与电源";foreground:Color.foreground;accent:Color.accent;fontFamily:Style.font.family
         onCloseRequested:root.close()
       Column {
@@ -377,7 +382,7 @@ Panel {
           Text {
             id: heroPercent
             textFormat: Text.PlainText
-            text: Math.round(root.batteryFraction * 100) + "%"
+            text: root.batteryPresent ? Math.round(root.batteryFraction * 100) + "%" : "未知"
             color: root.bar.foreground
             font.family: root.bar.fontFamily
             font.pixelSize: Style.font.displayLarge
@@ -403,6 +408,7 @@ Panel {
 
           Rectangle {
             id: barFill
+            visible: root.batteryPresent
             anchors.left: barTrack.left
             anchors.verticalCenter: barTrack.verticalCenter
             height: barTrack.height
@@ -455,6 +461,7 @@ Panel {
         }
 
         BatteryHistory {
+          themeTokens:root.themeTokens
           id: batteryHistory
           width: parent.width
           active: root.opened
@@ -492,6 +499,7 @@ Panel {
                 required property var modelData
                 required property int index
                 width: profileRow.cellWidth
+                height: Math.max(48, implicitHeight)
                 iconText: root.profileIcon(String(modelData))
                 iconSize: Style.font.title
                 text: modelData === "power-saver" ? "省电" : modelData === "balanced" ? "均衡" : "性能"
