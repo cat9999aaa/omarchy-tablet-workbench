@@ -3,6 +3,9 @@
 import argparse
 import fcntl
 import json
+import hashlib
+import math
+import re
 import os
 from pathlib import Path
 import select
@@ -16,14 +19,50 @@ def state_payload(mode, verified, error, now):
             'observed_at': now, 'boot_default': 1}
 
 
-def export_state(mode, verified, error=''):
+def _valid_time(value):
+    if type(value) not in (int, float) or value < 0:
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
+def observation_start():
+    """Local-only evidence captured before querying the touchscreen."""
+    try:
+        boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        if not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', boot):
+            return None
+        seconds = time.clock_gettime(time.CLOCK_BOOTTIME)
+        if not _valid_time(seconds) or not _valid_time(seconds * 1000):
+            return None
+        marker = hashlib.sha256(('pcadmin-touch-boot-v1:' + boot).encode('ascii')).hexdigest()
+        return {'schema': 1, 'boot_marker': marker, 'started_boottime_ms': seconds * 1000}
+    except (OSError, ValueError, AttributeError, OverflowError):
+        return None
+
+
+def cache_payload(mode, verified, error, now, observation=None):
+    value = state_payload(mode, verified, error, now)
+    if (value['verified'] and type(observation) is dict
+            and set(observation) == {'schema', 'boot_marker', 'started_boottime_ms'}
+            and type(observation['schema']) is int and observation['schema'] == 1
+            and type(observation['boot_marker']) is str
+            and re.fullmatch(r'[0-9a-f]{64}', observation['boot_marker'])
+            and _valid_time(observation['started_boottime_ms'])):
+        value['observation'] = dict(observation)
+    return value
+
+
+def export_state(mode, verified, error='', *, observation=None):
     directory = Path('/run/pcadmin-touch-mode')
     directory.mkdir(mode=0o755, exist_ok=True)
     fd, name = tempfile.mkstemp(dir=directory, prefix='.state-')
     try:
         with os.fdopen(fd, 'w') as out:
             os.fchmod(out.fileno(), 0o644)
-            json.dump(state_payload(mode, verified, error, time.time()), out)
+            json.dump(cache_payload(mode, verified, error, time.time(), observation), out)
         os.replace(name, directory / 'state.json')
     finally:
         if os.path.exists(name):os.unlink(name)
@@ -98,8 +137,9 @@ def main():
     args = parser.parse_args()
     if os.geteuid() != 0:raise PermissionError('Requires the existing authorized root helper')
     try:
+        observation = observation_start()
         result = read_apply(args.mode)
-        export_state(result['actual'], True)
+        export_state(result['actual'], True, observation=observation)
         print(json.dumps(state_payload(result['actual'], True, '', time.time()) if args.mode == 'export' else result), flush=True)
     except Exception:
         export_state(None, False, 'TouchMode query or readback failed')

@@ -9,6 +9,7 @@ import Quickshell.Services.UPower
 import qs.Ui as Ui
 import qs.Commons
 import "ControlModel.js" as Model
+import "ContractModel.js" as ContractModel
 import "Workbench" as WB
 import "Workbench/Layout.js" as LayoutModel
 import "Workbench/State.js" as SharedState
@@ -24,6 +25,13 @@ Ui.Panel {
  property string feedback: ""
  property var confirmation: null
  property bool allowed: false
+ property bool wantOpen: false
+ property var activeRead: null
+ ContractState { id: readings }
+ onOpenedChanged: {
+  if(opened){readings.beginOpen();refresh()}
+  else {readings.closeSession();if(activeRead)activeRead.cancelRead();allowed=false}
+ }
  readonly property string helper: Quickshell.env("PCADMIN_CONTROL_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/control-center/control_center.py"
  readonly property color bg: Color.popups.background
  readonly property color fg: Color.foreground
@@ -54,10 +62,20 @@ Ui.Panel {
  function batteryText() {
   return batteries.map((x,i)=>"电池"+(i+1)+" "+Math.round(x.percentage*100)+"%"+(x.state===UPowerDeviceState.Charging?" ↑":"")).join("  ·  ") || "电池状态未知"
  }
- function refresh() { if(opened&&!poll.running)poll.running=true; if(opened&&!sinkPoll.running)sinkPoll.running=true }
- function open() { if(!opener.running&&!opened)opener.running=true }
+ function refresh() {
+  if(opened && !activeRead) {
+   const token=readings.startRequest()
+   if(token!==null) {
+    activeRead=readRequest.createObject(root,{requestToken:token})
+    if(activeRead)activeRead.running=true
+    else readings.fail(token,"start_failed")
+   }
+  }
+  if(opened&&!sinkPoll.running)sinkPoll.running=true
+ }
+ function open() { if(!opener.running&&!opened){wantOpen=true;opener.running=true} }
  function toggle() { if(opened)close();else open() }
- function close() { controller.hide();confirmation=null;allowed=false }
+ function close() { wantOpen=false;readings.closeSession();if(activeRead)activeRead.cancelRead();controller.hide();confirmation=null;allowed=false }
  function gesture() { if(!opened)open();else {expanded=true;refresh()} }
  function act(name,params,confirmed) {
   if(actionProcess.running || !allowed)return
@@ -69,7 +87,7 @@ Ui.Panel {
   actionProcess.running=true
   if(["network","power","audio","monitor","bluetooth","keyboard","windows","player","music","reader","games","screen-off","lock"].indexOf(name)>=0)close()
  }
- function touchLabel() {const v=f("touch");return v==="1"?"手套／原装笔":v==="0"?"普通触摸":v==="2"?"笔模式":v}
+ function touchLabel() {return readings.touchText}
  function summary() {
   if(flight.entertainment)return "飞行娱乐 · "+flight.label+"\n"+(flight.verified?"Wi-Fi / 4G / 蓝牙已关 · 联网已停":"请检查关闭结果，或重试关闭无线")
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
@@ -83,18 +101,62 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({uiRevision:3,version:"0.1.8",nightlight:root.data.nightlight,flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({uiRevision:4,version:"0.1.9",nightlight:root.data.nightlight,flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
   id: opener;command:["python",root.helper,"prepare-open"]
   stdout: StdioCollector { onStreamFinished: {
-   try {const d=JSON.parse(text);if(d.ok===true){root.allowed=true;root.controller.show();root.refresh()}else root.feedback="锁屏或键盘未收起，暂未打开"}catch(e){root.feedback="无法确认打开条件"}
+   try {const d=JSON.parse(text);if(d.ok===true&&root.wantOpen){root.allowed=true;root.controller.show()}else root.feedback="锁屏或键盘未收起，暂未打开"}catch(e){root.feedback="无法确认打开条件"}
   } }
  }
- Process {
-  id: poll;command:["python",root.helper,"status"]
-  stdout: StdioCollector { onStreamFinished: {try {root.data=JSON.parse(text);if(root.data.locked!==false)root.close()}catch(e){root.feedback="状态读取失败"}} }
+ Component {
+  id: readRequest
+  Process {
+   id: request
+   required property string requestToken
+   property bool streamDone: false
+   property bool exitSeen: false
+   property int code: -1
+   property bool cancelled: false
+   property bool disposed: false
+   command:["python",root.helper,"status-readonly"]
+   function dispose() {
+    if(disposed)return
+    disposed=true;deadline.stop();cancelDeadline.stop()
+    if(root.activeRead===request)root.activeRead=null
+    request.destroy()
+   }
+   function cancelRead() {
+    if(disposed||cancelled)return
+    cancelled=true;readings.fail(requestToken,"cancelled");deadline.stop()
+    if(running)signal(15)
+    cancelDeadline.start()
+   }
+   function finishIfDone() {
+    if(disposed || !exitSeen || !streamDone)return
+    if(!cancelled && readings.current(requestToken)) {
+     if(readings.finish(requestToken,output.text,code,true))root.data=readings.legacy
+     else root.feedback="状态暂不可用"
+     if(!readings.sessionOpen)root.close()
+    }
+    dispose()
+   }
+   stdout: StdioCollector {
+    id:output;waitForEnd:false
+    onDataChanged:if(ContractModel.utf8Size(text)>65536)request.cancelRead()
+    onStreamFinished:{request.streamDone=true;request.finishIfDone()}
+   }
+   onExited:function(exitCode,exitStatus){code=exitStatus===0?exitCode:-1;exitSeen=true;finishIfDone()}
+   property Timer deadline: Timer {
+    interval:20000;running:true
+    onTriggered:{readings.fail(request.requestToken,"read_timeout");request.cancelRead()}
+   }
+   property Timer cancelDeadline: Timer {
+    interval:2000
+    onTriggered:{if(request.running){request.signal(9);restart()}else request.dispose()}
+   }
+  }
  }
  Process { id:sinkPoll;command:["omarchy","audio","output","sink"];stdout:StdioCollector {onStreamFinished:root.resolvedSink=text.trim()} }
  Process {
@@ -139,7 +201,8 @@ Ui.Panel {
      onCloseRequested:root.close()
     }
     Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:15;wrapMode:Text.Wrap}
-    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+root.f("temperature")+(root.data.temperature&&root.data.temperature.available?" °C":"");color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+readings.temperatureText;color:root.fg;font.pixelSize:14;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:"最近一次采样结果 · 触摸开机默认："+readings.bootDefaultLabel;color:root.fg;opacity:.65;font.pixelSize:12;wrapMode:Text.Wrap}
     Flickable {
      Layout.fillWidth:true;Layout.fillHeight:true;clip:true;contentWidth:width;contentHeight:body.implicitHeight;boundsBehavior:Flickable.StopAtBounds
      ColumnLayout {
@@ -171,7 +234,7 @@ Ui.Panel {
         model:[{name:"Wi-Fi／4G",sub:root.labelNetwork(),action:"network"},
           {name:"代理",sub:"TUN · "+root.b("tun").label,action:root.b("tun").value===true?"proxy-off":"proxy-on",available:root.b("tun").known&&root.b("proxy_core").known},
           {name:"ZeroTier",sub:root.b("zero").known?(root.b("zero").value?"服务在线":"等待连接"):root.b("zero").label,action:"zero"},
-          {name:"触摸模式",sub:root.touchLabel(),action:root.f("touch")==="1"?"touch-normal":root.f("touch")==="0"?"touch-glove":"touch-refresh"},
+          {name:"触摸模式",sub:root.touchLabel(),action:readings.touchValue===1?"touch-normal":readings.touchValue===0?"touch-glove":"touch-refresh"},
           {name:"输入法",sub:"P1 同一入口",action:"keyboard"},
           {name:"夜间模式",sub:root.nightlightLabel(),action:"nightlight"},
           {name:"飞行模式",sub:typeof root.data.flight_active!=="boolean"?"待读取":"关闭无线 · 离线娱乐",action:root.data.flight_saved?"flight-off":"flight-on",available:typeof root.data.flight_active==="boolean"},

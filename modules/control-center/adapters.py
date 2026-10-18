@@ -42,12 +42,17 @@ def field(capability, available, actual, observed_at, stale_after, source, reaso
                 source=source, reason=reason)
 
 
+def touch_field(data, now):
+    if type(data) is not dict:
+        data = {}
+    f=field('touch_mode',data.get('verified') is True,data.get('mode'),data.get('observed_at',0),45,'TouchMode readback',data.get('error',''),now)
+    f['boot_default']=data.get('boot_default',1)
+    return f
+
+
 def read_touch_state(path, now):
     try:
-        d=json.loads(Path(path).read_text())
-        f=field('touch_mode',d.get('verified') is True,d.get('mode'),d.get('observed_at',0),45,'TouchMode readback',d.get('error',''),now)
-        f['boot_default']=d.get('boot_default',1)
-        return f
+        return touch_field(json.loads(Path(path).read_text()), now)
     except (OSError,ValueError,TypeError):
         return field('touch_mode',False,None,0,45,'TouchMode','尚无有效读回',now)
 

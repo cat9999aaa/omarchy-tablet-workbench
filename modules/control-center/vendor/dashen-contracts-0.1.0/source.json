@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/cat9999aaa/dashen-overdrive",
+  "revision": "969cd18647f59bc3072a877a87ce1c4f054351f0",
+  "version": "0.1.0",
+  "sha256": {
+    "LICENSE": "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b",
+    "dashen_contracts/__init__.py": "62ea8fbfaca0fc49b895c2ee2091513b6c8486ab94002521bee60645f2647bf4",
+    "dashen_contracts/__main__.py": "6e03b75f844583305fa06b704623645151db4b83da7aa99bc8944c6516ebb472",
+    "dashen_contracts/adapters.py": "6d23d39ece16b8abdc0c046f7473e9c300e0821efb58de5057412e9758fbf8e0",
+    "dashen_contracts/errors.py": "6ecdb037aaa40440f2978afc08dd1cc9350ac5464cc30e37770b747ddbb55995",
+    "dashen_contracts/manifest.py": "90a82d0ff53484945eaa541037fac1c51c5d5bc7aba341226e6d0465325561e4",
+    "dashen_contracts/state.py": "06c0cce5fabbde4c0e7868ff4e23a971eb43a25eacd040f406d97ee7bc246e59",
+    "dashen_contracts/versions.py": "bf54d78b5d1fe750c042fcbed8e5a24eb49bec3873e05aafebc4647845e5e6f4"
+  }
+}

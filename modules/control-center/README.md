@@ -1,4 +1,4 @@
-# 启明 · 随身控制台 0.1.8
+# 启明 · 随身控制台 0.1.9
 
 面向本机 Omarchy 平板的用户插件。沿用官方 bar-widget 注册方式，不修改打包文件，不添加 Hyprland 二进制插件。
 
@@ -26,7 +26,7 @@
 
 权威源码是本机管理项目tools/control-center；便携源码在工作台modules/control-center。只保留一份TouchMode工具：modules/hardware-toolbox/touch-mode。便携副本需设置 `PCADMIN_CONTROL_HELPER` 到部署的适配器；network-center、IME及窗口菜单路径需按目标实例核对，不能沿用其他项目的启明身份。本模块没有跨设备通用安装器。
 
-用户插件 `pcadmin.control-center` 的安装时使用版本化 entry，版本为 `0.1.8`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
+用户插件 `pcadmin.control-center` 的安装时使用版本化 entry，版本为 `0.1.9`，IPC `pcadmin.controlCenter` 提供ready/open/close/toggle/gesture/expand/state；不接受任意命令。官方plugin enable负责底栏注册，保留底栏原位置和P1/P2/P3/旋转键分工。
 
 root安装只读触摸状态导出timer，以及只观察触屏的pcadmin-three-finger.service；后者recipient UID必须在安装时替换，不可复制本机UID到其他设备。用户服务pcadmin-control-gesture负责会话入口。既有TouchMode开机服务和udev默认不变。
 
@@ -57,3 +57,17 @@ Python适配器/调度/手势协议/入口回退、JS几何/状态、TouchMode�
 ## 状态显示 0.1.8
 
 共享状态工具保留来源的未知、错误、过期和不可用状态，不把残留actual显示为已知；既有缺少health字段的数据仍按时间规则兼容。
+
+## 阶段 A 固定只读依赖（候选）
+
+`contracts_loader.py`仅装载相邻`vendor/dashen-contracts-0.1.0`中的公共契约快照，固定总库969cd18647f59bc3072a877a87ce1c4f054351f0。来源清单记录每个源码文件和原GPL许可证的SHA256；缺失、链接、内容变化或版本不符返回固定错误码。loader执行刚核验的源码字节，不读取缓存字节码、不从cwd/PYTHONPATH找同名包，不联网安装。依赖原件不能单独修改；升级需更新明确的版本锁定与验证。
+
+这些检查用于可信开发者安装后的内容一致性，不是签名或抵抗同用户改写安装目录的安全边界。候选源码已加入同次采样的 `status-readonly`：固定两项温度/触摸契约，保留 legacy 状态与原动作；不把软件通过写成设备已接入。
+
+只读请求总预算20秒、UTF-8输出上限64KiB，超时或SIGTERM只回收本次请求启动的读取子进程组。温度从实际读取前的CLOCK_BOOTTIME开始计龄；触摸仅接受同一启动、root普通文件且父目录不可由普通用户写入的私有缓存观测时间。缺失或不可信年龄降为未知，UTC不证明新鲜度，启动标识不进入公共响应。没有权限票据、注册、订阅或远程写接口。
+
+## 阶段 A 界面读取（候选）
+
+温度与触摸只显示经固定契约验证的最近一次采样结果；未知/失败不附温度单位，不以UTC回拨恢复已知状态。5秒刷新开始时清除这两项旧显示，关闭/锁屏使请求代次失效，20秒超时取消本次读取。原白名单动作及未知时的触摸刷新入口保留。采样后的连续实时年龄与真实休眠恢复尚需实体对照，不能从QML定时器推定。
+
+远程纯Qt测试运行 `tests/tst_contractstate.qml` 与实际Panel布局提取检查 `check_panel_layout.py`；安装Quickshell的隔离构建机另运行 `check_read_transport.py`，验证真实Process的成功、非零退出、超限、截断、锁屏、取消和20秒超时。后者不要求普通Qt CI安装完整桌面。

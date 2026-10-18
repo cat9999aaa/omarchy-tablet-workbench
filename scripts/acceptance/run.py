@@ -154,6 +154,7 @@ def checks_for(suite):
                                 str(p.parent), p.name]))
         for name, directory, file in [
             ('control-model', 'control-center', 'test-model.cjs'),
+            ('contract-model', 'control-center', 'test-contract-model.cjs'),
             ('battery-history', 'battery-manager/panel', 'test_history.js'),
             ('battery-icon', 'battery-manager/panel', 'test_icon.js'),
             ('shared-model', 'workbench-ui', 'test-model.cjs'),
@@ -164,6 +165,10 @@ def checks_for(suite):
         runner = shutil.which('qmltestrunner') or next(
             (p for p in ('/usr/lib/qt6/bin/qmltestrunner', '/usr/lib/qt6/qmltestrunner')
              if Path(p).is_file()), 'qmltestrunner')
+        checks.append(Check('control-layout', 'modules/control-center',
+                            [sys.executable, 'check_panel_layout.py']))
+        checks.append(Check('contract-qml', 'modules/control-center',
+                            [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('shared-qml', 'modules/workbench-ui',
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('navigation-layout', 'modules/window-controls',

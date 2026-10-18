@@ -47,8 +47,14 @@ sudo python3 /usr/local/libexec/pcadmin-touch-mode.py normal
 不记录输入坐标、笔迹或设备序列号。
 
 来源：本机排障原型，源码权威保留在本机管理项目的tools/touch-mode；此目录为脱敏同步副本。
-厂商二进制、固件、个人管理档案不随仓库分发。仓库整体许可证仍待选择。
+厂商二进制、固件、个人管理档案不随仓库分发。本项目原创源码随仓库以 GPL-3.0-only 发布，厂商原件不包含在该授权中。
 
 - [戴尔官方 TouchMode A06](https://www.dell.com/support/home/en-us/drivers/driversdetails?driverid=jxxy8)
 - [EETI Linux 驱动](https://www.eeti.com/drivers_Linux.html)
 - [同控制器原装笔无响应的上游报告](https://lists.openwall.net/linux-kernel/2026/09/04/1886)
+
+## 只读缓存时间证据（阶段 A 候选）
+
+原有30秒状态timer的生产者在查询前取CLOCK_BOOTTIME，并由本机boot_id生成不透明marker；只在`/run/pcadmin-touch-mode/state.json`追加observation，不输出到CLI公开结果。接收者还必须核对root拥有、不可由普通用户改写的缓存及当前boot，不能只相信JSON字段。时间包括休眠，查询开始到导出之间的耗时保守计入观测年龄。
+
+原state_payload与read_apply接口不变，旧消费者可忽略新增字段。既有授权动作调用export_state未传observation时仍生成旧格式，可信年龄保持未知，等待原timer自然刷新。不需要修改服务、timer或udev，不为升级测试重启服务或切模式。读取时钟/启动标识失败、设备查询失败均不沿用成功时间证据。本节为软件候选说明，尚未据此宣称本机已安装或休眠/冷启动已验。
