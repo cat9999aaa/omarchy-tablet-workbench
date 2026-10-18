@@ -79,3 +79,15 @@ Python适配器/调度/手势协议/入口回退、JS几何/状态、TouchMode�
 最多128个event节点、单文件/udev输出16KiB、共享5秒用户态预算；仅回收该请求创建的进程。正常与失败通过 health/reason_code 区分，参数错误退出非零；不输出设备身份或输入正文，不打开输入事件流。无新依赖/服务，不进入原status轮询。
 
 `device_mode.reduce_mode` 提供纯模式建议，手动选择优先；自动desktop/tablet分别稳定500/1000ms，观察间断超过2秒清空候选。该库不读取时钟、持久化偏好或实际改变布局。B2布局/输出接入及真实USB/蓝牙/Pogo插拔仍待实施/验收；本批不安装到生产。
+
+## B2：设备模式与双布局（0.2.0 软件候选）
+
+面板只在实际承载输出上打开。全局入口按官方 moduleWidgets 与聚焦屏幕选择唯一实例；无附着、重复实例或已移除输出拒绝打开。跨屏打开先关闭并回收旧实例，保留 ready/open/close/toggle/gesture/expand/state IPC；state 追加模式字段且不返回连接器身份。
+
+自动模式仅在本机 DRM 物理输出匹配后启用。Rust/libudev 观察器只随面板存在；ready 后采样，变化合并100ms，单次触发最多两轮/四次读取，超时、失序、关闭或输出移除使旧结果失效。没有周期全设备扫描、后台常驻服务或自动代理切换。手动模式不依赖设备识别，输入法入口始终保留。
+
+自动／平板／桌面选择按输出配置键保存在用户状态目录；坏文件、链接或写入失败显示未保存。手动选择在本会话立即有效。平板九宫格与桌面分组列表共享动作表及原授权入口；确认、动作或按压/拖动期间不重排，安全后应用最新建议。回车、Tab 和焦点滚动可用。
+
+内部命令 `mode-step`、`mode-preference-read`、`mode-preference-write`、`output-policy` 从 stdin 接收严格白名单 JSON，最多4KiB，读入截止2秒。mode-step 的5秒采样预算和6秒前端截止独立；时钟由宿主 CLOCK_BOOTTIME 提供。偏好文件最多16项/4KiB、0600、无链接、受限 flock、fsync/原子替换和失败恢复。输出配置键仅区分本地偏好，不是硬件身份或认证。
+
+[观察器构建与许可](device-observer/BUILD.md)；[完整软件/部署证据边界](../../docs/validation/2026-10-18-device-layout-stage-b2.md)。普通 CI 覆盖 Python/Rust/JS/Qt；真实 Quickshell 进程和双输出测试另在隔离构建区运行。隔离测试用 sway headless/pixman，不接宿主显示或输入设备，测试依赖使用官方渠道签名软件包覆盖层，不安装进宿主系统。

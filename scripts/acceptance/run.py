@@ -85,7 +85,7 @@ def source_digest(root):
             if not p.is_file() or p.is_symlink():
                 continue
             rel = p.relative_to(root)
-            if any(part in ('build', '__pycache__', '.venv') for part in rel.parts):
+            if any(part in ('build', 'target', '__pycache__', '.venv') for part in rel.parts):
                 continue
             digest.update(str(rel).encode() + b'\0' + p.read_bytes() + b'\0')
     return digest.hexdigest()
@@ -133,7 +133,9 @@ def run_checks(root, output, checks):
 def checks_for(suite):
     checks = []
     if suite in ('all', 'models'):
-        checks += [Check('shared-copies', '.', [sys.executable, __file__, '--verify-copies'])]
+        checks += [Check('shared-copies', '.', [sys.executable, __file__, '--verify-copies']),
+                   Check('device-observer', 'modules/control-center/device-observer',
+                         ['cargo', 'test', '--locked', '--offline'])]
         python_suites = [
             ('acceptance-runner', 'scripts/acceptance', 'test_runner.py'),
             ('network', 'modules/network-center', 'test_*.py'),
@@ -155,6 +157,9 @@ def checks_for(suite):
         for name, directory, file in [
             ('control-model', 'control-center', 'test-model.cjs'),
             ('contract-model', 'control-center', 'test-contract-model.cjs'),
+            ('output-route', 'control-center', 'test-output-route.cjs'),
+            ('mode-protocol', 'control-center', 'test-mode-protocol.cjs'),
+            ('control-actions', 'control-center', 'test-control-actions.cjs'),
             ('battery-history', 'battery-manager/panel', 'test_history.js'),
             ('battery-icon', 'battery-manager/panel', 'test_icon.js'),
             ('shared-model', 'workbench-ui', 'test-model.cjs'),

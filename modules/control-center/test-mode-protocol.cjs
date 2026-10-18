@@ -1,0 +1,17 @@
+const assert=require('node:assert/strict'),P=require('./ModeProtocol.js');
+const ready=JSON.stringify({schema_version:1,event:'ready',seq:0});
+const changed=JSON.stringify({schema_version:1,event:'changed',seq:1});
+assert.equal(P.notice(ready,-1).event,'ready');
+assert.equal(P.notice(changed,0).seq,1);
+for(const [text,seq] of [[changed,-1],[ready,0],[changed,1],['x'.repeat(257),-1],[JSON.stringify({schema_version:1,event:'ready',seq:0,private:1}),-1]])assert.equal(P.notice(text,seq),null);
+assert.equal(P.feed('',ready+'\n'+changed+'\n',-1).seq,1);
+assert.equal(P.feed('','x'.repeat(4097),-1).valid,false);
+assert.equal(P.feed('','x'.repeat(257),-1).valid,false);
+const partial=P.feed('',ready.slice(0,5),-1);assert(partial.valid);assert.equal(partial.events.length,0);
+assert.equal(P.feed(partial.buffer,ready.slice(5)+'\n',partial.seq).seq,0);
+const evidence={schema_version:1,complete:true,health:'observed',reason_code:'observed',physical_keyboard_present:true,touch_present:true,tablet_switch_capability:false,excluded_virtual_count:0,unclassified_keyboard_count:0,sample_duration_ms:1};
+const response={schema_version:1,evidence,mode:{effective:'desktop',health:'observed',reason_code:'stable',pending:{target:'desktop',since_ms:0,last_seen_ms:500}},confirm_after_ms:null};
+assert(P.response(JSON.stringify(response)));
+for(const r of [{...response,extra:1},{...response,confirm_after_ms:1001},{...response,mode:{...response.mode,effective:'bad'}},{...response,evidence:{...evidence,physical_keyboard_present:'true'}}])assert.equal(P.response(JSON.stringify(r)),null);
+assert.equal(P.response('x'.repeat(65537)),null);
+console.log('mode protocol schema, sequence and bounds passed');

@@ -1,3 +1,4 @@
+import subprocess
 import json
 import os
 from pathlib import Path
@@ -80,6 +81,11 @@ class EvidenceTests(unittest.TestCase):
             self.add_device(1)
             return self.properties
         self.assertEqual(self.collect(added)['reason_code'], 'device_changed')
+
+    def test_subquery_timeout_is_timeout(self):
+        def timeout(*args):
+            raise subprocess.TimeoutExpired(['udevadm'], 5)
+        self.assertEqual(self.collect(timeout)['reason_code'], 'read_timeout')
 
     def test_read_denied(self):
         with patch('device_evidence.os.open', side_effect=PermissionError('PRIVATE_CANARY')):

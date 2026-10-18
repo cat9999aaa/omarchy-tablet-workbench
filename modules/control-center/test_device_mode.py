@@ -62,11 +62,11 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(r['pending']['since_ms'], 500)
 
     def test_invalid_time(self):
-        for now in [True, -1, float('nan'), float('inf'), '1']:
+        for now in [10**1000, True, -1, float('nan'), float('inf'), '1']:
             r = reduce_mode('auto', None, evidence(), now, None)
             self.assertIsNone(r['effective'])
             self.assertEqual(r['reason_code'], 'time_invalid')
-        for pending in [{}, {'target': 'desktop', 'since_ms': 2, 'last_seen_ms': 1}]:
+        for pending in [{'target':'desktop','since_ms':10**1000,'last_seen_ms':10**1000}, {}, {'target': 'desktop', 'since_ms': 2, 'last_seen_ms': 1}]:
             self.assertEqual(reduce_mode('auto', None, evidence(), 10, pending)['reason_code'], 'time_invalid')
 
     def test_missing_last_effective(self):

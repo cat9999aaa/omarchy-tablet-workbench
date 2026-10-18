@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from run import Check, run_checks, verify_shared_ui, run_python_suite, qml_result
+from run import Check, run_checks, verify_shared_ui, run_python_suite, qml_result, checks_for, source_digest
 
 
 class RunnerTests(unittest.TestCase):
@@ -49,6 +49,23 @@ class RunnerTests(unittest.TestCase):
             (p / 'report').mkdir()
             with self.assertRaises(FileExistsError):
                 run_checks(p, p / 'report', [Check('noop', '.', [sys.executable, '-c', 'pass'])])
+
+    def test_b2_checks_are_mandatory_and_failure_is_not_hidden(self):
+        names={c.name:c for c in checks_for('all')}
+        for name in ('device-observer','output-route','mode-protocol','control-actions'):
+            self.assertIn(name,names)
+            with tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp)
+                report=run_checks(root,root/'report',[Check(name,'.',[sys.executable,'-c','raise SystemExit(9)'])])
+                self.assertFalse(report['passed'])
+
+    def test_rust_build_outputs_are_not_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'modules/x/target').mkdir(parents=True)
+            (root/'scripts/acceptance').mkdir(parents=True)
+            expected=source_digest(root)
+            (root/'modules/x/target/binary').write_bytes(b'generated')
+            self.assertEqual(source_digest(root),expected)
 
     def test_empty_suite_is_not_a_pass(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -3,7 +3,10 @@ import math
 
 
 def _time(value):
-    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+    try:
+        return type(value) in (int, float) and math.isfinite(value) and value >= 0
+    except OverflowError:
+        return False
 
 
 def reduce_mode(choice: str, last_effective: str | None, evidence: dict,

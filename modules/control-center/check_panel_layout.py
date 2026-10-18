@@ -16,11 +16,13 @@ def block(start):
 layout = block('   ColumnLayout {').replace('Style.font.family', '"sans-serif"').replace('root.data', 'root.snapshot')
 button = block(' component CButton:').replace('Style.font.family', '"sans-serif"')
 prefix = '''import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtTest
 import "Workbench" as WB
 import "ControlModel.js" as Model
+import "ControlActions.js" as Actions
 Item {
  id:root;width:640;height:604
  property var snapshot:({brightness:50,power_profile:"balanced",flight_active:false})
@@ -39,8 +41,21 @@ Item {
  property color green:"#cc88ff"
  property color orange:"#ffaa66"
  property var actions:[]
- QtObject {id:window;property int width:root.width;property int height:root.height}
- QtObject {id:actionProcess;property bool running:false}
+ property string appliedMode:"tablet"
+ property string suggestedMode:"tablet"
+ property string modeChoice:"auto"
+ property bool modeSaved:false
+ property bool modeInitialized:true
+ property int buttonPressCount:0
+ readonly property bool anyPointerPressed:buttonPressCount>0||brightness.pressed||volumeSlider.pressed
+ onSuggestedModeChanged:Qt.callLater(applySuggestedMode)
+ onAnyPointerPressedChanged:Qt.callLater(applySuggestedMode)
+ onConfirmationChanged:Qt.callLater(applySuggestedMode)
+ QtObject {id:deviceMode;property string health:"unknown"}
+ function selectMode(choice){modeChoice=choice;suggestedMode=choice;modeSaved=false}
+
+ QtObject {id:window;property int width:root.width;property int height:root.height;property var activeFocusItem:root.Window.window?root.Window.window.activeFocusItem:null}
+ QtObject {id:actionProcess;property bool running:false;onRunningChanged:Qt.callLater(root.applySuggestedMode)}
  ContractState {id:readings}
  function close(){}
  function act(name,params){actions=actions.concat([name])}
@@ -51,26 +66,58 @@ Item {
  function touchLabel(){return readings.touchText}
  function b(key){return {known:false,value:null,label:"未知"}}
 '''
+prefix += block(' function ensureControlVisible(') + block(' function applySuggestedMode(') + block(' function restoreModeFocus(') + block(' function quickView(').replace('data.flight_', 'snapshot.flight_').replace('data.power_profile','snapshot.power_profile')
 tests = '''
  TestCase {
   name:"ControlPanelLayout";when:windowShown
   function buttons(item,list){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)list.push(item);for(let i=0;i<item.children.length;i++)buttons(item.children[i],list)}
-  function test_sizes_data(){return [640,480,320].map(w=>({tag:String(w),width:w}))}
+  function bring(button){wait(30);const y=button.mapToItem(body,0,0).y;scroll.contentY=Math.max(0,Math.min(y,scroll.contentHeight-scroll.height));wait(20)}
+  function test_sizes_data(){let rows=[];for(const w of [640,480,320])for(const h of [480,800])for(const mode of ["tablet","desktop"])rows.push({tag:w+"x"+h+"-"+mode,width:w,height:h,mode:mode});return rows}
+  function init(){root.confirmation=null;actionProcess.running=false;root.flight={entertainment:false,verified:false};root.expanded=false;root.suggestedMode="tablet";root.appliedMode="tablet";wait(30)}
+  function test_pointer_slider_confirmation_and_action_defer() {
+   root.width=640;root.height=800;const identity=window
+   const touch=findChild(root,"quick-touch-refresh");bring(touch)
+   mousePress(touch,touch.width/2,touch.height/2);root.suggestedMode="desktop";wait(30);compare(root.appliedMode,"tablet")
+   mouseRelease(touch,touch.width/2,touch.height/2);tryCompare(root,"appliedMode","desktop")
+   root.confirmation={name:"flight-on"};root.suggestedMode="tablet";wait(30);compare(root.appliedMode,"desktop")
+   root.confirmation=null;tryCompare(root,"appliedMode","tablet")
+   actionProcess.running=true;root.suggestedMode="desktop";wait(30);compare(root.appliedMode,"tablet")
+   actionProcess.running=false;tryCompare(root,"appliedMode","desktop")
+   bring(brightness);mousePress(brightness,brightness.width/2,brightness.height/2);verify(brightness.pressed,"slider not pressed enabled="+brightness.enabled+" y="+brightness.mapToItem(root,0,0).y+" viewport="+scroll.height+" cy="+scroll.contentY);root.suggestedMode="tablet";wait(30);compare(root.appliedMode,"desktop")
+   mouseRelease(brightness,brightness.width/2,brightness.height/2);tryCompare(root,"appliedMode","tablet");compare(window,identity)
+  }
+  function test_focus_keyboard_and_save_failure() {
+   root.width=640;root.height=800;const button=findChild(root,"quick-keyboard");bring(button);button.forceActiveFocus()
+   keyClick(Qt.Key_Return);compare(root.actions[root.actions.length-1],"keyboard")
+   root.suggestedMode="desktop";tryCompare(root,"appliedMode","desktop");wait(30)
+   const moved=findChild(root,"quick-keyboard");verify(moved.activeFocus)
+   keyClick(Qt.Key_Tab);wait(30);verify(!moved.activeFocus)
+   const manual=findChild(root,"mode-desktop");bring(manual);mouseClick(manual,manual.width/2,manual.height/2)
+   compare(root.modeChoice,"desktop");verify(findChild(root,"mode-status").text.indexOf("未保存")>=0)
+  }
+  function test_flight_restore_and_confirmation_reachable() {
+   root.width=320;root.height=480;root.flight={entertainment:true,verified:false};wait(30)
+   let all=[];buttons(body,all)
+   const restore=all.find(b=>b.text.indexOf("退出飞行娱乐")===0);verify(restore!==undefined);bring(restore);mouseClick(restore,restore.width/2,restore.height/2)
+   compare(root.actions[root.actions.length-1],"flight-off")
+   root.confirmation={name:"flight-on",params:{}};wait(30)
+   const confirm=findChild(root,"confirm-action");verify(confirm!==null);verify(confirm.height>=48)
+  }
   function test_sizes(d){
-   root.width=d.width;root.height=604;root.expanded=false;wait(30)
+   root.confirmation=null;root.width=d.width;root.height=d.height;root.appliedMode=d.mode;root.suggestedMode=d.mode;root.expanded=false;wait(30)
    const touch=findChild(root,"quick-touch-refresh");verify(touch!==null,"touch button missing");verify(touch.visible,"touch button hidden");verify(touch.height>=48,"touch button height "+touch.height)
-   mouseClick(touch,touch.width/2,touch.height/2);compare(root.actions[root.actions.length-1],"touch-refresh")
+   bring(touch);mouseClick(touch,touch.width/2,touch.height/2);compare(root.actions[root.actions.length-1],"touch-refresh")
    root.expanded=true;wait(30)
    let all=[];buttons(body,all);verify(all.some(b=>b.text==="刷新触摸模式"))
    for(const b of all){const p=b.mapToItem(root,0,0);verify(p.x>=0 && p.x+b.width<=root.width,"horizontal overflow: "+b.text);verify(b.height>=48,"target height");verify(b.contentItem.paintedWidth<=b.contentItem.width+1,"text width")}
-   compare(root.width,d.width);compare(root.height,604)
+   compare(root.width,d.width);compare(root.height,d.height)
   }
  }
 }
 '''
 with tempfile.TemporaryDirectory(prefix='control-layout-') as tmp:
     p=Path(tmp);shutil.copytree(root/'Workbench',p/'Workbench')
-    for name in ('ControlModel.js','ContractModel.js','ContractState.qml'):
+    for name in ('ControlActions.js','ControlModel.js','ContractModel.js','ContractState.qml'):
         shutil.copy2(root/name,p/name)
     (p/'tst_layout.qml').write_text(prefix+layout+button+tests)
     runner=shutil.which('qmltestrunner') or next((v for v in ('/usr/lib/qt6/bin/qmltestrunner','/usr/lib/qt6/qmltestrunner') if Path(v).is_file()),'qmltestrunner')
