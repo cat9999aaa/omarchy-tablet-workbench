@@ -33,7 +33,7 @@ impl Node {
    if self.transport!="tcp"||base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(&self.public_key).map(|b|b.len()).unwrap_or(0)!=32||self.short_id.len()>16||self.short_id.len()%2!=0||!self.short_id.bytes().all(|b|b.is_ascii_hexdigit()){return Err("invalid_reality".into());}
   }else if !self.public_key.is_empty()||!self.short_id.is_empty()||!self.spider_x.is_empty(){return Err("unexpected_reality_fields".into());}
   if self.transport=="tcp"&&(!self.path.is_empty()||!self.host.is_empty()){return Err("unsupported_raw_header".into());}
-  if ![&self.path,&self.host,&self.spider_x,&self.name].iter().all(|s|clean(s))||self.alpn.iter().any(|s|!["h2","http/1.1"].contains(&s.as_str())){return Err("invalid_field".into());}
+  if ![&self.path,&self.host,&self.spider_x,&self.name].iter().all(|s|clean(s))||self.alpn.len()>64||self.alpn.iter().any(|s|s.is_empty()||s.len()>255||s.chars().any(char::is_control)){return Err("invalid_field".into());}
   self.name=self.name.chars().take(80).collect();if self.name.is_empty(){self.name="导入节点".into();}
   let mut identity=self.clone();identity.id.clear();identity.name.clear();let bytes=serde_json::to_vec(&identity).map_err(|_|"invalid_node")?;
   self.id=format!("{:x}",Sha256::digest(bytes))[..24].into();Ok(())

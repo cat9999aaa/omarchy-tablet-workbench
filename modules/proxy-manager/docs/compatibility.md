@@ -16,3 +16,5 @@ Only node IDs, labels, protocol and capability state cross the public catalog bo
 This matrix describes the implemented parser boundary; it does not claim every external service or core release was tested. Actual core version evidence belongs in the validation report.
 
 An omitted fingerprint is preserved. The installed Xray 26.10.10 `GetFingerprint("")` selects Chrome Auto, confirmed by a local `run -test` with a fictional Reality profile. See https://github.com/XTLS/Xray-core/blob/v26.10.10/transport/internet/tls/tls.go . This is a documented core default, not disabled TLS verification.
+
+ALPN is not restricted to HTTP labels. Nonempty custom identifiers up to 255 bytes are retained, with bounded list size and control characters rejected by this UI format. See RFC7301 section3.1: https://www.rfc-editor.org/rfc/rfc7301.html#section-3.1 .
