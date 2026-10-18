@@ -4,7 +4,7 @@
 
 导航使用 `--plugin-id pcadmin.navigation --profile navigation`，通过现有 `pcadmin.navigation state` IPC 的 JSON `version` 字段核对运行版本；仅接受该固定插件 ID。测试中的发布和恢复不代表导航已在真实桌面升级或回退。
 
-提供 `pack`、只读 `plan`、`apply` 和 `rollback`。候选包由 `manifest.json`、`files.json` 与 `files/` 组成，入口在 files 内相对定位；来源需可信。摘要用于检查完整性，不是签名，也不把插件代码变成安全沙箱。当前不打包后端二进制，不迁移私人数据库，不升级系统服务、启动镜像或代理核心。
+提供 `pack`、只读 `plan`、`apply` 和 `rollback`。候选包由 `manifest.json`、`files.json` 与 `files/` 组成，入口在 files 内相对定位；来源需可信。摘要用于检查完整性，不是签名，也不把插件代码变成安全沙箱。不打包或替换常驻后端；控制台版本目录可携带其生命周期内使用的只读设备观察程序，不迁移私人数据库，不升级系统服务、启动镜像或代理核心。
 
 ```sh
 python3 release.py pack --manifest candidate/manifest.json --payload candidate/files --output new-bundle
@@ -26,3 +26,7 @@ python3 release.py rollback --plugin-id pcadmin.touchime --profile ime --transac
 测试使用临时目录和注入命令执行器，覆盖发布、恢复、内容校验、初始等待/准备/发布后/恢复后的并发修改、恢复失败和并行发布锁。批量测试在授权远程隔离环境或 GitHub CI 运行。真实桌面已验证网络面板1.3.7→1.3.8→恢复1.3.7→再次1.3.8；各次运行版本与manifest读回一致，旧版本保留。其他插件、后端和系统服务不因这次UI验证自动算作通过。
 
 本项目 `tools/plugin-release` 是本机权威源，公开仓库 `modules/plugin-release` 为便携同步副本。Python 3.10+，Linux。源码遵循项目 GPL-3.0-only。
+
+C1 多插件交付按控制台、导航、网络、电池、官方主题的顺序逐项执行。每项保留事务 ID；任一步失败立即停止后续发布，按反序恢复本批已成功的插件。恢复出现并发修改则保留冲突，继续核对其他独立事务，不宣称整批原子回退。主题恢复另走原官方主题入口，先核对本批写入后的摘要；个人主题选择、shell 配置和背景不能整份无条件覆盖。
+
+`test_batch_recovery.py` 在临时目录使用真实单插件发布器和注入命令演练第三插件失败、主题步骤失败、manifest 并发编辑与主题并发编辑。主题文件是合成标记，测试不执行生产主题钩子，也不代表提供了自动批量发布或崩溃恢复工具。正式应用前仍需审阅官方后置命令、用户钩子，并完成备份和只读计划。
