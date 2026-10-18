@@ -83,7 +83,7 @@ Ui.Panel {
   function toggle(): void {root.toggle()}
   function gesture(): void {root.gesture()}
   function expand(): void {root.expanded=true;root.open()}
-  function state(): string {return JSON.stringify({uiRevision:3,version:"0.1.7",nightlight:root.data.nightlight,flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
+  function state(): string {return JSON.stringify({uiRevision:3,version:"0.1.8",nightlight:root.data.nightlight,flight:root.flight,opened:root.opened,expanded:root.expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!root.allowed,network:root.labelNetwork(),touch:root.touchLabel(),batteryCount:root.batteries.length})}
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
  Process {
