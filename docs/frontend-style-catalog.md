@@ -33,7 +33,7 @@
 | C06 | State.js | 健康/时效状态的纯展示模型 | 共享状态调用方 | 已共享 | 不替代业务数据采集或可信时间 |
 | C07 | ThemeContext.qml | 将官方Color/Style集中转换为tokens | C2先接导航 | 已接导航候选；软件通过，未安装 | 官方qs实际加载与热更新通过；禁止每页再复制转换代码 |
 | C08 | StyledText.qml | text＋body/subtitle/title＋normal/muted/urgent | C2导航四页 | 已接导航候选；软件通过，未安装 | 中文换行、字体缩放、非法语义回退通过 |
-| C09 | ActionGrid.qml | items＋列数＋busy；只发action/payload信号 | C2开始／窗口动作组；桌面保持数据生成的专用密度 | 已接导航候选；软件通过，未安装 | 模型以整体替换通知更新；同数量按位置保留按钮，数据变化取消在途点击，主题变化保持按压；基础Grid等宽排列并限制列数；容器不足48时禁用，Qt 6.4复验中 |
+| C09 | ActionGrid.qml | items＋列数＋busy；只发action/payload信号 | C2开始／窗口动作组；桌面保持数据生成的专用密度 | 已接导航候选；软件通过，未安装 | 模型以整体替换通知更新；同数量按位置保留按钮，数据变化取消在途点击，主题变化保持按压；基础Grid等宽排列并限制列数；容器不足48时禁用；Qt 6.4/6.11均通过 |
 | C10 | 开始入口组 | 文件、浏览器、键盘、语音、控制台等数据 | window-controls/Navigation.qml | 已改用C09；实际内容回归通过 | 保留固定动作白名单及原入口 |
 | C11 | 桌面／窗口操作组 | 桌面编号、数量、动作目标来自业务数据 | window-controls/Navigation.qml | 窗口改用C09；数字网格共用实际字体测量，自适应列数 | 屏幕及窗口身份核验独立于展示组件 |
 | C12 | 按键选择行 | 原Qt ComboBox＋按键标签／合法选项 | 导航按键页 | 专用组合，复用主题 | 不重做ComboBox皮肤；配置保存和P3限制保留 |
@@ -62,8 +62,8 @@
 
 | 2026-10-19 C2兼容性修复 | C09改为数量模型与更新代次保护，四份副本同步；禁止原地深改items | 新增按钮身份红绿测试；GitHub Qt 6.4.2原导航序列SIGSEGV正在复验 | 未安装 | 不以新版Qt通过替代GitHub结果 |
 
-| 2026-10-19 C2窄屏数字布局 | C11两个数字网格共用TextMetrics与列数计算，按主题字体和padding自动换行 | GitHub320宽/1.5字号4个裁字红例；修复后远程150项布局通过，旧Qt待复验 | 未安装 | 保留全部裁切断言 |
+| 2026-10-19 C2窄屏数字布局 | C11两个数字网格共用TextMetrics与列数计算，按主题字体和padding自动换行 | GitHub320宽/1.5字号4个裁字红例；修复后远程150项布局通过，Qt6.4 GitHub原矩阵亦通过 | 未安装 | 保留全部裁切断言 |
 
-| 2026-10-19 C2旧Qt删除边界 | C09用基础Grid排列等宽按钮，保留数量模型和revision保护 | gdb定位Qt6.4的GridLayout重排崩溃路径；完整旧/新Qt回归进行中 | 未安装 | 原删除/非法模型/布局断言保持 |
+| 2026-10-19 C2旧Qt删除边界 | C09用基础Grid排列等宽按钮，保留数量模型和revision保护 | gdb定位Qt6.4的GridLayout重排崩溃路径；Qt6.4 GitHub39162420543通过；Qt6.11统一38/真实qs8/主题186通过 | 未安装 | 原删除/非法模型/布局断言保持 |
 
 证据：[C1报告](validation/2026-10-18-eva-shell-stage-c1.md)；[批准的C2计划](https://github.com/cat9999aaa/dashen-overdrive/blob/a8d7b39/docs/superpowers/plans/2026-10-19-navigation-stage-c2.md)。

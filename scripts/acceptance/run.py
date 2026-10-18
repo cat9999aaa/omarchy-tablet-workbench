@@ -161,6 +161,7 @@ def checks_for(suite):
             ('navigation-cancel', 'modules/window-controls', 'test_navigation_cancel.py'),
             ('navigation-scope', 'modules/window-controls', 'test_navigation_scope.py'),
             ('navigation-candidate', 'modules/window-controls', 'test_navigation_candidate.py'),
+            ('navigation-recovery', 'modules/window-controls', 'test_navigation_recovery.py'),
             ('edge-menu', 'modules/edge-gestures', 'test_menu.py'),
         ]
         for name, directory, pattern in python_suites:

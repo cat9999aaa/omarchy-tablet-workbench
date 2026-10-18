@@ -25,7 +25,7 @@ python3 modules/window-controls/candidate.py verify /absolute/path/to/new-candid
 
 先用原UI事务rollback并确认0.1.2运行版本，再恢复helper；回滚不需解锁但仍须验证。helper只在当前内容仍匹配本次候选摘要时恢复，原来缺失的navigation_read.py也仅在匹配本次写入时撤回。任何并发编辑保持原样并记录conflict-preserved，不删除用户偏好、不覆盖整个目录，不把恢复命令退出成功写成恢复已验。
 
-临时HOME下完整helper/UI升级与逆序恢复演练目前未完成；既有发布器的导航发布/恢复与并发冲突测试已在统一组中执行，但不能替代新增helper组合事务的证据。该项继续阻止正式安装。
+临时HOME文件演练已通过：test_navigation_recovery.py使用真实候选和ReleaseManager，验证helper先准备/UI最后切换、UI先回退/helper后恢复，保留偏好和原模式，撤回原来缺失的文件，并保留UI回退后、helper恢复前的helper并发编辑；UI恢复冲突时不恢复helper。官方shell探针为合成输入，演练内helper复制/恢复代码是对上述手工步骤的测试，不是生产安装器，也不是事务原子性证明。真实桌面的运行版本、交接与组合恢复仍须另外验收。
 
 ## 体验验收
 

@@ -69,3 +69,9 @@ stable-model-all：远程统一38组通过，包括原navigation-layout。独立
 run39162098702的失败后gdb捕获shared-qml SIGSEGV：qmlAttachedPropertiesObject → Qt6QuickLayouts → QGridLayoutEngine::fillRowData/setGeometries → QQuickGridLayoutBase::rearrange/geometryChange → QQuickColumn::doPositioning。栈定位到布局重排路径，尚不足以证明底层释放机制。ActionGrid改用基础Grid positioner等宽排列，保留数量模型、索引安全回退及revision防误触；原回归断言全部保留。
 
 grid-positioner-all远程38组通过。独立复审发现过多columns可能失去48触摸宽度，新grid-columns-red复现；加入按宽度限制列数及不足48禁用，保持无负宽度和无横向溢出。
+
+2a5c65d在GitHub run39162420543通过Software acceptance（Qt 6.4.2含原失败序列）及map-gps。远程grid-final-integrated通过真实qs双输出8类、统一38组及官方主题导航186场景。独立复审确认最小触摸宽度问题已闭合。
+
+临时HOME组合文件恢复演练：recovery-rehearsal导航34项通过，新增3项验证真实candidate/ReleaseManager与手工helper顺序、偏好/文件模式/原缺失状态恢复、helper编辑保留、UI冲突停止helper恢复。shell探针为合成输入，不执行真实桌面命令；该证据不代表生产安装器、事务原子性或真实桌面恢复已验。navigation-recovery单独接入统一组。
+
+recovery-final-all统一39组通过。独立复审确认演练无真实桌面/生产路径操作；按意见将偏好fixture调整为生产相对路径.config/omarchy-tablet-workbench/buttons.json。helper冲突案例只覆盖UI回退后、helper恢复前，不能扩大为所有阶段并发操作保证。
