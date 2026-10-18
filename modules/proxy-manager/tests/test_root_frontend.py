@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock,patch
 spec=importlib.util.spec_from_file_location('frontroot',Path(__file__).parents[1]/'integration/root_frontend.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class FrontendTests(unittest.TestCase):
@@ -32,4 +32,10 @@ class FrontendTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    path=Path(d);cfg,a,c=self.fixture(path);token=c.prepare(b'{"candidate":true}')['token'];c.apply(token);a.reset_mock()
    r=c.rollback(token,restart=False);self.assertTrue(r['restored']);a.restart.assert_not_called();self.assertEqual(json.loads(cfg.read_text()),{'original':True})
+ def test_privileged_request_requires_live_token_and_unlocked_session(self):
+  for unlocked,valid in ((False,True),(True,False),(None,True)):
+   gate=Mock();gate.session_unlocked.return_value=unlocked;gate.request_active.return_value=valid
+   with self.assertRaises(PermissionError):m.require_request(gate,1000,'a'*36,'apply')
+  gate=Mock();gate.session_unlocked.return_value=True;gate.request_active.return_value=True
+  m.require_request(gate,1000,'a'*36,'apply');gate.request_active.assert_called_with(1000,'a'*36,'proxy-front-apply')
 if __name__=='__main__':unittest.main()

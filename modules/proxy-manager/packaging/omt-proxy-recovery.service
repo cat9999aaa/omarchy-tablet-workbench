@@ -1,4 +1,7 @@
 [Unit]
+Requires=omt-proxy-handover-recovery.service
+After=omt-proxy-handover-recovery.service
+ConditionPathExists=%h/.local/state/omt-proxy/owner.json
 Description=Recover interrupted native proxy configuration before initial core start
 Before=omt-proxy-core.service
 

@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import uuid
+import time
 
 
 def execute(root, candidate_hash, generation, adapter):
@@ -52,6 +53,15 @@ class SystemdAdapter:
         self.runner(['systemctl','--user','stop',token+'.timer'],capture_output=True,timeout=5)
 
 
+def recover_with_retry(args,runner=subprocess.run,sleep=time.sleep,clock=time.monotonic):
+    deadline=clock()+90
+    while True:
+        result=runner(args,capture_output=True,timeout=65)
+        try:code=json.loads(result.stdout).get('error_code')
+        except (ValueError,TypeError,AttributeError):return result
+        if code!='catalog_busy' or clock()>=deadline:return result
+        sleep(.5)
+
 def main():
     root=Path.home()/'.local/state/omt-proxy'
     if len(sys.argv)!=4 or sys.argv[1]!='recover':raise ValueError('unsupported')
@@ -59,8 +69,7 @@ def main():
     if generation<1 or not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('invalid')
     binary=Path.home()/'.local/lib/omt-proxy/omt-proxy'
     # Store's exclusive lock makes the identity check and recovery one atomic operation.
-    result=subprocess.run([str(binary),'core-recover',str(root),str(generation),digest],
-                          capture_output=True,timeout=65)
+    result=recover_with_retry([str(binary),'core-recover',str(root),str(generation),digest])
     print(json.dumps({'recovery_attempted':True,'ok':result.returncode==0}))
     return result.returncode
 

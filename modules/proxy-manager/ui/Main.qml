@@ -18,7 +18,7 @@ Rectangle {
  Connections {target:root.model;function onEditRoutingRequested(){root.page=3}}
  function choosePage(index){if(index<0||index>6||index===page)return;if(model.draft.dirty){requestedPage=index;closeAfterDiscard=false;leavePrompt=true;leave.open()}else page=index}
  function requestClose(){if(model.draft.dirty){closeAfterDiscard=true;leavePrompt=true;leave.open()}else closeRequested()}
- function discardAndContinue(){model.coreCandidate={};model.draft={dirty:false,mode:"rules"};leavePrompt=false;leave.close();if(closeAfterDiscard)closeRequested();else page=requestedPage}
+ function discardAndContinue(){model.discardDraft();leavePrompt=false;leave.close();if(closeAfterDiscard)closeRequested();else page=requestedPage}
  ColumnLayout {
   anchors.fill:parent;anchors.margins:16;spacing:12
   RowLayout {Layout.fillWidth:true

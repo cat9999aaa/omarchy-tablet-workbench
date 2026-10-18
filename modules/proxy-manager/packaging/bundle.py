@@ -12,7 +12,7 @@ def payload(source,binary,expected):
  data=binary.read_bytes()
  if hashlib.sha256(data).hexdigest()!=expected or not data.startswith(b'\x7fELF'):raise ValueError('binary_integrity_failed')
  module=source/'modules/proxy-manager';out={'.local/lib/omt-proxy/omt-proxy':(data,0o755)}
- out['.config/systemd/user/v2rayn.service.d/90-omt-owner.conf']=(b'[Unit]\nConditionPathExists=!%h/.local/state/omt-proxy/owner.json\n',0o644)
+ out['.config/systemd/user/v2rayn.service.d/90-omt-owner.conf']=(b'[Unit]\nRequires=omt-proxy-handover-recovery.service\nAfter=omt-proxy-handover-recovery.service\nConditionPathExists=!%h/.local/state/omt-proxy/owner.json\n',0o644)
  def add(src,dest,mode=0o644):
   if src.is_symlink():raise ValueError('symlink_source')
   out[dest]=(src.read_bytes(),mode)

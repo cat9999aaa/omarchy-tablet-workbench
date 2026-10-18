@@ -9,6 +9,7 @@ QtObject {
  property string lastError:""
  property double now:Date.now()/1000
  property Timer freshness:Timer {interval:10000;running:true;repeat:true;onTriggered:root.now=Date.now()/1000}
+ property Timer healthExpiry:Timer {interval:root.online?Math.max(1,Math.ceil((root.snapshot.health.observed_at+45)*1000-Date.now())+1):1000;running:root.online;repeat:false;onTriggered:root.now=Date.now()/1000}
  readonly property bool online:known(snapshot.health)&&snapshot.health.value==="ok"
  readonly property string physicalLabel:known(snapshot.physical)?({"4g":"4G 蜂窝","wifi":"Wi-Fi","ethernet":"有线网络","none":"未连接"}[snapshot.physical.value]||"未知"):"未知"
  readonly property string proxyLabel:known(snapshot.proxy)?(snapshot.proxy.value?"开启":"关闭"):"未知"
@@ -17,6 +18,7 @@ QtObject {
  property var preview:({})
  property var coreCandidate:({})
  property bool corePending:false
+ property bool coreDiscarded:false
  property string coreFeedback:""
  property string pendingAction:""
  signal coreRequested(var command)
@@ -35,11 +37,12 @@ QtObject {
   else if(value.nodes){catalog=value;preview={};catalogFeedback="本机目录已读回，运行网络未改变"}
  }
  function commitPreview(confirmed){if(!preview.preview_id)return;catalogAction({action:"commit",preview_id:preview.preview_id,confirmed:!!confirmed})}
- function selectNode(id){if(pending)return;coreCandidate={};draft=Object.assign({},draft,{node_id:id,dirty:true,mode:draft.mode||"rules",base_revision:catalog.revision,rules:draft.rules||[]})}
- function selectMode(mode){if(pending)return;if(["rules","global","direct"].indexOf(mode)<0)return;coreCandidate={};draft=Object.assign({},draft,{mode:mode,dirty:true,base_revision:catalog.revision,rules:draft.rules||[]})}
+ function selectNode(id){if(pending||corePending)return;coreCandidate={};draft=Object.assign({},draft,{node_id:id,dirty:true,mode:draft.mode||"rules",base_revision:catalog.revision,rules:draft.rules||[]})}
+ function selectMode(mode){if(pending||corePending)return;if(["rules","global","direct"].indexOf(mode)<0)return;coreCandidate={};draft=Object.assign({},draft,{mode:mode,dirty:true,base_revision:catalog.revision,rules:draft.rules||[]})}
  function saveRoutingDraft(){if(!draft.node_id)return;catalogAction({action:"routing-preview",draft:{mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[]}})}
- function prepareCore(){if(pending||corePending||!draft.node_id)return;coreCandidate={};corePending=true;coreFeedback="正在生成候选配置…";coreRequested({mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[],port:10818})}
- function acceptCore(value){corePending=false;if(value.candidate_hash){coreCandidate=value;coreFeedback="候选已准备。确认应用时执行核心校验、切换、联网检查；失败恢复。"}else{coreCandidate={};coreFeedback="无法生成候选配置，当前网络保持。"}}
+ function prepareCore(){if(pending||corePending||!draft.node_id)return;coreCandidate={};coreDiscarded=false;corePending=true;coreFeedback="正在生成候选配置…";coreRequested({mode:draft.mode,node_id:draft.node_id,base_revision:catalog.revision,rules:draft.rules||[],port:10818})}
+ function discardDraft(){coreDiscarded=true;coreCandidate={};draft={dirty:false,mode:"rules"}}
+ function acceptCore(value){corePending=false;if(coreDiscarded){coreCandidate={};return;}if(value.candidate_hash){coreCandidate=value;coreFeedback="候选已准备。确认应用时执行核心校验、切换、联网检查；失败恢复。"}else{coreCandidate={};coreFeedback="无法生成候选配置，当前网络保持。"}}
  function applyCandidate(confirmed){if(!confirmed||!coreCandidate.candidate_hash||!allowed("apply"))return;submit("apply",true)}
  property var updates:({observed_at:null,proposals:[],checks:[]})
  property bool updatesPending:false

@@ -1,0 +1,10 @@
+[Unit]
+Description=Recover interrupted proxy ownership before initial startup
+Before=v2rayn.service omt-proxy-recovery.service omt-proxy-core.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 %h/.local/lib/omt-proxy/handover.py recover-boot
+TimeoutStartSec=120
+UMask=0077

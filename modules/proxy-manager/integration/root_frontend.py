@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+import importlib.util
 
 def sha(data):return hashlib.sha256(data).hexdigest()
 def safe(path):
@@ -54,7 +55,8 @@ class Controller:
   uid=getattr(self.adapter,'uid',None)
   self.save(folder,{'stage':'prepared','original':sha(original),'candidate':sha(data),'owner_uid':uid if type(uid) is int else None})
   return {'ok':True,'token':token,'sha256':sha(data),'applied':False}
- def apply(self,token):
+ def apply(self,token,guard=lambda:None):
+  guard()
   folder=self.folder(token);record=self.record(folder)
   if record['stage']!='prepared' or sha(safe(self.config).read_bytes())!=record['original']:raise ValueError('frontend_conflict')
   data=safe(folder/'candidate.json').read_bytes()
@@ -62,7 +64,9 @@ class Controller:
   if not self.adapter.arm(token):return {'ok':False,'stage':'watchdog_unavailable'}
   record['stage']='activating';self.save(folder,record)
   try:
+   guard()
    atomic(self.config,data)
+   guard()
    if not self.adapter.restart():raise RuntimeError('restart_failed')
    record['stage']='applied';self.save(folder,record);return {'ok':True,'stage':'applied','token':token}
   except Exception:
@@ -107,21 +111,36 @@ class System:
   if op=='restart' and not self.intent():return self.call(['systemctl','stop','pcadmin-v2ray-tun.service']).returncode==0
   return result
 
+def require_request(gate,uid,token,op):
+ if uid<=0 or gate.session_unlocked(uid) is not True or gate.request_active(uid,token,'proxy-front-'+op) is not True:
+  raise PermissionError('frontend_request_revoked')
+
+def load_gate():
+ path=Path('/usr/local/libexec/pcadmin-control-privileged.py');st=safe(path).stat()
+ if st.st_uid!=0 or st.st_mode&0o022:raise PermissionError('unsafe_gate')
+ spec=importlib.util.spec_from_file_location('frontend_gate',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
 def main():
- if os.geteuid()!=0 or len(sys.argv) not in (2,3):raise ValueError('root_action_required')
+ if os.geteuid()!=0:raise ValueError('root_action_required')
+ argv=sys.argv[1:];request=None
+ if len(argv)>=3 and argv[-2]=='--request':request=argv[-1];argv=argv[:-2]
+ if len(argv) not in (1,2):raise ValueError('invalid_action')
  root=Path('/etc/pcadmin-network');safe(root/'native-frontend.lock')
  with (root/'native-frontend.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-  op=sys.argv[1];uid=int(os.environ.get('PKEXEC_UID',os.getuid()))
+  op=argv[0];uid=int(os.environ.get('PKEXEC_UID',os.getuid()))
   system=System(uid);control=Controller(root,system)
-  if len(sys.argv)==3:system.uid=control.record(control.folder(sys.argv[2])).get('owner_uid')
-  if op=='recover-config' and len(sys.argv)==2:
+  if len(argv)==2:system.uid=control.record(control.folder(argv[1])).get('owner_uid')
+  guard=lambda:None
+  if op in ('prepare','apply','commit'):
+   gate=load_gate();guard=lambda:require_request(gate,uid,request,op);guard()
+  if op=='recover-config' and len(argv)==1:
    results=[]
    if control.state.exists():
     for folder in control.state.iterdir():
      if folder.is_dir():results.append(control.rollback(folder.name,restart=False))
    result={'ok':all(r.get('ok') for r in results),'network_started':False}
-  elif op in ('prepare','check') and len(sys.argv)==2:
+  elif op in ('prepare','check') and len(argv)==1:
    # This module is copied beside this helper as a root-owned file during installation.
    from omt_proxy_frontend import build
    config=json.loads(safe(root/'tun.json').read_bytes());data=json.dumps(build(config)).encode()
@@ -129,7 +148,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='omt-front-') as d:
      p=Path(d)/'candidate.json';atomic(p,data);result={'ok':control.adapter.check(p),'applied':False}
    else:result=control.prepare(data)
-  elif op in ('apply','commit','rollback') and len(sys.argv)==3:result=getattr(control,op)(sys.argv[2])
+  elif op=='apply' and len(argv)==2:result=control.apply(argv[1],guard)
+  elif op in ('commit','rollback') and len(argv)==2:guard();result=getattr(control,op)(argv[1])
   else:raise ValueError('unsupported_action')
   print(json.dumps(result));return 0 if result.get('ok') else 1
 
