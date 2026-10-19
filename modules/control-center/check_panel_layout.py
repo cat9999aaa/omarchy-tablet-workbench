@@ -13,7 +13,7 @@ def block(start):
         if source[b] == '}': depth -= 1
         b += 1
     return source[a:b]
-layout = block('   ColumnLayout {').replace('Style.font.family', '"sans-serif"').replace('root.data', 'root.snapshot')
+layout = block('   ColumnLayout {').replace('Style.font.family', '"sans-serif"').replace('root.statusData', 'root.snapshot')
 button = block(' component CButton:').replace('Style.font.family', '"sans-serif"')
 prefix = '''import QtQuick
 import QtQuick.Window
@@ -70,7 +70,7 @@ Item {
  function touchLabel(){return readings.touchText}
  function b(key){return {known:false,value:null,label:"未知"}}
 '''
-prefix += block(' function ensureControlVisible(') + block(' function applySuggestedMode(') + block(' function restoreModeFocus(') + block(' function quickView(').replace('data.flight_', 'snapshot.flight_').replace('data.power_profile','snapshot.power_profile')
+prefix += block(' function ensureControlVisible(') + block(' function applySuggestedMode(') + block(' function restoreModeFocus(') + block(' function quickView(').replace('statusData.flight_', 'snapshot.flight_').replace('statusData.power_profile','snapshot.power_profile')
 tests = '''
  TestCase {
   name:"ControlPanelLayout";when:windowShown

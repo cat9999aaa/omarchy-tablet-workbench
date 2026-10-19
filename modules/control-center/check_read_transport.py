@@ -33,7 +33,7 @@ ShellRoot {
  property var activeRead:null
  property string helper:""
  property string feedback:""
- property var data:({})
+ property var statusData:({})
  property int index:0
  property var cases:["success","nonzero","huge","truncated","locked","cancel","timeout","partial_timeout","complete_text_timeout"]
  ContractState {id:readings}

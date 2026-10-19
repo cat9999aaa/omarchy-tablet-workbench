@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import re
 import os
 import subprocess
 import tempfile
@@ -23,6 +24,7 @@ with tempfile.TemporaryDirectory(prefix='device-entry-') as temp:
     (commons/'Color.qml').write_text('pragma Singleton\nimport QtQuick\nQtObject {property var shellValues:({});property color foreground:"white";property color urgent:"orange"}')
     test_qml='''import QtQuick
 import QtTest
+import QtQuick.Window
 import "Commons"
 TestCase {
  id:root;visible:true;when:windowShown;name:"ActualDeviceEntry";width:300;height:200
@@ -43,7 +45,21 @@ TestCase {
  DeviceEntry {id:entry;bar:bar;width:Math.max(48,implicitWidth);height:bar.barSize;contextKey:CONTEXT_BINDING;onActivated:root.calls++}
  HOST_POINTER
  }
+ Item {id:actualPanel;x:100;y:100;width:56;height:56
+ PANEL_STATE_DECLARATION
+ DeviceEntry {id:mountedEntry;anchors.fill:parent;bar:bar}
+ }
+ function test_actual_panel_mount(){compare(mountedEntry.parent,actualPanel);verify(mountedEntry.Window.window!==null);var point=mountedEntry.mapToItem(root,0,0);compare(point.x,100);compare(point.y,100)}
  function init(){bar.barSize=56;root.attachedScreen=screen1;calls=0;wait(1)}
+ function test_visible_label(){
+  var visual=entry.contentItem
+  compare(visual.text,"设备");verify(visual.visible);verify(visual.opacity>0.9)
+  verify(visual.width>0);verify(visual.height>0)
+  var label=visual.children[0];compare(label.text,"设备");verify(label.visible)
+  verify(label.width>0);verify(label.height>0)
+  var point=label.mapToItem(entry,0,0);verify(point.x>=0&&point.y>=0)
+  verify(point.x+label.width<=entry.width&&point.y+label.height<=entry.height)
+ }
  function test_centers_and_edges(){for(const p of [[24,28],[1,28],[47,28],[24,1],[24,55]]){mousePress(entry,p[0],p[1]);mouseRelease(entry,p[0],p[1]);}compare(calls,5)}
  function test_resize_cancels(){mousePress(entry,24,20);bar.barSize=70;wait(1);mouseRelease(entry,24,20);compare(calls,0)}
  function test_output_geometry_cancels(){mousePress(entry,24,20);screen1.width+=1;wait(1);mouseRelease(entry,24,20);compare(calls,0)}
@@ -57,6 +73,6 @@ TestCase {
     panel=(here.parent/'control-center/Panel.qml').read_text()
     binding=block(panel,' DeviceEntry { id:barButton').split('contextKey:',1)[1].split(';',1)[0]
     pointer=block(patched((official/'Touch/Bar.qml').read_text()),'    MouseArea {\n      id: modulePointer')
-    (root/'tst_entry.qml').write_text(test_qml.replace('HOST_POINTER',pointer).replace('CONTEXT_BINDING',binding))
+    (root/'tst_entry.qml').write_text(test_qml.replace('HOST_POINTER',pointer).replace('CONTEXT_BINDING',binding).replace('PANEL_STATE_DECLARATION',re.search(r' property var (?:data|statusData): \(\{\}\)',panel).group(0)))
     result=subprocess.run(['/usr/lib/qt6/bin/qmltestrunner','-input',str(root/'tst_entry.qml')],capture_output=True,text=True,timeout=20)
     print(result.stdout+result.stderr);raise SystemExit(result.returncode)

@@ -26,8 +26,8 @@ Ui.Panel {
  manageIpc: false
  implicitWidth: barButton.implicitWidth
  implicitHeight: barButton.implicitHeight
- property var data: ({})
- readonly property var flight: Model.flightView(data,Date.now()/1000)
+ property var statusData: ({})
+ readonly property var flight: Model.flightView(statusData,Date.now()/1000)
  property bool expanded: false
  property string page: "连接"
  property string feedback: ""
@@ -128,7 +128,7 @@ Ui.Panel {
  onSuggestedModeChanged:Qt.callLater(applySuggestedMode)
  onAnyPointerPressedChanged:Qt.callLater(applySuggestedMode)
  onConfirmationChanged:Qt.callLater(applySuggestedMode)
- function quickView() {return {network:labelNetwork(),tun:b("tun"),proxy:b("proxy_core"),zero:b("zero"),touch:touchLabel(),touchValue:readings.touchValue,night:nightlightLabel(),flightActive:data.flight_active,flightSaved:data.flight_saved,power:data.power_profile}}
+ function quickView() {return {network:labelNetwork(),tun:b("tun"),proxy:b("proxy_core"),zero:b("zero"),touch:touchLabel(),touchValue:readings.touchValue,night:nightlightLabel(),flightActive:statusData.flight_active,flightSaved:statusData.flight_saved,power:statusData.power_profile}}
  function applySuggestedMode() {
   const next=Model.selectLayout(suggestedMode,appliedMode,{confirmation:confirmation!==null,action:actionProcess.running,pointer:anyPointerPressed})
   if(next===appliedMode)return
@@ -190,8 +190,8 @@ Ui.Panel {
   return result
  }
  PwObjectTracker { objects: [root.sink,root.source,root.volumeSink].filter(x=>!!x) }
- function f(key) { const f=SharedState.fieldState(data[key],Date.now()/1000);return f.known?String(f.value):f.label }
- function b(key) { return SharedState.fieldState(data[key],Date.now()/1000) }
+ function f(key) { const f=SharedState.fieldState(statusData[key],Date.now()/1000);return f.known?String(f.value):f.label }
+ function b(key) { return SharedState.fieldState(statusData[key],Date.now()/1000) }
  function labelNetwork() {return ({"4g":"中国电信 4G",wifi:"Wi-Fi",ethernet:"有线网络",none:"未连接"})[f("physical_uplink")] || f("physical_uplink")}
  function nightlightLabel() {const n=b("nightlight");return n.known?(n.value?"已开启 · 暖色":"已关闭 · 原色"):"状态待确认 · 点按切换"}
  function batteryText() {
@@ -243,7 +243,7 @@ Ui.Panel {
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
     "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
- function serializedState() {return JSON.stringify({uiRevision:6,version:"0.2.3",readingRequest:readings.requestState,temperatureDisplay:readings.temperatureDisplay,touchDisplay:readings.touchDisplay,nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
+ function serializedState() {return JSON.stringify({uiRevision:6,version:"0.2.3",readingRequest:readings.requestState,temperatureDisplay:readings.temperatureDisplay,touchDisplay:readings.touchDisplay,nightlight:statusData.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
  IpcHandler {
   target: "pcadmin.controlCenter"
   function ready(): bool {return root.focusedTarget()!==null && !root.peers().some(p=>p.transferPending)}
@@ -327,7 +327,7 @@ Ui.Panel {
    function finishIfDone() {
     if(disposed || !exitSeen || !streamDone)return
     if(!cancelled && readings.current(requestToken)) {
-     if(readings.finish(requestToken,output.text,code,true))root.data=readings.legacy
+     if(readings.finish(requestToken,output.text,code,true))root.statusData=readings.legacy
      else root.feedback="状态暂不可用"
      if(!readings.sessionOpen)root.close()
     }
@@ -476,15 +476,15 @@ Ui.Panel {
         }
        }
       }
-      Text {Layout.fillWidth:true;color:root.fg;text:"亮度 "+(root.data.brightness===null||root.data.brightness===undefined?"不可用":Math.round(brightness.value)+"%");font.pixelSize:root.themeTokens.font.body}
-      Slider {id:brightness;onActiveFocusChanged:if(activeFocus)root.ensureControlVisible(brightness);Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.data.brightness||0;enabled:root.data.brightness!==null&&root.data.brightness!==undefined&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("brightness",{percent:Math.round(value)})}
+      Text {Layout.fillWidth:true;color:root.fg;text:"亮度 "+(root.statusData.brightness===null||root.statusData.brightness===undefined?"不可用":Math.round(brightness.value)+"%");font.pixelSize:root.themeTokens.font.body}
+      Slider {id:brightness;onActiveFocusChanged:if(activeFocus)root.ensureControlVisible(brightness);Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.statusData.brightness||0;enabled:root.statusData.brightness!==null&&root.statusData.brightness!==undefined&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("brightness",{percent:Math.round(value)})}
       RowLayout {
        Layout.fillWidth:true
        Text {Layout.fillWidth:true;color:root.fg;text:"音量 "+(root.audioAvailable?Math.round(volumeSlider.value)+"%":"无输出设备");font.pixelSize:root.themeTokens.font.body}
        CButton {text:root.muted?"取消静音":"静音";enabled:root.audioAvailable&&!actionProcess.running;onClicked:root.act("mute",{})}
       }
       Slider {id:volumeSlider;onActiveFocusChanged:if(activeFocus)root.ensureControlVisible(volumeSlider);Layout.fillWidth:true;Layout.minimumHeight:48;from:0;to:100;stepSize:1;value:root.volume;enabled:root.audioAvailable&&!actionProcess.running;onPressedChanged:if(!pressed&&enabled)root.act("volume",{percent:Math.round(value)})}
-      Text {Layout.fillWidth:true;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap;text:"麦克风："+(root.source&&root.source.audio?(root.source.audio.muted?"已静音":"可用 · 静音关闭"):"未知")+"  ·  "+(root.data.observed_at?new Date(root.data.observed_at*1000).toLocaleTimeString():"读取中")}
+      Text {Layout.fillWidth:true;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap;text:"麦克风："+(root.source&&root.source.audio?(root.source.audio.muted?"已静音":"可用 · 静音关闭"):"未知")+"  ·  "+(root.statusData.observed_at?new Date(root.statusData.observed_at*1000).toLocaleTimeString():"读取中")}
       Text {Layout.fillWidth:true;color:root.orange;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap;visible:root.feedback!=="";text:root.feedback}
      }
     }
