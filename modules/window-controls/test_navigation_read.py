@@ -22,6 +22,12 @@ class ReadTests(unittest.TestCase):
   clock[0]=5
   with self.assertRaises(a.ReadError) as e:b.timeout()
   self.assertEqual(e.exception.code,'timeout')
+ def test_optional_read_cap_preserves_navigation_default(self):
+  a=self.api();clock=lambda:0.0
+  self.assertEqual(a.ReadBudget(clock=clock).timeout(),1.0)
+  self.assertEqual(a.ReadBudget(clock=clock,max_read_seconds=2).timeout(),2.0)
+  self.assertEqual(a.ReadBudget(.5,clock=clock,max_read_seconds=2).timeout(),.5)
+  with self.assertRaises(ValueError):a.ReadBudget(max_read_seconds=float('nan'))
  def test_exact_limit_and_one_extra_byte(self):
   a=self.api()
   for size,success in [(1048576,True),(1048577,False)]:

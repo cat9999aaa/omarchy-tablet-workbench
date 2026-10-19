@@ -14,15 +14,17 @@ class ReadError(Exception):
   super().__init__(code)
 
 class ReadBudget:
- def __init__(self,total_seconds=5.0,clock=time.monotonic):
+ def __init__(self,total_seconds=5.0,clock=time.monotonic,max_read_seconds=1.0):
   if not math.isfinite(total_seconds) or total_seconds<=0:raise ValueError('invalid budget')
+  if not math.isfinite(max_read_seconds) or max_read_seconds<=0:raise ValueError('invalid read cap')
+  self.max_read_seconds=max_read_seconds
   self.clock=clock;self.deadline=clock()+total_seconds
  def timeout(self):
   remaining=self.deadline-self.clock()
   if remaining<=0:raise ReadError('timeout')
-  return min(1.0,remaining)
+  return min(self.max_read_seconds,remaining)
 
-def read_json(argv,budget,max_bytes=1048576):
+def _read(argv,budget,max_bytes=1048576,text_only=False):
  duration=budget.timeout()
  deadline=budget.clock()+duration
  proc=None;completed=False
@@ -43,6 +45,11 @@ def read_json(argv,budget,max_bytes=1048576):
   remaining=min(deadline,budget.deadline)-budget.clock()
   if remaining<=0:raise ReadError('timeout')
   if proc.wait(timeout=remaining)!=0:raise ReadError('read-failed')
+  if text_only:
+   try:result=b''.join(chunks).decode('utf-8')
+   except UnicodeError:raise ReadError('invalid-data') from None
+   completed=True
+   return result
   def invalid_constant(value):raise ValueError('non-finite')
   try:result=json.loads(b''.join(chunks).decode('utf-8'),parse_constant=invalid_constant)
   except (UnicodeError,ValueError,RecursionError):raise ReadError('invalid-data') from None
@@ -95,3 +102,6 @@ def workspace_counts(value):
   number=workspace(client.get('workspace'))
   if number in counts:counts[number]+=1
  return counts
+
+def read_json(argv,budget,max_bytes=1048576):return _read(argv,budget,max_bytes)
+def read_text(argv,budget,max_bytes=1048576):return _read(argv,budget,max_bytes,True)
