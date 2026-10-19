@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const api={};vm.createContext(api);vm.runInContext(fs.readFileSync(__dirname+'/EdgePolicy.js','utf8'),api);
+for(const edge of ['top','bottom','left','right'])assert.equal(api.enabled(edge,edge,true,true),false,'same edge disabled');
+for(const position of ['',null,'unknown'])assert.equal(api.enabled('bottom',position,true,true),false,'unknown fails closed');
+assert.equal(api.enabled('bottom','top',false,true),false);
+assert.equal(api.enabled('bottom','top',true,false),false);
+assert.equal(api.enabled('bottom','top',true,true),true);
+assert.equal(api.enabled('top','bottom',true,true),true);
+assert.equal(api.enabled('top','left',true,true),true);
+assert.equal(api.enabled('invalid','top',true,true),false);
+console.log('PASS: same edge disabled, unknown fails closed, other edge preserved');
