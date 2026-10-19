@@ -19,3 +19,6 @@ send({type:'OPEN',output:'TEST'});result({...snapshot(),output:'OTHER'});assert.
 send({type:'OPEN',output:'TEST'});result({...snapshot(),rows:null,source_reason:'read-failed'});assert.equal(s.phase,'open');assert.equal(s.rows.length,0);assert.equal(s.sourceReason,'read-failed');
 for(const type of ['LOCKED','OUTPUT_LOST']){send({type:'OPEN',output:'TEST'});send({type});assert.equal(s.phase,'closed');}
 console.log('task session boundaries passed');
+
+send({type:'OPEN',output:'TEST'});result(snapshot());send({type:'TICK',now:16001});assert.equal(s.stale,true);
+send({type:'REFRESH'});result({...snapshot(),observed_at:'bad'});assert.equal(s.phase,'closed');

@@ -28,6 +28,8 @@ def main():
  with tempfile.TemporaryDirectory(prefix='task-panel-') as tmp:
   root=Path(tmp)
   for n in ['TaskCenter.qml','TaskSession.js']:shutil.copy2(source/n,root/n)
+  capture=Path('/evidence/c3-task-panel.png')
+  qml=root/'TaskCenter.qml';qml.write_text(qml.read_text().replace('id:root','id:root\n function capture():void{capturePanel.grabToImage(function(r){r.saveToFile("/evidence/c3-task-panel.png")})}',1).replace('  Rectangle{','  Rectangle{id:capturePanel',1))
   shutil.copytree(source/'Workbench',root/'Workbench');shutil.copytree('/official/Commons',root/'Commons')
   (root/'Commons/qmldir').write_text('module qs.Commons\n'+''.join('singleton '+n+' 1.0 '+n+'.qml\n' for n in ['Color','Style','Util','Border']))
   (root/'Main.qml').write_text('''import QtQuick
@@ -35,6 +37,7 @@ import Quickshell
 import Quickshell.Io
 ShellRoot { TaskCenter {id:panel} IpcHandler {target:"testTasks"
 function detail():void{panel.detail("00000000-0000-4000-8000-000000000001")}
+function capture():void{panel.capture()}
 function surface():string{return panel.boundScreen?panel.boundScreen.name:""}
 }}''')
   helper=root/'helper.py';helper.write_text(HELPER)
@@ -52,6 +55,7 @@ function surface():string{return panel.boundScreen?panel.boundScreen.name:""}
      assert call('surface',target='testTasks')=='HEADLESS-2';assert state()['count']==1
      time.sleep(1.2);assert (root/'calls').read_text().splitlines().count('snapshot')==1
      call('detail',target='testTasks');wait(lambda:state().get('needsPermission')==1,'details')
+     call('capture',target='testTasks');wait(lambda:capture.exists(),'synthetic capture')
      call('close');wait(lambda:state().get('readers')==0,'closed readers');before=(root/'calls').read_text();time.sleep(.8);assert (root/'calls').read_text()==before
      (root/'slow').touch();call('open','HEADLESS-2');time.sleep(.3);call('close');time.sleep(.4);assert not state()['opened'];(root/'slow').unlink()
      call('open','HEADLESS-2');wait(lambda:state().get('opened'),'reopen');(root/'locked').touch();wait(lambda:not state().get('opened'),'lock');(root/'locked').unlink()

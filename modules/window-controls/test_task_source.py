@@ -35,4 +35,13 @@ class SourceTests(unittest.TestCase):
   with patch.object(self.m,'read_json',side_effect=fail),patch.object(self.m,'read_text',return_value='on'):
    r=self.m.collect_snapshot(self.project,self.m.ReadBudget())
   self.assertIsNone(r['rows']);self.assertEqual(r['source_reason'],'read-failed');self.assertTrue(r['dnd'])
+ def test_project_replaced_during_read_is_rejected(self):
+  def replaced(argv,budget,**kw):
+   value=self.reader(argv,budget,**kw)
+   if argv[0]=='paseo':
+    self.project.rename(self.p/'previous');self.project.mkdir()
+   return value
+  with patch.object(self.m,'read_json',side_effect=replaced),patch.object(self.m,'read_text',return_value='off'):
+   r=self.m.collect_snapshot(self.project,self.m.ReadBudget())
+  self.assertIsNone(r['rows']);self.assertEqual(r['source_reason'],'invalid-project')
 if __name__=='__main__':unittest.main()

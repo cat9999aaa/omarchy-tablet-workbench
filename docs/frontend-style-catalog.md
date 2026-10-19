@@ -40,6 +40,10 @@
 | C13 | Wi-Fi表单 | 官方派生表单、共享动作及主题 | network-center/Panel.qml | 专用视图，不假装通用动作组 | C1实际表单渲染已验；后续迁移单独记录 |
 | C14 | 电池历史曲线 | 专用Canvas图表，使用统一主题字号 | battery-manager/panel/BatteryHistory.qml | 专用图表，复用主题 | C1非空曲线／大字体标签已验，不做万能图表引擎 |
 
+| C15 | 会话状态行 | 匿名编号、中文状态、独立采样时间 | window-controls/TaskCenter.qml | 专用数据行，复用C08和主题，不重复基础样式 | C3候选，24布局组合通过，未安装 |
+| C16 | 来源失败/空列表/过期提示 | 固定中文语义，未知不伪装零 | TaskCenter.qml及TaskSession.js | 复用C08，业务映射独立 | C3候选，状态红绿及生命周期通过，未安装 |
+| C17 | 任务与通知动作组 | 刷新、打开Paseo、官方通知历史 | TaskCenter.qml | 复用C09，固定动作白名单 | C3候选，点击和布局通过，未安装 |
+
 ## 维护与交付规则
 
 1. 每次前端修改前，检查表中是否已有合适组件；新增复用组件必须登记职责、调用方和验证项。
@@ -71,3 +75,5 @@
 证据：[C1报告](validation/2026-10-18-eva-shell-stage-c1.md)；[批准的C2计划](https://github.com/cat9999aaa/dashen-overdrive/blob/a8d7b39/docs/superpowers/plans/2026-10-19-navigation-stage-c2.md)。
 
 | 2026-10-19 C2失败反馈收尾 | 复用C08文字和TouchButton，准备失败只显示中文原因与重试；业务页和动作隐藏 | reducer/Python红绿；完整39组、实际qs9场景、主题186通过；独立审查发现的布局夹具依赖已修正 | 候选0.1.4未安装，运行0.1.3保持 | 锁屏/未知/输出变化/预算耗尽仍关闭；打开性能未宣称改善 |
+
+| 2026-10-19 C3共享界面 | C15会话行复用StyledText；C16失败/过期使用既有语义；C17刷新/Paseo/官方历史复用ActionGrid | 24种尺寸/字体/明暗组合及实际按钮滚动点击通过；生命周期隔离qs通过 | 尚未安装 | 无私密标题、无伪完成/百分比；新增总采样时间正回归 |

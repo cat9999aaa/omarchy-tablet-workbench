@@ -3,7 +3,7 @@ from datetime import datetime,timezone
 from pathlib import Path
 import time
 from navigation_read import ReadBudget,ReadError,read_json,read_text,check_lock,focused_output
-from task_model import TaskDataError,project_rows,project_detail,agent_id
+from task_model import TaskDataError,project_rows,project_detail,agent_id,project_path
 
 def context(budget,expected=None):
  check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
@@ -15,11 +15,20 @@ def finish(budget,output):
  context(budget,output);check_lock(read_json(['omarchy-shell','lock','isLocked'],budget));budget.timeout()
  return {'schema':1,'ok':True,'reason_code':'','output':output,'observed_at':datetime.now(timezone.utc).isoformat(),'sampled_boottime_ms':int(time.clock_gettime(time.CLOCK_BOOTTIME)*1000)}
 
+def project_identity(project):
+ try:
+  path=project_path(project);st=path.stat()
+  return (str(path),st.st_dev,st.st_ino)
+ except (OSError,TypeError,ValueError):raise TaskDataError('invalid-project')
+
 def collect_snapshot(project,budget):
  output=context(budget);rows=None;reason='';dnd=None;dnd_reason=''
  try:
   if project is None:raise TaskDataError('invalid-project')
-  rows=project_rows(read_json(['paseo','ls','--global','--json'],budget),project,Path.home())
+  identity=project_identity(project)
+  raw=read_json(['paseo','ls','--global','--json'],budget)
+  if project_identity(project)!=identity:raise TaskDataError('invalid-project')
+  rows=project_rows(raw,project,Path.home())
  except (ReadError,TaskDataError) as error:reason=error.code
  try:
   value=read_text(['omarchy-shell','notifications','isDnd'],budget).strip()
@@ -30,7 +39,10 @@ def collect_snapshot(project,budget):
 
 def collect_detail(project,key,budget,expected_output=None):
  key=agent_id(key);output=context(budget,expected_output)
- detail=project_detail(read_json(['paseo','inspect',key,'--json'],budget),key,project,Path.home())
+ identity=project_identity(project)
+ raw=read_json(['paseo','inspect',key,'--json'],budget)
+ if project_identity(project)!=identity:raise TaskDataError('invalid-project')
+ detail=project_detail(raw,key,project,Path.home())
  result=finish(budget,output);result.update(agent_id=key,detail=detail);return result
 
 def handoff(action,output,budget):

@@ -100,7 +100,7 @@ Item {
     ColumnLayout{
      id:body;width:parent.width;spacing:root.themeTokens.metrics.gap
      WB.ActionGrid{Layout.fillWidth:true;themeTokens:root.themeTokens;busy:root.busy;columns:2;items:[{id:"refresh",label:"刷新状态",action:"refresh"},{id:"paseo",label:"打开 Paseo",action:"open-paseo"},{id:"notifications",label:"系统通知历史",action:"notification-history"}];onTriggered:function(action,payload){if(action==="refresh")root.refresh();else root.handoff(action)}}
-     WB.StyledText{Layout.fillWidth:true;themeTokens:root.themeTokens;wrapMode:Text.Wrap;text:"免打扰："+(root.session.dnd===null?"未知":root.session.dnd?"已开启":"未开启")+" · 历史由系统显示"}
+     WB.StyledText{Layout.fillWidth:true;themeTokens:root.themeTokens;wrapMode:Text.Wrap;text:"免打扰："+(root.session.dnd===null?"未知":root.session.dnd?"已开启":"未开启")+" · "+(root.session.stale?"上次读取":"本次读取")+"\n采样："+new Date(root.session.observedAt).toLocaleString(Qt.locale("zh_CN"))}
      WB.StyledText{Layout.fillWidth:true;themeTokens:root.themeTokens;visible:!!root.session.sourceReason;wrapMode:Text.Wrap;text:root.sourceText(root.session.sourceReason);tone:"urgent"}
      WB.StyledText{Layout.fillWidth:true;themeTokens:root.themeTokens;visible:!!root.session.feedback;wrapMode:Text.Wrap;text:root.session.feedback;tone:"urgent"}
      WB.StyledText{Layout.fillWidth:true;themeTokens:root.themeTokens;visible:!root.session.sourceReason&&root.session.rows.length===0;wrapMode:Text.Wrap;text:"本项目暂无会话"}
