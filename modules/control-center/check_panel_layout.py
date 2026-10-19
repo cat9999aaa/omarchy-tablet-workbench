@@ -101,7 +101,7 @@ tests = '''
    readings.startRequest();wait(30)
    const temperature=findChild(root,"temperatureReadout"),touch=findChild(root,"touchReadout");verify(temperature!==null,"real Panel temperature readout missing");verify(touch!==null)
    verify(temperature.valueText.includes("上次"));verify(temperature.valueText.includes("42"));verify(touch.valueText.includes("上次"));compare(temperature.observedAt,100)
-   for(const row of [temperature,touch]){const p=row.mapToItem(root,0,0);verify(p.x>=0&&p.x+row.width<=root.width);verify(row.height>=row.implicitHeight);for(const text of row.children)if(text.visible)verify(text.paintedWidth<=text.width+1)}
+   for(const row of [temperature,touch]){const p=row.mapToItem(root,0,0);verify(p.x>=0&&p.x+row.width<=root.width);verify(row.height>=row.implicitHeight);for(let i=0;i<row.children.length;i++){const text=row.children[i];if(text.visible)verify(text.paintedWidth<=text.width+1)}}
    const refresh=findChild(root,"quick-touch-refresh");bring(refresh);const q=refresh.mapToItem(root,0,0);verify(q.y>=0&&q.y+refresh.height<=root.height);mouseClick(refresh,refresh.width/2,refresh.height/2);compare(root.actions[root.actions.length-1],"touch-refresh")
    const close=findChild(root,"workbenchClose");const c=close.mapToItem(root,0,0);verify(c.y>=0&&c.y+close.height<=root.height);verify(close.height>=48)
   }

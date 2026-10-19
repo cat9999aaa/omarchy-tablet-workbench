@@ -22,7 +22,7 @@ TestCase {
  function test_layout_data(){let r=[];for(const w of [320,480,864,1536])for(const scale of [1,1.25,1.5])for(const light of [false,true])r.push({tag:w+'-'+scale+'-'+light,w:w,scale:scale,light:light});return r}
  function test_layout(d){
   const o=make(d.w,d.scale,d.light);wait(20);let bottom=0
-  for(const child of o.children){if(!child.visible)continue;compare(child.textFormat,Text.PlainText);compare(child.wrapMode,Text.Wrap);verify(child.paintedWidth<=child.width+1);bottom=Math.max(bottom,child.y+child.height)}
+  for(let i=0;i<o.children.length;i++){const child=o.children[i];if(!child.visible)continue;compare(child.textFormat,Text.PlainText);compare(child.wrapMode,Text.Wrap);verify(child.paintedWidth<=child.width+1);bottom=Math.max(bottom,child.y+child.height)}
   verify(o.implicitHeight>=bottom);verify(o.implicitHeight>0);compare(findChild(o,'readoutValue').text,'上次 42 °C');o.destroy()
  }
  function test_empty_and_plain_text(){
