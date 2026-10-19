@@ -44,4 +44,29 @@ class SourceTests(unittest.TestCase):
   with patch.object(self.m,'read_json',side_effect=replaced),patch.object(self.m,'read_text',return_value='off'):
    r=self.m.collect_snapshot(self.project,self.m.ReadBudget())
   self.assertIsNone(r['rows']);self.assertEqual(r['source_reason'],'invalid-project')
+ def test_detail_rejects_changed_snapshot_scope(self):
+  with patch.object(self.m,'read_json',side_effect=self.reader),patch.object(self.m,'read_text',return_value='off'):
+   snapshot=self.m.collect_snapshot(self.project,self.m.ReadBudget())
+   other=self.p/'other';other.mkdir()
+   with self.assertRaises(self.m.TaskDataError):self.m.collect_detail(other,ID,self.m.ReadBudget(),expected_output='TEST',expected_scope=snapshot['scope'])
+ def test_same_path_replacement_invalidates_snapshot_scope(self):
+  token=self.m.scope_token(self.project);self.project.rename(self.p/'old');self.project.mkdir()
+  self.assertNotEqual(token,self.m.scope_token(self.project))
+ def test_slow_sources_leave_budget_for_final_guard(self):
+  clock=[0.0];budget=self.m.ReadBudget(clock=lambda:clock[0],max_read_seconds=2)
+  def reader(argv,budget,**kw):
+   if argv[0]=='paseo':clock[0]+=budget.timeout();raise self.m.ReadError('timeout')
+   return self.reader(argv,budget,**kw)
+  def text(argv,budget):clock[0]+=budget.timeout();raise self.m.ReadError('timeout')
+  with patch.object(self.m,'read_json',side_effect=reader),patch.object(self.m,'read_text',side_effect=text):r=self.m.collect_snapshot(self.project,budget)
+  self.assertTrue(r['ok']);self.assertLessEqual(clock[0],3.75)
+ def test_failed_final_guard_still_closes(self):
+  calls=[0]
+  def reader(argv,budget,**kw):
+   if argv==['omarchy-shell','lock','isLocked']:
+    calls[0]+=1
+    if calls[0]>1:return True
+   return self.reader(argv,budget,**kw)
+  with patch.object(self.m,'read_json',side_effect=reader),patch.object(self.m,'read_text',return_value='off'):
+   with self.assertRaises(self.m.ReadError):self.m.collect_snapshot(self.project,self.m.ReadBudget())
 if __name__=='__main__':unittest.main()

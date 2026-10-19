@@ -18,6 +18,7 @@ elif name=='paseo':
  if (r/'slow').exists():
   (r/'pid').write_text(str(os.getpid()));time.sleep(8)
  if (r/'bad').exists():print('PRIVATE',file=sys.stderr);print('{bad');sys.exit(1)
+ if sys.argv[1]=='inspect':print(json.dumps({'Id':sys.argv[2],'Cwd':str(r/'a project'),'Status':'idle','PendingPermissions':[]}));sys.exit(0)
  print(json.dumps([{'id':'00000000-0000-4000-8000-000000000001','status':'idle','cwd':str(r/'a project'),'name':'PRIVATE'}]))
 '''
   for name in ['paseo','hyprctl','omarchy-shell','gtk-launch']:
@@ -37,6 +38,12 @@ elif name=='paseo':
   (self.root/'bad').touch();p=self.run_helper();r=json.loads(p.stdout);self.assertIsNone(r['rows']);self.assertNotIn('PRIVATE',p.stdout+p.stderr)
   (self.root/'bad').unlink();(self.root/'slow').touch();start=time.monotonic();r=json.loads(self.run_helper().stdout);self.assertLess(time.monotonic()-start,4);self.assertEqual(r['source_reason'],'timeout')
   pid=int((self.root/'pid').read_text());self.assertFalse(Path('/proc',str(pid)).exists())
+ def test_snapshot_detail_scope_is_carried_through_cli(self):
+  snapshot=json.loads(self.run_helper().stdout)
+  request={'generation':2,'agent_id':ID,'remaining_ms':4000,'output':'TEST','scope':snapshot['scope']}
+  r=json.loads(self.run_helper('detail',request).stdout);self.assertTrue(r['ok']);self.assertEqual(r['detail']['pending_permission_count'],0)
+  other=self.root/'other';other.mkdir();(self.config/'task-center.json').write_text(json.dumps({'schema':1,'project_root':str(other)}))
+  r=json.loads(self.run_helper('detail',request).stdout);self.assertFalse(r['ok']);self.assertEqual(r['reason_code'],'scope-changed')
  def test_guard_is_fresh_without_paseo(self):
   r=json.loads(self.run_helper('guard',{'output':'TEST'}).stdout)
   self.assertTrue(r['ok']);self.assertGreater(r['sampled_boottime_ms'],0)

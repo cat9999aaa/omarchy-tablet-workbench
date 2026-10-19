@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Fixed read-only task-center requests. No raw source or exception output."""
-import json,math,os,signal,sys,time
+import json,math,os,signal,sys,time,re
 from pathlib import Path
 from navigation_read import ReadBudget,ReadError
 from task_model import TaskDataError,project_path
@@ -21,7 +21,7 @@ def configuration():
 
 def request(command,value):
  if not isinstance(value,dict):raise ReadError('invalid-request')
- keys={'snapshot':{'generation'},'detail':{'generation','agent_id','remaining_ms','output'},'action':{'action','output'},'guard':{'output'}}
+ keys={'snapshot':{'generation'},'detail':{'generation','agent_id','remaining_ms','output','scope'},'action':{'action','output'},'guard':{'output'}}
  if command not in keys or set(value)!=keys[command]:raise ReadError('invalid-request')
  if command not in ('action','guard') and (type(value['generation']) is not int or not 0<=value['generation']<=2147483647):raise ReadError('invalid-request')
  if command!='snapshot':
@@ -30,6 +30,7 @@ def request(command,value):
  remaining=value.get('remaining_ms',5000)
  if type(remaining) is not int or not 1<=remaining<=5000:raise ReadError('invalid-request')
  budget=ReadBudget(remaining/1000 if command!='guard' else 1,max_read_seconds=2)
+ if command=='detail' and (not isinstance(value['scope'],str) or re.fullmatch('[0-9a-f]{64}',value['scope']) is None):raise ReadError('invalid-request')
  if command=='guard':return finish(budget,value['output'])
  if command=='action':return handoff(value['action'],value['output'],budget)
  try:project=configuration()
@@ -37,7 +38,7 @@ def request(command,value):
   if command=='detail':raise
   project=None
  if command=='snapshot':return collect_snapshot(project,budget)
- return collect_detail(project,value['agent_id'],budget,value['output'])
+ return collect_detail(project,value['agent_id'],budget,value['output'],value['scope'])
 
 def main():
  started=time.monotonic()

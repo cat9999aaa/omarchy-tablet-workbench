@@ -5,7 +5,7 @@ const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
 const rows=Array.from({length:21},(_,i)=>({agent_id:id(i),status:i===0?'idle':'running'}));
 let s=T.initial();function send(e){const old=JSON.stringify(s);const r=T.reduce(s,e);assert.equal(JSON.stringify(s),old);s=r.state;return r.effects;}
 function result(value){return send({type:'RESULT',generation:s.generation,requestId:s.pending.id,value});}
-function snapshot(){return {schema:1,ok:true,output:'TEST',rows,source_reason:'',dnd:false,elapsed_ms:100,sampled_boottime_ms:1000,observed_at:'2026-01-01T00:00:00Z'};}
+function snapshot(){return {schema:1,ok:true,output:'TEST',rows,scope:'a'.repeat(64),source_reason:'',dnd:false,elapsed_ms:100,sampled_boottime_ms:1000,observed_at:'2026-01-01T00:00:00Z'};}
 send({type:'OPEN',output:'TEST'});let generation=s.generation,requestId=s.pending.id;send({type:'CLOSE'});send({type:'RESULT',generation,requestId,value:snapshot()});assert.equal(s.phase,'closed');
 send({type:'OPEN',output:'TEST'});result(snapshot());assert.equal(s.rows.length,20);assert(s.truncated);assert.equal(s.remainingMs,4900);assert(s.rows.every(r=>r.pending_permission_count===null));assert(!s.rows.some(r=>r.kind==='done'));
 const key=s.rows[0].agent_id,ordinal=s.rows[0].ordinal;
@@ -22,3 +22,5 @@ console.log('task session boundaries passed');
 
 send({type:'OPEN',output:'TEST'});result(snapshot());send({type:'TICK',now:16001});assert.equal(s.stale,true);
 send({type:'REFRESH'});result({...snapshot(),observed_at:'bad'});assert.equal(s.phase,'closed');
+
+send({type:'OPEN',output:'TEST'});result({...snapshot(),elapsed_ms:4000});assert.equal(send({type:'DETAIL',agent_id:s.rows[0].agent_id}).length,0);assert.equal(s.phase,'open');

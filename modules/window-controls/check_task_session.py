@@ -8,10 +8,10 @@ from pathlib import Path
 r=Path(__file__).parent;request=json.load(sys.stdin);cmd=sys.argv[1]
 with (r/'calls').open('a') as f:f.write(cmd+'\\n')
 (r/'pid').write_text(str(os.getpid()))
-if cmd=='snapshot' and (r/'slow').exists():time.sleep(3)
+if cmd=='action':\n (r/'action-pid').write_text(str(os.getpid()));time.sleep(3);(r/'action-completed').touch()\nif cmd=='snapshot' and (r/'slow').exists():time.sleep(3)
 v={'schema':1,'ok':True,'output':'HEADLESS-2','observed_at':'2026-01-01T00:00:00Z','sampled_boottime_ms':int(time.monotonic()*1000),'elapsed_ms':10}
 if (r/'locked').exists():v.update(ok=False,reason_code='locked')
-elif cmd=='snapshot':v.update(rows=[{'agent_id':'00000000-0000-4000-8000-000000000001','status':'idle'}],dnd=False)
+elif cmd=='snapshot':v.update(scope='a'*64,rows=[{'agent_id':'00000000-0000-4000-8000-000000000001','status':'idle'}],dnd=False)
 elif cmd=='detail':v.update(agent_id=request['agent_id'],detail={'status':'idle','pending_permission_count':2,'source_updated_at':None})
 print(json.dumps(v))
 '''
@@ -37,6 +37,7 @@ import Quickshell
 import Quickshell.Io
 ShellRoot { TaskCenter {id:panel} IpcHandler {target:"testTasks"
 function detail():void{panel.detail("00000000-0000-4000-8000-000000000001")}
+function action():void{panel.handoff("open-paseo")}
 function capture():void{panel.capture()}
 function surface():string{return panel.boundScreen?panel.boundScreen.name:""}
 }}''')
@@ -56,7 +57,9 @@ function surface():string{return panel.boundScreen?panel.boundScreen.name:""}
      time.sleep(1.2);assert (root/'calls').read_text().splitlines().count('snapshot')==1
      call('detail',target='testTasks');wait(lambda:state().get('needsPermission')==1,'details')
      call('capture',target='testTasks');wait(lambda:capture.exists(),'synthetic capture')
-     call('close');wait(lambda:state().get('readers')==0,'closed readers');before=(root/'calls').read_text();time.sleep(.8);assert (root/'calls').read_text()==before
+     call('action',target='testTasks');wait(lambda:(root/'action-pid').exists(),'action running');action_pid=int((root/'action-pid').read_text())
+     call('close');wait(lambda:not Path('/proc',str(action_pid)).exists(),'action cancelled');assert not (root/'action-completed').exists()
+     wait(lambda:state().get('readers')==0,'closed readers');before=(root/'calls').read_text();time.sleep(.8);assert (root/'calls').read_text()==before
      (root/'slow').touch();call('open','HEADLESS-2');time.sleep(.3);call('close');time.sleep(.4);assert not state()['opened'];(root/'slow').unlink()
      call('open','HEADLESS-2');wait(lambda:state().get('opened'),'reopen');(root/'locked').touch();wait(lambda:not state().get('opened'),'lock');(root/'locked').unlink()
      call('open','HEADLESS-2');wait(lambda:state().get('opened'),'before output removal');sway('output','HEADLESS-2','disable');wait(lambda:not state().get('opened'),'output removal')
