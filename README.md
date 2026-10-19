@@ -59,3 +59,5 @@
 统一交互新增旋转键四页导航、白名单按键自定义，以及右上删除手势与语音正文过滤。见[导航模块](modules/window-controls/README-navigation.md)。实体触摸和冷启动另验。
 
 原生代理管理已提供[七页交互原型](docs/mockups/proxy-control-v1/README.md)和[界面规格](docs/superpowers/specs/2026-10-18-proxy-ui-design.md)，覆盖总览、节点、分流及失败恢复演示。全部为模拟数据，尚未实现新的生产代理管理服务。
+
+统一产品体验的新候选见[U1原生设计原型](prototypes/unified-experience/README.md)及[截图/核验](docs/validation/2026-10-19-unified-experience-u1.md)。它是独立演示窗口，不接真实设备、不替换运行桌面。

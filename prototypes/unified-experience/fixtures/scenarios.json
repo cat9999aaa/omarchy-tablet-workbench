@@ -1,0 +1,7 @@
+{
+  "notice": "Synthetic demo scenarios only; no device observations",
+  "normal": {"temperatureLabel":"48 °C", "modelAvailable":false},
+  "stale": {"temperatureLabel":"48 °C", "health":"stale"},
+  "offline": {"network":"离线演示", "modelAvailable":false},
+  "missing-device": {"light":null, "health":"unavailable"}
+}
