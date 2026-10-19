@@ -8,6 +8,33 @@ from run import Check, run_checks, verify_shared_ui, run_python_suite, qml_resul
 
 
 class RunnerTests(unittest.TestCase):
+    def test_c3_checks_required(self):
+        names={c.name for c in checks_for('all')}
+        self.assertTrue({'task-model','task-source','task-process','task-session','task-layout'}<=names)
+
+    def test_c2_navigation_groups_are_required(self):
+        checks={c.name for c in checks_for("all")}
+        self.assertTrue({"navigation", "navigation-read", "navigation-session", "navigation-cancel", "navigation-scope", "navigation-candidate", "navigation-recovery", "navigation-layout", "shared-qml"}<=checks)
+
+    def test_c1_theme_groups_are_required(self):
+        checks={c.name:c for c in checks_for('all')}
+        for name in ('theme-validation','theme-tokens','theme-contrast','theme-sync','theme-surfaces'):
+            self.assertIn(name,checks)
+
+    def test_theme_inputs_affect_digest_but_render_outputs_do_not(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for rel in ('themes/example/colors.toml','scripts/themes/Contrast.js','scripts/workbench-ui/sync.py'):
+                file=root/rel;file.parent.mkdir(parents=True,exist_ok=True)
+                before=source_digest(root);file.write_text('first')
+                self.assertNotEqual(source_digest(root),before,rel)
+                before=source_digest(root);file.write_text('second')
+                self.assertNotEqual(source_digest(root),before,rel)
+            before=source_digest(root)
+            for rel in ('scripts/themes/output/results.json','scripts/themes/output/screen.png','scripts/themes/__pycache__/test.pyc'):
+                file=root/rel;file.parent.mkdir(parents=True,exist_ok=True);file.write_bytes(b'output')
+            self.assertEqual(source_digest(root),before)
+
     def test_skipped_or_empty_python_suite_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp)

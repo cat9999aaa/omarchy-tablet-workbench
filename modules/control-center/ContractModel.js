@@ -17,9 +17,13 @@ function identity(e, id) {
 }
 function touchName(value) { return value === 0 ? "普通触摸" : value === 1 ? "手套／原装笔" : value === 2 ? "笔模式" : "未知" }
 function reading(e, id) {
-    const result = {known:false, value:null, label:"状态暂不可用", bootDefaultLabel:"未知"}
+    const result = {known:false, value:null, label:"状态暂不可用", bootDefaultLabel:"未知", health:"unknown", observedAt:null}
     if (!identity(e, id)) return result
     const s = e.state, value = s.actual, temperature = id === temperatureId
+    result.health = s.health
+    const stamp = s.observed_at
+    if (typeof stamp === "number" && Number.isFinite(stamp) && stamp >= 0
+            && Number.isFinite(new Date(stamp * 1000).getTime())) result.observedAt = stamp
     if (!temperature) result.bootDefaultLabel = touchName(s.boot_default)
     result.label = ({unknown:"未知", error:"读取失败", stale:"待读取", unavailable:"不可用"})[s.health] || "未知"
     const valid = typeof value === "number" && Number.isFinite(value)

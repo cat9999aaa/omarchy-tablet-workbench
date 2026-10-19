@@ -80,12 +80,19 @@ def verify_shared_ui(root, destinations=DESTINATIONS):
 def source_digest(root):
     """Identify source bytes; no machine paths, environment or runtime data in reports."""
     digest = hashlib.sha256()
-    for directory in ('modules', 'scripts/acceptance'):
+    source_roots = {
+        'modules': None, 'scripts/acceptance': None, 'themes': None,
+        'scripts/themes': {'.py', '.js', '.cjs', '.qml'},
+        'scripts/workbench-ui': {'.py', '.md'},
+    }
+    for directory, suffixes in source_roots.items():
         for p in sorted((root / directory).rglob('*')):
             if not p.is_file() or p.is_symlink():
                 continue
             rel = p.relative_to(root)
             if any(part in ('build', 'target', '__pycache__', '.venv') for part in rel.parts):
+                continue
+            if suffixes is not None and p.suffix not in suffixes:
                 continue
             digest.update(str(rel).encode() + b'\0' + p.read_bytes() + b'\0')
     return digest.hexdigest()
@@ -137,7 +144,15 @@ def checks_for(suite):
                    Check('device-observer', 'modules/control-center/device-observer',
                          ['cargo', 'test', '--locked', '--offline'])]
         python_suites = [
+            ('touch-layout','modules/touch-layout','test_*.py'),
+            ('navigation-touch-layout','modules/window-controls','test_touch_layout.py'),
+            ('task-model','modules/window-controls','test_task_model.py'),
+            ('task-config','modules/window-controls','test_task_config.py'),
+            ('task-source','modules/window-controls','test_task_source.py'),
+            ('task-process','modules/window-controls','test_task_process.py'),
             ('acceptance-runner', 'scripts/acceptance', 'test_runner.py'),
+            ('theme-validation', 'scripts/themes', 'test_*.py'),
+            ('theme-sync', 'scripts/workbench-ui', 'test_sync.py'),
             ('network', 'modules/network-center', 'test_*.py'),
             ('control', 'modules/control-center', 'test_*.py'),
             ('battery', 'modules/battery-manager/recorder', 'tests/test_*.py'),
@@ -148,6 +163,11 @@ def checks_for(suite):
             ('arcade-catalog', 'modules/offline-arcade/catalog', 'test_*.py'),
             ('ime-control', 'modules/touch-ime-prototype', 'tests/test_control.py'),
             ('navigation', 'modules/window-controls', 'test_navigation.py'),
+            ('navigation-read', 'modules/window-controls', 'test_navigation_read.py'),
+            ('navigation-cancel', 'modules/window-controls', 'test_navigation_cancel.py'),
+            ('navigation-scope', 'modules/window-controls', 'test_navigation_scope.py'),
+            ('navigation-candidate', 'modules/window-controls', 'test_navigation_candidate.py'),
+            ('navigation-recovery', 'modules/window-controls', 'test_navigation_recovery.py'),
             ('edge-menu', 'modules/edge-gestures', 'test_menu.py'),
         ]
         for name, directory, pattern in python_suites:
@@ -155,6 +175,8 @@ def checks_for(suite):
             checks.append(Check(name, directory, [sys.executable, __file__, '--python-suite',
                                 str(p.parent), p.name]))
         for name, directory, file in [
+            ('task-session', 'window-controls', 'test-task-session.cjs'),
+            ('navigation-session', 'window-controls', 'test-navigation-session.cjs'),
             ('control-model', 'control-center', 'test-model.cjs'),
             ('contract-model', 'control-center', 'test-contract-model.cjs'),
             ('output-route', 'control-center', 'test-output-route.cjs'),
@@ -163,29 +185,43 @@ def checks_for(suite):
             ('battery-history', 'battery-manager/panel', 'test_history.js'),
             ('battery-icon', 'battery-manager/panel', 'test_icon.js'),
             ('shared-model', 'workbench-ui', 'test-model.cjs'),
+            ('theme-tokens', 'workbench-ui', 'test-theme.cjs'),
             ('edge-gesture', 'edge-gestures', 'test-gesture.cjs'),
+            ('edge-policy', 'edge-gestures', 'test-edge-policy.cjs'),
         ]:
             checks.append(Check(name, 'modules/' + directory, ['node', file]))
+        checks.append(Check('theme-contrast', 'scripts/themes', ['node', 'test-contrast.cjs']))
     if suite in ('all', 'qml'):
         runner = shutil.which('qmltestrunner') or next(
             (p for p in ('/usr/lib/qt6/bin/qmltestrunner', '/usr/lib/qt6/qmltestrunner')
              if Path(p).is_file()), 'qmltestrunner')
+        checks.append(Check('edge-input', 'modules/edge-gestures',
+                            [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('control-layout', 'modules/control-center',
                             [sys.executable, 'check_panel_layout.py']))
         checks.append(Check('contract-qml', 'modules/control-center',
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('shared-qml', 'modules/workbench-ui',
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
+        checks.append(Check('task-layout', 'modules/window-controls', [sys.executable, 'test_task_layout.py']))
         checks.append(Check('navigation-layout', 'modules/window-controls',
                             [sys.executable, 'test_navigation_layout.py']))
         checks.append(Check('ime-layout', 'modules/touch-ime-prototype',
                             [sys.executable, 'tests/test_layout.py']))
+        checks.append(Check('theme-surfaces', '.',
+                            [sys.executable, 'scripts/themes/check_status_surfaces.py']))
+    if suite == 'native-host':
+        checks += [Check(name, '.', [sys.executable, path]) for name, path in [
+            ('bar-layout', 'modules/touch-layout/check_bar_layout.py'),
+            ('device-entry', 'modules/touch-layout/check_device_entry.py'),
+            ('edge-layers', 'modules/edge-gestures/check_layers.py'),
+            ('navigation-native', 'modules/window-controls/check_navigation_session.py')]]
     return checks
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', choices=('models', 'qml', 'all'), default='all')
+    parser.add_argument('--suite', choices=('models', 'qml', 'all', 'native-host'), default='all')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--verify-copies', action='store_true')
     parser.add_argument('--python-suite', nargs=2, help=argparse.SUPPRESS)

@@ -1,0 +1,19 @@
+{
+  "name": "DASHEN Overdrive",
+  "id": "dashen-overdrive",
+  "original": true,
+  "license": "GPL-3.0-only",
+  "assets": {
+    "backgrounds": [],
+    "fonts": [],
+    "runtime_dependencies": []
+  },
+  "references_not_dependencies": [
+    "https://www.pedrofleming.com/neongenesisevangelion"
+  ],
+  "compatibility_sources": {
+    "shell.toml.tpl": "bdc8e76a5a9a700adaca0d2fa44a2a340584892fd507e3fcbd4f9a4843765242",
+    "Color.qml": "cc9b62e2eaf8c307aa02206d9320c3d0ca349cf8feed452a6eddf387adaa5320",
+    "omarchy-theme-set": "2356e6e19656fcc67aa345fc46352a310945e54146706c039bf92a7bd3b3fb5a"
+  }
+}

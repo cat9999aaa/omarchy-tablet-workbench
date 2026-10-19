@@ -1,0 +1,125 @@
+"""Actual entry and pinned official MouseArea; synthetic palette services only."""
+from pathlib import Path
+import hashlib
+import json
+import re
+import os
+import subprocess
+import tempfile
+from layout_probe import block
+from bar_compat import patched
+
+here=Path(__file__).resolve().parent
+official=Path(os.environ.get('U2B_OFFICIAL_ROOT','/official'))
+button=(official/'Ui/WidgetButton.qml').read_text()
+pins=json.loads((here/'host-source.json').read_text())
+assert hashlib.sha256(button.encode()).hexdigest()==pins['Ui/WidgetButton.qml']
+entry=(here.parent/'control-center/DeviceEntry.qml').read_text()
+with tempfile.TemporaryDirectory(prefix='device-entry-') as temp:
+    root=Path(temp);commons=root/'Commons';commons.mkdir()
+    (root/'DeviceEntry.qml').write_text(entry.replace('import qs.Ui as Ui','import "." as Ui').replace('import qs.Commons','import "Commons"'))
+    (root/'WidgetButton.qml').write_text(button.replace('import qs.Commons','import "Commons"'))
+    (commons/'qmldir').write_text('module Commons\nsingleton Style 1.0 Style.qml\nsingleton Color 1.0 Color.qml\n')
+    (commons/'Style.qml').write_text('pragma Singleton\nimport QtQuick\nQtObject {property var font:({body:12,family:"sans-serif"});property var bar:({sizeHorizontal:26});function spaceReal(n){return n} function space(n){return n}}')
+    (commons/'Color.qml').write_text('pragma Singleton\nimport QtQuick\nQtObject {property var shellValues:({});property color foreground:"white";property color urgent:"orange"}')
+    test_qml='''import QtQuick
+import QtTest
+import QtQuick.Window
+import "Commons"
+TestCase {
+ id:root;visible:true;when:windowShown;name:"ActualDeviceEntry";width:300;height:200
+ property int calls:0
+ property int dragStarts:0
+ property var attachedScreen:screen1
+ QtObject {id:screen1;property int width:800;property int height:600;property real devicePixelRatio:1}
+ QtObject {id:screen2;property int width:800;property int height:600;property real devicePixelRatio:1}
+ property var hostScreen:null
+ property var shell:null
+ QtObject {id:reorderShell;function mutateShellConfig(){}}
+ property var barDragWindow:null
+ property var barDragScreen:null
+ property var barDragSource:null
+ property var barDragTargetGeometry:null
+ property real barDragOffsetX:0
+ property real barDragOffsetY:0
+ property real barDragSceneX:0
+ property real barDragSceneY:0
+ property real barDragScreenX:0
+ property real barDragScreenY:0
+ function captureBarDragGhost(slot){root.dragStarts++}
+ function hideTooltip(item){}
+ function barDragScreenPoint(point){return point}
+ function moduleDropAtScene(point,slot){return null}
+ function dropMarkerRect(slot,after){return null}
+ function dropBarModuleAtTarget(slot,target,after){}
+ property var barDragTarget:null
+ property bool barDragAfter:false
+ function clearBarDrag(){}
+ function moduleClickTargetAt(slot,x,y){return entry}
+ function pressModuleClickTarget(slot,button,x,y){if(typeof entry.triggerPress!=="function")return false;entry.triggerPress(button);return true}
+ function targetWindow(item){return null}
+ QtObject {id:bar;property int barSize:56;property bool vertical:false;property string fontFamily:"sans-serif";property color barForeground:"white";property color urgent:"orange";property bool foregroundAnimationEnabled:false;function hideTooltip(item){} function showTooltip(item,text){} function registerClickTarget(item){} function unregisterClickTarget(item){}}
+ Item {id:slot;width:entry.width;height:entry.height;property var activeItem:entry
+ DeviceEntry {id:entry;bar:bar;width:Math.max(48,implicitWidth);height:bar.barSize;contextKey:CONTEXT_BINDING;onActivated:root.calls++}
+ HOST_POINTER
+ }
+ Item {id:actualPanel;x:100;y:100;width:56;height:56
+ PANEL_STATE_DECLARATION
+ DeviceEntry {id:mountedEntry;anchors.fill:parent;bar:bar}
+ }
+ function test_actual_panel_mount(){compare(mountedEntry.parent,actualPanel);verify(mountedEntry.Window.window!==null);var point=mountedEntry.mapToItem(root,0,0);compare(point.x,100);compare(point.y,100)}
+ function init(){root.shell=null;bar.barSize=56;root.attachedScreen=screen1;calls=0;dragStarts=0;wait(1)}
+ function test_visible_label(){
+  var visual=entry.contentItem
+  compare(visual.text,"设备");verify(visual.visible);verify(visual.opacity>0.9)
+  verify(visual.width>0);verify(visual.height>0)
+  var label=visual.children[0];compare(label.text,"设备");verify(label.visible)
+  verify(label.width>0);verify(label.height>0)
+  var point=label.mapToItem(entry,0,0);verify(point.x>=0&&point.y>=0)
+  verify(point.x+label.width<=entry.width&&point.y+label.height<=entry.height)
+ }
+ function test_touch_small_motion_with_reorder(){
+  root.shell=reorderShell
+  var touch=touchEvent(entry)
+  touch.press(0,entry,24,28).commit();wait(20)
+  touch.move(0,entry,30,28).commit();wait(20)
+  touch.release(0,entry,30,28).commit();wait(20)
+  compare(calls,1,"a short in-target touch with six-pixel motion must remain a tap")
+ }
+ function test_mouse_reorder_precision_preserved(){
+  root.shell=reorderShell
+  mousePress(entry,24,28);mouseMove(entry,30,28);mouseRelease(entry,30,28)
+  compare(dragStarts,1);compare(calls,0)
+ }
+ function test_touch_long_motion_is_drag(){
+  root.shell=reorderShell
+  var touch=touchEvent(entry)
+  touch.press(0,entry,10,28).commit();wait(20)
+  touch.move(0,entry,40,28).commit();wait(20)
+  touch.release(0,entry,40,28).commit();wait(20)
+  compare(dragStarts,1);compare(calls,0)
+ }
+ function test_touch_identity_change_cancels(){
+  root.shell=reorderShell
+  var touch=touchEvent(entry)
+  touch.press(0,entry,24,28).commit();wait(20)
+  Color.shellValues={touchTheme:true};wait(1)
+  touch.release(0,entry,24,28).commit();wait(20)
+  compare(calls,0)
+ }
+ function test_centers_and_edges(){for(const p of [[24,28],[1,28],[47,28],[24,1],[24,55]]){mousePress(entry,p[0],p[1]);mouseRelease(entry,p[0],p[1]);}compare(calls,5)}
+ function test_resize_cancels(){mousePress(entry,24,20);bar.barSize=70;wait(1);mouseRelease(entry,24,20);compare(calls,0)}
+ function test_output_geometry_cancels(){mousePress(entry,24,20);screen1.width+=1;wait(1);mouseRelease(entry,24,20);compare(calls,0)}
+ function test_identity_cancels(){mousePress(entry,24,20);root.attachedScreen=screen2;wait(1);mouseRelease(entry,24,20);compare(calls,0)}
+ function test_drag_out_cancels(){mousePress(entry,24,20);mouseMove(entry,200,150);mouseRelease(entry,200,150);compare(calls,0)}
+ function test_theme_change_cancels(){mousePress(entry,24,20);Color.shellValues={newTheme:true};wait(1);mouseRelease(entry,24,20);compare(calls,0)}
+ function test_keyboard_once(){entry.forceActiveFocus();keyClick(Qt.Key_Return);compare(calls,1)}
+ function test_compact_height(){bar.barSize=26;wait(1);compare(entry.implicitHeight,26)}
+}
+'''
+    panel=(here.parent/'control-center/Panel.qml').read_text()
+    binding=block(panel,' DeviceEntry { id:barButton').split('contextKey:',1)[1].split(';',1)[0]
+    pointer=block(patched((official/'Touch/Bar.qml').read_text()),'    MouseArea {\n      id: modulePointer')
+    (root/'tst_entry.qml').write_text(test_qml.replace('HOST_POINTER',pointer).replace('CONTEXT_BINDING',binding).replace('PANEL_STATE_DECLARATION',re.search(r' property var (?:data|statusData): \(\{\}\)',panel).group(0)))
+    result=subprocess.run(['/usr/lib/qt6/bin/qmltestrunner','-input',str(root/'tst_entry.qml')],capture_output=True,text=True,timeout=20)
+    print(result.stdout+result.stderr);raise SystemExit(result.returncode)

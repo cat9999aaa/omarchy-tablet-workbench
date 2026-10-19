@@ -24,7 +24,7 @@ jobs:
       - name: Install test-only Qt dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends qt6-declarative-dev-tools libudev-dev \
+          sudo apt-get install -y --no-install-recommends qt6-declarative-dev-tools libudev-dev gdb \
             qml6-module-qttest qml6-module-qtquick qml6-module-qtquick-controls \
             qml6-module-qtquick-templates qml6-module-qtquick-layouts \
             qml6-module-qtquick-window qml6-module-qtqml-workerscript
@@ -38,6 +38,14 @@ jobs:
           chmod 700 "$XDG_RUNTIME_DIR"
           unset DBUS_SESSION_BUS_ADDRESS DISPLAY WAYLAND_DISPLAY
           python3 scripts/acceptance/run.py --output "$RUNNER_TEMP/workbench-acceptance"
+      - name: Capture shared QML crash backtrace
+        if: failure()
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+        run: |
+          unset DBUS_SESSION_BUS_ADDRESS DISPLAY WAYLAND_DISPLAY
+          timeout 45s gdb --batch -ex 'set pagination off' -ex run -ex 'thread apply all bt' --args /usr/lib/qt6/bin/qmltestrunner -input modules/workbench-ui/tests/tst_presentation.qml > "$RUNNER_TEMP/workbench-acceptance/shared-qml-backtrace.log" 2>&1
       - name: Keep software acceptance evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

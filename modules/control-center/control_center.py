@@ -153,10 +153,11 @@ def run(args):
 
 def prepare_open():
     if read_lock() is not False:return False
-    # Hide both implementations, then verify neither layer is still mapped.
-    for cmd in [['omarchy-shell','omtInput','hide'],[str(Path.home()/'.local/bin/pcadmin-keyboard'),'hide']]:
-        try:subprocess.run(cmd,capture_output=True,timeout=3)
-        except (OSError,subprocess.SubprocessError):pass
+    # The retired command name aliases this same native panel. Hide it once.
+    try:
+        hidden=subprocess.run(['omarchy-shell','omtInput','hide'],capture_output=True,timeout=3)
+        if hidden.returncode != 0:return False
+    except (OSError,subprocess.SubprocessError):return False
     for _ in range(8):
         try:
             data=json.loads(subprocess.check_output(['hyprctl','layers','-j'],text=True,timeout=2))

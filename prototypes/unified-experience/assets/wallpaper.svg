@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<!-- SPDX-License-Identifier: GPL-3.0-only. Original geometry for DASHEN, no external assets. -->
+<defs><pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M80 0H0V80" fill="none" stroke="#65746c" stroke-width="1" opacity=".12"/></pattern></defs>
+<rect width="1920" height="1080" fill="#101518"/><rect width="1920" height="1080" fill="url(#grid)"/>
+<g fill="none" stroke="#c78032"><path d="M1100 0V170L1300 370V710L1100 910V1080" stroke-width="2" opacity=".5"/><path d="M1160 0V140L1370 350V730L1160 940V1080" stroke-width="12" opacity=".12"/>
+<path d="M1440 180H1720L1840 300V780L1720 900H1440L1320 780V300Z" stroke-width="3" opacity=".65"/><path d="M1490 260H1680L1760 340V740L1680 820H1490L1410 740V340Z" stroke-width="1" opacity=".4"/>
+<path d="M1535 340H1635L1695 400V680L1635 740H1535L1475 680V400Z" stroke-width="18" opacity=".1"/>
+<path d="M1380 540H1780M1580 140V940" opacity=".3"/><circle cx="1580" cy="540" r="145" opacity=".25"/>
+</g><g fill="#f7b34b"><path d="M1880 60H1900V260H1880ZM1880 280H1900V330H1880Z"/><path d="M60 1010H400V1014H60ZM420 1010H460V1014H420Z" opacity=".6"/></g>
+</svg>

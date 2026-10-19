@@ -11,6 +11,7 @@ Item {
     id: hub
     default property alias wifiContent: wifiSlot.data
     signal closeRequested()
+    property var themeTokens:null
     property bool opened: false
     property real observedAt: 0
     property real now: Date.now()/1000
@@ -56,8 +57,9 @@ Item {
     Process { id:poll;command:["/usr/bin/python",hub.helper,"status"];stdout:SplitParser {onRead:line=>{try{const d=JSON.parse(line);if(!d || d.ok===false || !d.policy)throw new Error("invalid snapshot");hub.state=d;hub.observedAt=Date.now()/1000;hub.now=hub.observedAt}catch(e){hub.observedAt=0;hub.feedback="状态读取失败，等待重试"}}} }
     Process { id:action;stdout:SplitParser {onRead:line=>{try{let d=JSON.parse(line);hub.feedback=d.message || "检测已更新"}catch(e){hub.feedback="操作未完成"}}}onExited:hub.refresh() }
     Process {id:entertainment;command:["omarchy-shell","pcadmin.controlCenter","open"]}
-    component Label: Text {color:Color.foreground;font.family:Style.font.family;font.pixelSize:14;wrapMode:Text.Wrap;width:parent.width}
+    component Label: Text {color:Color.foreground;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;wrapMode:Text.Wrap;width:parent.width}
     WB.PanelBody {
+        themeTokens:hub.themeTokens
         id:body;anchors.fill:parent;title:"网络中心";foreground:Color.foreground;accent:Color.accent;fontFamily:Style.font.family
         onCloseRequested:hub.closeRequested()
         Column {width:parent.width;spacing:8
@@ -68,35 +70,35 @@ Item {
             }
         }
         GridLayout {width:parent.width;columns:3;columnSpacing:6
-            WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;Layout.fillWidth:true;bordered:true;enabled:hub.stateReady&&!hub.busy&&!hub.state.flight_saved;text:"自动选网";selected:(hub.state.policy || {}).mode==="auto";onClicked:hub.act("auto-mode")}
-            WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;Layout.fillWidth:true;bordered:true;enabled:hub.stateFresh&&!hub.busy;text:hub.state.flight_saved?"退出飞行模式":"飞行模式…";onClicked:{if(hub.state.flight_saved)hub.act("flight-off");else hub.confirmFlight=!hub.confirmFlight}}
-            WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;Layout.fillWidth:true;bordered:true;enabled:hub.stateReady&&!hub.busy&&!hub.state.flight_saved;text:"检测网络";onClicked:hub.act("health")}
+            WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;Layout.fillWidth:true;bordered:true;enabled:hub.stateReady&&!hub.busy&&!hub.state.flight_saved;text:"自动选网";selected:(hub.state.policy || {}).mode==="auto";onClicked:hub.act("auto-mode")}
+            WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;Layout.fillWidth:true;bordered:true;enabled:hub.stateFresh&&!hub.busy;text:hub.state.flight_saved?"退出飞行模式":"飞行模式…";onClicked:{if(hub.state.flight_saved)hub.act("flight-off");else hub.confirmFlight=!hub.confirmFlight}}
+            WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;Layout.fillWidth:true;bordered:true;enabled:hub.stateReady&&!hub.busy&&!hub.state.flight_saved;text:"检测网络";onClicked:hub.act("health")}
         }
         Column {width:parent.width;visible:hub.confirmFlight;spacing:6
             Label {text:"关闭 Wi-Fi、4G 射频、蓝牙和网络连接，进入离线娱乐。蓝牙外设断开；退出后恢复原开关。"}
             GridLayout {width:parent.width;columns:2;columnSpacing:6
-                WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;Layout.fillWidth:true;bordered:true;text:"确认开启";onClicked:{hub.confirmFlight=false;hub.act("flight-on")}}
-                WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;Layout.fillWidth:true;bordered:true;text:"取消";onClicked:hub.confirmFlight=false}
+                WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;Layout.fillWidth:true;bordered:true;text:"确认开启";onClicked:{hub.confirmFlight=false;hub.act("flight-on")}}
+                WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;Layout.fillWidth:true;bordered:true;text:"取消";onClicked:hub.confirmFlight=false}
             }
         }
         Label {visible:!!hub.state.flight_saved;text:hub.state.flight_active===true?"飞行娱乐 · 无线关闭已确认":(hub.state.flight_error || "无线状态待确认");color:Color.accent}
-        WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;visible:!!hub.state.flight_saved;width:parent.width;bordered:true;text:"打开离线娱乐";onClicked:entertainment.running=true}
+        WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;visible:!!hub.state.flight_saved;width:parent.width;bordered:true;text:"打开离线娱乐";onClicked:entertainment.running=true}
         GridLayout {width:parent.width;columns:3;columnSpacing:6;rowSpacing:6
             Repeater {model:[{key:"wifi",name:"Wi-Fi"},{key:"cell",name:"4G"},{key:"local",name:"有线／本地"},{key:"zero",name:"ZeroTier"},{key:"proxy",name:"V2Ray"},{key:"gps",name:"GPS"}]
-                WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;required property var modelData;Layout.fillWidth:true;bordered:true;selected:hub.selectedTab===modelData.key;text:modelData.name;onClicked:{hub.selectedTab=modelData.key;hub.feedback="";body.contentY=0}}
+                WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;required property var modelData;Layout.fillWidth:true;bordered:true;selected:hub.selectedTab===modelData.key;text:modelData.name;onClicked:{hub.selectedTab=modelData.key;hub.feedback="";body.contentY=0}}
             }
         }
         Ui.PanelSeparator {foreground:Color.foreground}
     }
         Column {id:content;width:parent.width;spacing:12
-            Label {text:hub.page.title;font.pixelSize:18;font.bold:true}
+            Label {text:hub.page.title;font.pixelSize:hub.themeTokens?hub.themeTokens.font.title:18;font.bold:true}
             Rectangle {width:parent.width;height:Style.space(48);radius:6;color:"transparent";border.width:1;border.color:Color.foreground
-                Text {anchors.fill:parent;anchors.margins:10;text:hub.page.status;color:Color.accent;font.family:Style.font.family;font.pixelSize:15;wrapMode:Text.Wrap;verticalAlignment:Text.AlignVCenter}
+                Text {anchors.fill:parent;anchors.margins:10;text:hub.page.status;color:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:15;wrapMode:Text.Wrap;verticalAlignment:Text.AlignVCenter}
             }
             Label {text:hub.page.info}
             GridLayout {width:parent.width;columns:2;columnSpacing:8;rowSpacing:8
                 Repeater {model:hub.page.actions
-                    WB.TouchButton {foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:14;required property var modelData;Layout.fillWidth:true;bordered:true;enabled:hub.stateFresh && !hub.busy && !hub.state.flight_saved && modelData.enabled;text:modelData.text;onClicked:hub.act(modelData.op)}
+                    WB.TouchButton {themeTokens:hub.themeTokens;foreground:Color.foreground;accent:Color.accent;font.family:Style.font.family;font.pixelSize:hub.themeTokens?hub.themeTokens.font.body:14;required property var modelData;Layout.fillWidth:true;bordered:true;enabled:hub.stateFresh && !hub.busy && !hub.state.flight_saved && modelData.enabled;text:modelData.text;onClicked:hub.act(modelData.op)}
                 }
             }
             Label {text:hub.page.hint;opacity:0.7}
