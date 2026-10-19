@@ -114,7 +114,9 @@ SECTIONS
 '''
         qml=qml.replace('SLOT_WIDTH',NEW).replace('VIEW_WIDTH',str(viewport[0])).replace('CONFIG',json.dumps(config)).replace('THEME_TEXT',json.dumps(theme_text if theme_text is not None else '[font]\nbase-size = '+str(round(12*font_scale))+'\n[bar]\n'+('size-horizontal = 56\nicon-slot = 48\n' if profile=='touch' else ''))).replace('SECTIONS',sections).replace('DEVICE_ENTRY',device)
         (path/'shell.qml').write_text(qml)
-        env={**os.environ,'HOME':str(path/'home'),'QT_QPA_PLATFORM':'offscreen','QT_QUICK_BACKEND':'software'}
+        runtime=path/'runtime';runtime.mkdir(mode=0o700)
+        env={**os.environ,'HOME':str(path/'home'),'XDG_RUNTIME_DIR':str(runtime),
+             'QT_QPA_PLATFORM':'offscreen','QT_QPA_PLATFORMTHEME':'','QT_QUICK_BACKEND':'software'}
         for key in ('WAYLAND_DISPLAY','DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE'):env.pop(key,None)
         result=subprocess.run(['qs','-p',str(path/'shell.qml')],capture_output=True,text=True,env=env,timeout=8)
         output=result.stdout+result.stderr

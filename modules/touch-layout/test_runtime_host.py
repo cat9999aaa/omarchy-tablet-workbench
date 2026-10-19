@@ -5,6 +5,23 @@ from unittest.mock import patch
 from runtime_host import Host
 
 class RuntimeVerification(unittest.TestCase):
+    def test_matching_font_override_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);config=home/'.config/omarchy/shell.toml';config.parent.mkdir(parents=True)
+            theme=home/'.local/state/omarchy/current/theme';theme.mkdir(parents=True)
+            (theme.parent/'theme.name').write_text('dashen-overdrive')
+            (theme/'colors.toml').write_text('foreground="#ffffff"')
+            (theme/'shell.toml').write_text('[bar]\nsize-horizontal=26\n')
+            config.write_text('[font]\nbase-size=12\n')
+            def command(args):
+                if args[0]=='hyprctl':return '[{"name":"test","scale":1,"width":1536,"height":864}]'
+                if args[-1]=='isLocked':return 'false'
+                return '{"bar":{"id":"test.bar","position":"bottom"}}'
+            with patch('runtime_host.command',side_effect=command):
+                self.assertEqual(Host(home).context()['viewport'],[1536,864])
+                self.assertEqual(config.read_text(),'[font]\nbase-size=12\n')
+                config.write_text('[font]\nbase-size=15\n')
+                with self.assertRaises(ValueError):Host(home).context()
     def test_active_versioned_bar_entry(self):
         with tempfile.TemporaryDirectory() as temp:
             home=Path(temp);plugin=home/'.config/omarchy/plugins/test.bar'

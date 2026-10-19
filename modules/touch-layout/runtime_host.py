@@ -47,7 +47,14 @@ class Host:
         override=self.home/'.config/omarchy/shell.toml'
         raw=override.read_bytes() if override.exists() else b''
         values=tomllib.loads(raw.decode())
-        if values.get('bar') or values.get('font'):raise ValueError('user-dimension-overrides')
+        if values.get('bar'):raise ValueError('user-dimension-overrides')
+        # A matching explicit font does not alter the theme geometry. Preserve it.
+        font_override=values.get('font',{})
+        if font_override:
+            active=tomllib.loads((self.home/'.local/state/omarchy/current/theme/shell.toml').read_text())
+            expected=active.get('font',{}).get('base-size',12)
+            if set(font_override)!={'base-size'} or type(font_override['base-size']) is not int or font_override['base-size']!=expected:
+                raise ValueError('user-dimension-overrides')
         return {'theme':theme,'position':bar.get('position'),'output':monitor['name'],'viewport':viewport,'bar_id':bar_id,'layout_hash':sha(json.dumps(bar,sort_keys=True).encode()),'override_hash':sha(raw),'palette_hash':sha((self.home/'.local/state/omarchy/current/theme/colors.toml').read_bytes())}
     def geometry(self):
         rows=json.loads(command(['omarchy-shell','shell','debugBarGeometry']))
