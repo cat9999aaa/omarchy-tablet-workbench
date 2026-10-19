@@ -15,14 +15,14 @@ class CandidateTests(unittest.TestCase):
  def test_complete_candidate_and_helper_tamper(self):
   out=self.root/'candidate';self.module.build(self.source,out)
   receipt=self.module.verify(out)
-  self.assertEqual(receipt['version'],'0.1.4')
-  self.assertEqual(set(receipt['helpers']),{'navigation.py','navigation_read.py'})
+  self.assertEqual(receipt['version'],'0.1.5')
+  self.assertEqual(set(receipt['helpers']),{'navigation.py','navigation_read.py','task_model.py','task_source.py','tasks.py'})
   self.assertTrue((out/'bundle/files/NavigationSession.js').is_file())
   self.assertFalse((out/'bundle/files/test_navigation.py').exists())
   (out/'helpers/navigation_read.py').write_text('changed')
   with self.assertRaises(ValueError):self.module.verify(out)
  def test_missing_any_runtime_import_refuses_package(self):
-  names=['NavigationSession.js','navigation_read.py',*['Workbench/'+n for n in self.module.SHARED]]
+  names=['TaskCenter.qml','TaskSession.js','tasks.py','task_source.py','task_model.py','NavigationSession.js','navigation_read.py',*['Workbench/'+n for n in self.module.SHARED]]
   for index,name in enumerate(names):
    with self.subTest(name=name):
     path=self.source/name;original=path.read_bytes();path.unlink()
