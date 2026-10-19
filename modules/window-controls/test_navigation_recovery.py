@@ -25,7 +25,7 @@ class RecoveryRehearsal(unittest.TestCase):
   self.receipt=self.candidate.verify(self.package)
   self.plugins=self.home/'.config/omarchy/plugins';self.plugin=self.plugins/'pcadmin.navigation'
   self.plugin.mkdir(parents=True)
-  self.old={**self.release.manifest(self.package/'bundle/manifest.json'),'version':'0.1.2'}
+  self.old={**self.release.manifest(self.package/'bundle/manifest.json'),'version':'0.1.3'}
   (self.plugin/'manifest.json').write_text(json.dumps(self.old))
   (self.plugin/'Navigation.qml').write_text('import QtQuick\nItem {}\n')
   self.old_manifest=(self.plugin/'manifest.json').read_bytes()
@@ -73,12 +73,26 @@ class RecoveryRehearsal(unittest.TestCase):
  def test_upgrade_and_inverse_recovery_preserve_preferences_modes_and_absence(self):
   transaction=self.prepare();self.rollback_ui(transaction)
   self.assertEqual(set(self.restore_helpers().values()),{'restored'})
-  self.assertEqual(self.events,['helpers-prepared','ui-0.1.4','ui-0.1.2','helpers-restored'])
+  self.assertEqual(self.events,['helpers-prepared','ui-0.1.5','ui-0.1.3','helpers-restored'])
   self.assertEqual((self.plugin/'manifest.json').read_bytes(),self.old_manifest)
   self.assertEqual((self.helpers/'navigation.py').read_bytes(),self.backup['navigation.py'][0])
   self.assertEqual((self.helpers/'navigation.py').stat().st_mode&0o777,0o750)
   self.assertFalse((self.helpers/'navigation_read.py').exists())
   self.assertEqual(self.preference.read_bytes(),b'{"rotation":"windows"}\n')
+ def test_recovery_from_014_with_new_task_config(self):
+  import task_config
+  self.old['version']='0.1.4';(self.plugin/'manifest.json').write_text(json.dumps(self.old));self.old_manifest=(self.plugin/'manifest.json').read_bytes()
+  path=self.home/'.config/omarchy-tablet-workbench/task-center.json';project=self.home/'project';project.mkdir()
+  receipt=task_config.prepare(path,project)
+  transaction=self.prepare();self.rollback_ui(transaction);self.restore_helpers()
+  self.assertTrue(task_config.restore(path,receipt));self.assertFalse(path.exists())
+  self.assertEqual((self.plugin/'manifest.json').read_bytes(),self.old_manifest)
+ def test_config_restore_after_publisher_rejects_candidate(self):
+  import task_config
+  path=self.home/'.config/omarchy-tablet-workbench/task-center.json';project=self.home/'project';project.mkdir();receipt=task_config.prepare(path,project)
+  (self.package/'bundle/files/TaskCenter.qml').write_text('tampered')
+  with self.assertRaises(self.release.ReleaseError):self.manager.apply(self.package/'bundle','pcadmin.navigation','navigation')
+  self.assertTrue(task_config.restore(path,receipt));self.assertFalse(path.exists());self.assertEqual((self.plugin/'manifest.json').read_bytes(),self.old_manifest)
  def test_helper_edit_after_ui_rollback_is_preserved(self):
   transaction=self.prepare();self.rollback_ui(transaction)
   (self.helpers/'navigation_read.py').write_bytes(b'# concurrent user edit\n')

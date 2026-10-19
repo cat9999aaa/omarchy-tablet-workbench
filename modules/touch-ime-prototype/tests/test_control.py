@@ -3,21 +3,23 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-path=Path(__file__).resolve().parents[1]/'control.py'
-spec=importlib.util.spec_from_file_location('control',path)
+spec=importlib.util.spec_from_file_location('ime_entry',Path(__file__).resolve().parents[1]/'control.py')
 control=importlib.util.module_from_spec(spec);spec.loader.exec_module(control)
 
 class ControlTest(unittest.TestCase):
-    def test_locked_session_never_opens_desktop_keyboard(self):
-        with patch.object(control,'output',return_value='true'), patch.object(control,'execute') as execute:
-            control.main();execute.assert_not_called()
-    def test_native_hides_old_panel_first(self):
-        with patch.object(control,'output',side_effect=['false','true']), patch.object(control,'old_visible',return_value=True), patch.object(control,'execute',return_value=True) as execute:
+    def test_locked_or_unknown_never_attempts_toggle(self):
+        for state in ('true', '', 'unexpected'):
+            with self.subTest(state=state), patch.object(control,'output',side_effect=[state,'true','{}']), patch.object(control,'execute') as execute:
+                control.main();execute.assert_not_called()
+    def test_ready_native_has_only_one_action(self):
+        with patch.object(control,'output',side_effect=['false','true','{}']) as output, patch.object(control,'execute',return_value=True) as execute:
             control.main()
-            self.assertEqual(execute.call_args_list[0].args[0][-1],'hide')
-            self.assertEqual(execute.call_args_list[1].args[0],['omarchy-shell','omtInput','toggle'])
-    def test_native_failure_never_launches_old_keyboard(self):
-        with patch.object(control,'output',side_effect=['false','false']),patch.object(control,'execute',return_value=True) as execute:
-            control.main();self.assertFalse(any(call.args[0][0]==control.OLD and call.args[0][-1]=='toggle' for call in execute.call_args_list))
+            self.assertEqual(output.call_count,2)
+            self.assertEqual([c.args[0] for c in execute.call_args_list],[['omarchy-shell','omtInput','toggle']])
+    def test_not_ready_notifies_without_fallback(self):
+        with patch.object(control,'output',side_effect=['false','false']), patch.object(control,'execute',return_value=True) as execute:
+            control.main()
+            self.assertEqual(execute.call_count,1)
+            self.assertEqual(execute.call_args.args[0][0],'notify-send')
 
 if __name__=='__main__':unittest.main()

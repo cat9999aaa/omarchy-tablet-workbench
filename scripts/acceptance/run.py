@@ -144,6 +144,10 @@ def checks_for(suite):
                    Check('device-observer', 'modules/control-center/device-observer',
                          ['cargo', 'test', '--locked', '--offline'])]
         python_suites = [
+            ('task-model','modules/window-controls','test_task_model.py'),
+            ('task-config','modules/window-controls','test_task_config.py'),
+            ('task-source','modules/window-controls','test_task_source.py'),
+            ('task-process','modules/window-controls','test_task_process.py'),
             ('acceptance-runner', 'scripts/acceptance', 'test_runner.py'),
             ('theme-validation', 'scripts/themes', 'test_*.py'),
             ('theme-sync', 'scripts/workbench-ui', 'test_sync.py'),
@@ -169,6 +173,7 @@ def checks_for(suite):
             checks.append(Check(name, directory, [sys.executable, __file__, '--python-suite',
                                 str(p.parent), p.name]))
         for name, directory, file in [
+            ('task-session', 'window-controls', 'test-task-session.cjs'),
             ('navigation-session', 'window-controls', 'test-navigation-session.cjs'),
             ('control-model', 'control-center', 'test-model.cjs'),
             ('contract-model', 'control-center', 'test-contract-model.cjs'),
@@ -193,6 +198,7 @@ def checks_for(suite):
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('shared-qml', 'modules/workbench-ui',
                             [sys.executable, __file__, '--qml-suite', runner, 'tests']))
+        checks.append(Check('task-layout', 'modules/window-controls', [sys.executable, 'test_task_layout.py']))
         checks.append(Check('navigation-layout', 'modules/window-controls',
                             [sys.executable, 'test_navigation_layout.py']))
         checks.append(Check('ime-layout', 'modules/touch-ime-prototype',

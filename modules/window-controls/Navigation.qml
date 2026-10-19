@@ -17,6 +17,7 @@ Item {
  readonly property string feedback:session.feedback
  readonly property bool busy:session.phase==="acting"
  readonly property string helper:Quickshell.env("PCADMIN_NAVIGATION_HELPER") || Quickshell.env("HOME")+"/Projects/pcadmin/tools/window-controls/navigation.py"
+ TaskCenter {id:tasks;onOpening:root.close()}
  WB.ThemeContext {id:themeContext}
  readonly property var themeTokens:themeContext.tokens
  readonly property color fg:themeTokens.colors.foreground
@@ -40,7 +41,7 @@ Item {
   }
   if(opened&&!targetScreen)dispatch({type:"OUTPUT_LOST"})
  }
- function openPage(value){dispatch({type:"OPEN",page:value})}
+ function openPage(value){tasks.close();dispatch({type:"OPEN",page:value})}
  function close(){dispatch({type:"CLOSE"})}
  function selectPage(value){if(session.phase==="open"&&["开始","桌面","窗口","按键"].indexOf(value)>=0)session=Object.assign({},session,{page:value,feedback:""})}
  function act(action,extra) {
@@ -51,7 +52,7 @@ Item {
   var process=actionFactory.createObject(root,{requestGeneration:generation,requestId:id,request:JSON.stringify(value)})
   process.running=true
  }
- function publicState(){return JSON.stringify({version:"0.1.4",opened:opened,page:page,width:card.width,height:card.height,phase:session.phase,generation:session.generation,reason_code:session.phase==="closed"?session.feedback:""})}
+ function publicState(){return JSON.stringify({version:"0.1.5",opened:opened,page:page,width:card.width,height:card.height,phase:session.phase,generation:session.generation,reason_code:session.phase==="closed"?session.feedback:""})}
  IpcHandler {
   target:"pcadmin.navigation"
   function ready():bool{return true}
@@ -101,7 +102,9 @@ Item {
    stdout:StdioCollector {onStreamFinished:{
     actionProcess.received=true
     var value;try{value=JSON.parse(text)}catch(error){value={ok:false,reason:"操作未完成"}}
+    const target=value&&value.ok===true&&value.open_tasks===root.session.output&&root.session.generation===actionProcess.requestGeneration&&root.session.actionId===actionProcess.requestId?value.open_tasks:null
     root.dispatch({type:"ACT_RESULT",generation:actionProcess.requestGeneration,id:actionProcess.requestId,result:value})
+    if(target)tasks.open(target)
    }}
    onExited:{if(!received)root.dispatch({type:"ACT_RESULT",generation:requestGeneration,id:requestId,result:{ok:false,reason:"操作未完成"}});destroy()}
   }
@@ -146,7 +149,7 @@ Item {
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"设备状态和网络设置仍在三指下滑的随身控制台。";color:root.fg;wrapMode:Text.Wrap;role:"body"}
        WB.ActionGrid {
         Layout.fillWidth:true;themeTokens:root.themeTokens;busy:root.busy;columns:2
-        items:[{id:"launcher",label:"全部应用",action:"launcher"},{id:"files",label:"文件",action:"files"},{id:"browser",label:"浏览器",action:"browser"},{id:"keyboard",label:"触屏输入法",action:"keyboard"},{id:"voice",label:"语音输入",action:"voice"},{id:"control-center",label:"随身控制台",action:"control-center"}]
+        items:[{id:"launcher",label:"全部应用",action:"launcher"},{id:"files",label:"文件",action:"files"},{id:"browser",label:"浏览器",action:"browser"},{id:"keyboard",label:"触屏输入法",action:"keyboard"},{id:"voice",label:"语音输入",action:"voice"},{id:"control-center",label:"随身控制台",action:"control-center"},{id:"task-center",label:"任务与通知",action:"task-center"}]
         onTriggered:function(action,payload){root.act(action,payload)}
        }
       }

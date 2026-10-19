@@ -107,6 +107,7 @@ def action(request):
   if actual!=request.get('target'):raise ReadError('context-changed')
   check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
  except ReadError as error:return {'ok':False,'reason_code':error.code,'reason':'操作上下文已变化或不可用，请重新打开菜单'}
+ if name=='task-center':return {'ok':True,'open_tasks':expected}
  if name=='bindings':save_bindings(CONFIG,request.get('bindings'));return {'ok':True,'bindings':load_bindings()}
  if name=='defaults':save_bindings(CONFIG,DEFAULTS);return {'ok':True,'bindings':load_bindings()}
  if name in ('keyboard','voice','control-center'):ok=run(COMMANDS[name])
