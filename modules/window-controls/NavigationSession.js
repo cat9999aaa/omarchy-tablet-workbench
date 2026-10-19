@@ -38,6 +38,7 @@ function reduce(state,event) {
  if(event.type==='ACT_RESULT'&&state.phase==='acting'&&event.id===state.actionId) {
   var result=event.result;
   if(!result||result.ok!==true)return {state:Object.assign({},state,{phase:'open',actionId:null,feedback:result&&typeof result.reason==='string'?result.reason:'action-failed'}),effects:[]};
+  if(result.touch_layout)return {state:Object.assign({},state,{phase:'open',actionId:null,data:Object.assign({},state.data,{touch_layout:result.touch_layout}),feedback:'尺寸档位已保存'}),effects:[]};
   if(result.bindings)return {state:Object.assign({},state,{phase:'open',actionId:null,data:Object.assign({},state.data,{bindings:result.bindings}),feedback:'按键设置已保存'}),effects:[]};
   return closed('');
  }

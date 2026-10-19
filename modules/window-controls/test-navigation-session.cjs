@@ -38,3 +38,5 @@ for(const code of ['locked','lock-unknown','output-unavailable','unexpected'])
  assert.equal(send(pending,ev('READ_ERROR',{generation:pending.generation,code,output:'TEST-1'})).state.phase,'closed');
 for(const type of ['LOCKED','OUTPUT_LOST','CLOSE'])assert.equal(send(failed,ev(type)).state.phase,'closed');
 assert.equal(send(pending,ev('READ_ERROR',{generation:pending.generation,code:'timeout'})).state.phase,'closed');
+
+const layoutSaved=send(acting,ev('ACT_RESULT',{generation:2,id:'one',result:{ok:true,touch_layout:{profile:'touch',health:'ready',reason:''}}}));assert.equal(layoutSaved.state.phase,'open');assert.equal(layoutSaved.state.data.touch_layout.profile,'touch');assert.equal(acting.data.touch_layout,undefined);

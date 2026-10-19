@@ -61,6 +61,29 @@ def window_script(action,target,workspace=None,output=None):
  elif action in expressions:expression=expressions[action]
  else:raise ValueError('未知窗口操作')
  return output_guard(output)+f'local w=hl.get_active_window(); assert(w and w.address=="{address}" and w.pid=={pid} and w.active,"window-changed"); hl.dispatch({expression})'
+def layout_manager():
+ import importlib.util
+ directory=Path(__file__).resolve().parent.parent/'touch-layout'
+ if str(directory) not in sys.path:sys.path.insert(0,str(directory))
+ spec=importlib.util.spec_from_file_location('dashen_touch_profile',directory/'profile.py')
+ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+ return module.Manager(Path.home())
+def layout_status():
+ try:
+  value=layout_manager().status()
+  return {key:value.get(key) for key in ('profile','health','reason')}
+ except (OSError,ValueError,ImportError):return {'profile':'unknown','health':'unverified','reason':'adapter-unavailable'}
+def layout_action(profile,expected):
+ if profile not in ('touch','compact'):raise ValueError('未知尺寸档位')
+ try:
+  manager=layout_manager();planned=manager.plan(profile)
+  if planned.get('health')!='ready':result=planned
+  elif planned.get('context',{}).get('output')!=expected:result={'health':'unverified','reason':'context-changed'}
+  else:result=manager.apply(planned['plan_id'])
+  ok=result.get('health')=='applied'
+  return {'ok':ok,'reason_code':result.get('reason',''),'reason':'' if ok else '未确认尺寸切换成功，请检查当前主题状态后重试。','touch_layout':layout_status()}
+ except (OSError,ValueError,ImportError,subprocess.SubprocessError):return {'ok':False,'reason_code':'layout-unverified','reason':'无法验证尺寸档位，暂未应用。'}
+
 def snapshot():
  budget=ReadBudget();output_name=None
  try:
@@ -74,7 +97,7 @@ def snapshot():
   check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
   budget.timeout()
   if target!=after or output_name!=output_after:raise ReadError('context-changed')
-  return {'ok':True,'reason_code':'','output':output_name,'target':target,'windowLabel':active.get('class','') or '当前没有应用窗口','current':current,'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS}
+  return {'ok':True,'reason_code':'','output':output_name,'target':target,'windowLabel':active.get('class','') or '当前没有应用窗口','current':current,'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS,'touch_layout':layout_status()}
  except ReadError as error:
   reasons={'locked':'设备已锁屏','lock-unknown':'锁屏状态未知','output-unavailable':'无法确定操作屏幕','context-changed':'操作目标已变化，请重新打开','timeout':'读取超时，请重试','invalid-data':'桌面数据无效','read-failed':'无法读取桌面'}
   result={'ok':False,'reason_code':error.code,'reason':reasons.get(error.code,'无法读取桌面')}
@@ -107,6 +130,7 @@ def action(request):
   if actual!=request.get('target'):raise ReadError('context-changed')
   check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
  except ReadError as error:return {'ok':False,'reason_code':error.code,'reason':'操作上下文已变化或不可用，请重新打开菜单'}
+ if name in ('layout-touch','layout-compact'):return layout_action(name.removeprefix('layout-'),expected)
  if name=='task-center':return {'ok':True,'open_tasks':expected}
  if name=='bindings':save_bindings(CONFIG,request.get('bindings'));return {'ok':True,'bindings':load_bindings()}
  if name=='defaults':save_bindings(CONFIG,DEFAULTS);return {'ok':True,'bindings':load_bindings()}

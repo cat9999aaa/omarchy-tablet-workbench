@@ -43,7 +43,7 @@ def measure_layout(config, profile, viewport, font_scale, *, source_root=None, t
         if p.is_symlink() or hashlib.sha256(p.read_bytes()).hexdigest()!=hashes.get(rel):raise ValueError('source-changed:'+rel)
     source=patched((official/'Touch/Bar.qml').read_text())
     panel=Path(__file__).resolve().parents[1]/'control-center/Panel.qml'
-    device=block(panel.read_text(),' Ui.BarIconButton { id:barButton').replace('Ui.BarIconButton','BarIconButton').replace('bar:root.bar','bar:root.barApi')
+    device=block(panel.read_text(),' DeviceEntry { id:barButton').replace('bar:root.bar','bar:root.barApi').replace('contextKey:root.hostScreen','contextKey:root')
     sections='\n'.join(block(source,m) for m in ('  component LeftModules:','  component RightModules:','  component CenterModules:','  component ModuleList:','    Component {\n      id: horizontalBar'))
     with tempfile.TemporaryDirectory(prefix='u2b-layout-') as tmp:
         path=Path(tmp);(path/'Commons').mkdir()
@@ -51,6 +51,7 @@ def measure_layout(config, profile, viewport, font_scale, *, source_root=None, t
             if rel.startswith('Commons/'):shutil.copy2(official/rel,path/rel)
             elif rel.startswith('Ui/'):shutil.copy2(official/rel,path/Path(rel).name)
         shutil.copy2(official/'Touch/BarModel.js',path/'BarModel.js')
+        (path/'DeviceEntry.qml').write_text((panel.parent/'DeviceEntry.qml').read_text().replace('import qs.Ui as Ui','import "." as Ui'))
         (path/'Commons/qmldir').write_text('module qs.Commons\nsingleton Style 1.0 Style.qml\nsingleton Color 1.0 Color.qml\nsingleton Util 1.0 Util.qml\n')
         qml='''import QtQuick
 import QtQuick.Window

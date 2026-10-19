@@ -186,6 +186,13 @@ Item {
       }
       ColumnLayout {
        visible:root.session.phase!=="error"&&root.page==="按键";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
+       WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;role:"title";text:"底栏尺寸"}
+       WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;role:"body";wrapMode:Text.Wrap;text:"当前记录："+((root.snapshot.touch_layout||{}).profile==="touch"?"触屏尺寸":(root.snapshot.touch_layout||{}).profile==="compact"?"紧凑尺寸":"尚未确认")+" · 切换前会检查当前屏幕能否容纳全部入口。"}
+       WB.ActionGrid {
+        Layout.fillWidth:true;themeTokens:root.themeTokens;busy:root.busy;columns:2
+        items:[{id:"touch",label:"触屏尺寸",action:"layout-touch"},{id:"compact",label:"紧凑尺寸",action:"layout-compact"}]
+        onTriggered:function(action,payload){root.act(action,payload)}
+       }
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"自定义短按 · 长按暂保留原行为";color:root.fg;role:"body"}
        Repeater{model:["P1","P2","P3","rotation"]
         RowLayout{
