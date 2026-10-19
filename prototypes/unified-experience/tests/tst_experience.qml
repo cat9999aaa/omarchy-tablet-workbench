@@ -74,4 +74,10 @@ TestCase {
         var o=make(480,800,1.5);o.themeTokens=Tokens.resolve({fontScale:1.5,background:'#F3F0E7',foreground:'#182024',accent:'#805000',muted:'#47565C'});wait(20);
         reachable(o,findChild(o,'workbenchClose'));compare(findChild(o,'prototypeNotice').color,Qt.color('#805000'));o.destroy();
     }
+
+    function test_magiBlocksCoveredButtons() {
+        var o=make();o.modelState=Model.reduce(o.modelState,{type:'toggleMagi'});wait(20);
+        var covered=findChild(o,'action-open-tasks');var point=covered.mapToItem(o,covered.width*.8,covered.height/2);
+        mouseClick(o,point.x,point.y);compare(o.modelState.destination,'overview');verify(o.modelState.magiOpen);o.destroy();
+    }
 }
