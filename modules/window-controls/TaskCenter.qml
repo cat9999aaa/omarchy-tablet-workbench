@@ -81,7 +81,7 @@ Item {
    }
    stdout:StdioCollector{onStreamFinished:{proc.received=true;var value;try{value=JSON.parse(text)}catch(e){value=null}proc.deliver(value)}}
    onExited:{if(!received)deliver(null);if(root.activeRead===proc)root.activeRead=null;if(root.activeGuard===proc)root.activeGuard=null;if(root.activeAction===proc)root.activeAction=null;destroy()}
-   property Timer watchdog:Timer{interval:proc.operation==="guard"?1400:5500;running:proc.running;onTriggered:{proc.deliver(null);proc.running=false}}
+   property Timer watchdog:Timer{interval:proc.operation==="guard"?1400:12500;running:proc.running;onTriggered:{proc.deliver(null);proc.running=false}}
   }
  }
  Timer{interval:500;repeat:true;running:root.opened;onTriggered:{if(!root.activeGuard){root.activeGuard=processFactory.createObject(root,{operation:"guard",requestGeneration:root.session.generation,requestId:0,request:JSON.stringify({output:root.session.output})});root.activeGuard.running=true}}}

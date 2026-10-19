@@ -1,12 +1,12 @@
 // Pure state machine. Source data stays anonymous; no provider content is accepted.
-function initial(){return {phase:'closed',generation:0,serial:0,pending:null,output:null,scope:null,rows:[],remainingMs:5000,detailsRead:[],anonymousIds:{},nextOrdinal:1,truncated:false,sourceReason:'',observedAt:'',sampledBoottimeMs:0,stale:false,dnd:null,dndReason:'',feedback:''}}
+function initial(){return {phase:'closed',generation:0,serial:0,pending:null,output:null,scope:null,rows:[],remainingMs:12000,detailsRead:[],anonymousIds:{},nextOrdinal:1,truncated:false,sourceReason:'',observedAt:'',sampledBoottimeMs:0,stale:false,dnd:null,dndReason:'',feedback:''}}
 function kind(status,pending){if(pending>0)return 'needs_permission';return ['initializing','idle','running','error','closed'].indexOf(status)>=0?status:'unknown'}
 function ordered(rows){var order={needs_permission:0,error:1,running:2,initializing:3};return rows.slice().sort((a,b)=>(order[a.kind]===undefined?4:order[a.kind])-(order[b.kind]===undefined?4:order[b.kind])||a.ordinal-b.ordinal)}
 function validId(id){return typeof id==='string'&&/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)}
 function reduce(s,e){
  var none={state:s,effects:[]};if(!e||typeof e.type!=='string')return none;
  function close(){return {state:Object.assign(initial(),{generation:s.generation+1,serial:s.serial}),effects:[{type:'cancel-read'},{type:'close'}]}}
- function read(type,output,extra){var id=s.serial+1,pending=Object.assign({id:id,kind:type},extra||{});return {state:Object.assign({},s,{serial:id,generation:s.generation+1,pending:pending,output:output,phase:type==='snapshot'?'loading':s.phase,feedback:''},type==='snapshot'?{rows:[],remainingMs:5000,detailsRead:[],sourceReason:'',dnd:null}:{}),effects:[{type:'cancel-read'},{type:'read-'+type,generation:s.generation+1,requestId:id,output:output,agent_id:pending.agent_id,scope:s.scope,remaining_ms:type==='snapshot'?5000:s.remainingMs}]}}
+ function read(type,output,extra){var id=s.serial+1,pending=Object.assign({id:id,kind:type},extra||{});return {state:Object.assign({},s,{serial:id,generation:s.generation+1,pending:pending,output:output,phase:type==='snapshot'?'loading':s.phase,feedback:''},type==='snapshot'?{rows:[],remainingMs:12000,detailsRead:[],sourceReason:'',dnd:null}:{}),effects:[{type:'cancel-read'},{type:'read-'+type,generation:s.generation+1,requestId:id,output:output,agent_id:pending.agent_id,scope:s.scope,remaining_ms:type==='snapshot'?12000:s.remainingMs}]}}
  if(['CLOSE','LOCKED','OUTPUT_LOST'].indexOf(e.type)>=0)return close();
  if(e.type==='OPEN'){
   if(typeof e.output!=='string'||!e.output.trim()||e.output.length>256||/[\x00-\x1f\x7f]/.test(e.output))return close();

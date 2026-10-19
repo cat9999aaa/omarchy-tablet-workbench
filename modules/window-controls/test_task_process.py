@@ -24,7 +24,7 @@ elif name=='paseo':
   for name in ['paseo','hyprctl','omarchy-shell','gtk-launch']:
    p=self.bin/name;p.write_text(code);p.chmod(0o755)
  def run_helper(self,command='snapshot',request=None):
-  return subprocess.run([sys.executable,str(Path(__file__).with_name('tasks.py')),command],input=json.dumps(request or {'generation':1}),env=self.env,capture_output=True,text=True,timeout=8)
+  return subprocess.run([sys.executable,str(Path(__file__).with_name('tasks.py')),command],input=json.dumps(request or {'generation':1}),env=self.env,capture_output=True,text=True,timeout=11)
  def test_real_snapshot_and_no_notification_replay(self):
   p=self.run_helper();r=json.loads(p.stdout);self.assertEqual(p.returncode,0,p.stdout);self.assertTrue(r['ok']);self.assertEqual(r['rows'][0]['status'],'idle');self.assertNotIn('PRIVATE',p.stdout+p.stderr);self.assertNotIn('showHistory',(self.root/'calls').read_text())
  def test_config_missing_and_failure_redacted(self):
@@ -36,7 +36,7 @@ elif name=='paseo':
   self.assertNotIn('gtk-launch',(self.root/'calls').read_text());self.assertNotIn('showHistory',(self.root/'calls').read_text())
  def test_source_error_and_timeout(self):
   (self.root/'bad').touch();p=self.run_helper();r=json.loads(p.stdout);self.assertIsNone(r['rows']);self.assertNotIn('PRIVATE',p.stdout+p.stderr)
-  (self.root/'bad').unlink();(self.root/'slow').touch();start=time.monotonic();r=json.loads(self.run_helper().stdout);self.assertLess(time.monotonic()-start,4);self.assertEqual(r['source_reason'],'timeout')
+  (self.root/'bad').unlink();(self.root/'slow').touch();start=time.monotonic();r=json.loads(self.run_helper().stdout);self.assertLess(time.monotonic()-start,6);self.assertEqual(r['source_reason'],'timeout')
   pid=int((self.root/'pid').read_text());self.assertFalse(Path('/proc',str(pid)).exists())
  def test_snapshot_detail_scope_is_carried_through_cli(self):
   snapshot=json.loads(self.run_helper().stdout)

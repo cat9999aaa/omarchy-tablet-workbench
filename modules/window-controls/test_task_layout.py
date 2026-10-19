@@ -31,7 +31,7 @@ Item {
 tests='''
  TestCase{name:"TaskLayout";when:windowShown
  function test_content_data(){var rows=[];for(var size of [[320,480],[640,480],[480,800],[640,604]])for(var scale of [1,1.25,1.5])for(var dark of [true,false])rows.push({tag:size+"-"+scale+"-"+dark,w:size[0],h:size[1],scale:scale,dark:dark});return rows}
- function scan(item,buttons,texts){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)buttons.push(item);if(item.text!==undefined)texts.push(item.text);for(var child of item.children)scan(child,buttons,texts)}
+ function scan(item,buttons,texts){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)buttons.push(item);if(item.text!==undefined)texts.push(item.text);for(var i=0;i<item.children.length;i++)scan(item.children[i],buttons,texts)}
  function test_content(d){
   root.width=d.w;root.height=d.h;root.scaleValue=d.scale;root.dark=d.dark
   const rows=['idle','closed','needs_permission','error','unknown','initializing','running'].map((kind,i)=>({agent_id:'PRIVATE-'+i,ordinal:i+1,kind:kind,pending_permission_count:i===2?2:null,observed_at:'2026-01-01T00:00:00Z',sampled_boottime_ms:0,source_updated_at:null,stale:i>1,detailReason:''}))
