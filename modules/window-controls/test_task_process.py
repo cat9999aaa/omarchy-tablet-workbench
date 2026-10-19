@@ -8,11 +8,11 @@ class ProcessTests(unittest.TestCase):
   (self.config/'task-center.json').write_text(json.dumps({'schema':1,'project_root':str(self.project)}))
   self.env=dict(os.environ,HOME=str(self.root),XDG_CONFIG_HOME=str(self.root/'config'),PATH=str(self.bin)+':'+os.environ['PATH'])
   code='''#!/usr/bin/python3
-import json,os,sys,time
+import json,os,sys,time,subprocess
 from pathlib import Path
 r=Path(os.environ['HOME']);name=Path(sys.argv[0]).name
 with (r/'calls').open('a') as f:f.write(name+' '+' '.join(sys.argv[1:])+'\\n')
-if name=='omarchy-shell':print('false' if sys.argv[1]=='lock' else 'off')
+if name=='gtk-launch':\n child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(20)']);(r/'launched-pid').write_text(str(child.pid));sys.exit(0)\nif name=='omarchy-shell':print('false' if sys.argv[1]=='lock' else 'off')
 elif name=='hyprctl':print('[{"name":"TEST","focused":true}]')
 elif name=='paseo':
  if (r/'slow').exists():
@@ -44,6 +44,14 @@ elif name=='paseo':
   r=json.loads(self.run_helper('detail',request).stdout);self.assertTrue(r['ok']);self.assertEqual(r['detail']['pending_permission_count'],0)
   other=self.root/'other';other.mkdir();(self.config/'task-center.json').write_text(json.dumps({'schema':1,'project_root':str(other)}))
   r=json.loads(self.run_helper('detail',request).stdout);self.assertFalse(r['ok']);self.assertEqual(r['reason_code'],'scope-changed')
+ def test_handoff_does_not_wait_for_launched_app_stream(self):
+  try:
+   r=json.loads(self.run_helper('action',{'action':'open-paseo','output':'TEST'}).stdout)
+   self.assertTrue(r['ok']);pid=int((self.root/'launched-pid').read_text());self.assertTrue(Path('/proc',str(pid)).exists())
+  finally:
+   if (self.root/'launched-pid').exists():
+    try:os.kill(int((self.root/'launched-pid').read_text()),signal.SIGKILL)
+    except ProcessLookupError:pass
  def test_guard_is_fresh_without_paseo(self):
   r=json.loads(self.run_helper('guard',{'output':'TEST'}).stdout)
   self.assertTrue(r['ok']);self.assertGreater(r['sampled_boottime_ms'],0)

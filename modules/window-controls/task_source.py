@@ -2,7 +2,7 @@
 from datetime import datetime,timezone
 from pathlib import Path
 import time,hashlib,json
-from navigation_read import ReadBudget,ReadError,read_json,read_text,check_lock,focused_output
+from navigation_read import ReadBudget,ReadError,read_json,read_text,run_command,check_lock,focused_output
 from task_model import TaskDataError,project_rows,project_detail,agent_id,project_path
 
 def context(budget,expected=None):
@@ -62,5 +62,5 @@ def handoff(action,output,budget):
  commands={'open-paseo':['gtk-launch','Paseo'],'notification-history':['omarchy-shell','notifications','showHistory']}
  if action not in commands:raise ReadError('invalid-action')
  context(budget,output);check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
- read_text(commands[action],budget)
+ run_command(commands[action],budget)
  return {'schema':1,'ok':True,'reason_code':''}

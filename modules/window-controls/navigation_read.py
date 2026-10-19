@@ -105,3 +105,21 @@ def workspace_counts(value):
 
 def read_json(argv,budget,max_bytes=1048576):return _read(argv,budget,max_bytes)
 def read_text(argv,budget,max_bytes=1048576):return _read(argv,budget,max_bytes,True)
+
+
+def run_command(argv,budget):
+ """Bounded handoff completion; launched apps must not retain a reader pipe."""
+ proc=None;completed=False
+ try:
+  duration=budget.timeout()
+  proc=subprocess.Popen(argv,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True)
+  if proc.wait(timeout=duration)!=0:raise ReadError('read-failed')
+  completed=True
+ except subprocess.TimeoutExpired:raise ReadError('timeout') from None
+ except OSError:raise ReadError('read-failed') from None
+ finally:
+  if proc is not None:
+   if not completed:
+    try:os.killpg(proc.pid,signal.SIGKILL)
+    except ProcessLookupError:pass
+   proc.wait()
