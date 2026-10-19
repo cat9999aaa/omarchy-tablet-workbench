@@ -21,6 +21,15 @@ def sha(data):return hashlib.sha256(data).hexdigest()
 
 class Host:
     def __init__(self,home):self.home=Path(home);self.visible_ids=set()
+    def bar_source(self,bar_id):
+        if not re.fullmatch(r'[A-Za-z0-9_-]+\.bar',bar_id):raise ValueError('unsupported-bar')
+        plugin=self.home/'.config/omarchy/plugins'/bar_id
+        manifest=json.loads((plugin/'manifest.json').read_text())
+        relative=Path(manifest.get('entryPoints',{}).get('bar',''))
+        if manifest.get('id')!=bar_id or relative.is_absolute() or '..' in relative.parts or relative.name!='Bar.qml':raise ValueError('unsupported-bar-entry')
+        target=plugin/relative
+        if target.resolve()!=target or not target.is_file():raise ValueError('unsafe-bar-entry')
+        return target.parent
     def context(self):
         if command(['omarchy-shell','lock','isLocked'])!='false':raise ValueError('locked-or-unknown')
         config=json.loads(command(['omarchy-shell','shell','listShellConfig']))
@@ -65,7 +74,7 @@ class Host:
         with tempfile.TemporaryDirectory(prefix='dashen-bar-probe-') as folder:
             root=Path(folder)
             for rel,expected in pins.items():
-                source=self.home/'.config/omarchy/plugins'/context['bar_id']/Path(rel).name if rel.startswith('Touch/') else Path('/usr/share/omarchy/shell')/rel
+                source=self.bar_source(context['bar_id'])/Path(rel).name if rel.startswith('Touch/') else Path('/usr/share/omarchy/shell')/rel
                 data=source.read_bytes()
                 if rel=='Touch/Bar.qml':
                     text=data.decode()

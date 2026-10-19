@@ -243,7 +243,7 @@ Ui.Panel {
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
     "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
- function serializedState() {return JSON.stringify({uiRevision:6,version:"0.2.2",readingRequest:readings.requestState,temperatureDisplay:readings.temperatureDisplay,touchDisplay:readings.touchDisplay,nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
+ function serializedState() {return JSON.stringify({uiRevision:6,version:"0.2.3",readingRequest:readings.requestState,temperatureDisplay:readings.temperatureDisplay,touchDisplay:readings.touchDisplay,nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
  IpcHandler {
   target: "pcadmin.controlCenter"
   function ready(): bool {return root.focusedTarget()!==null && !root.peers().some(p=>p.transferPending)}
@@ -252,7 +252,7 @@ Ui.Panel {
   function toggle(): void {root.route("toggle")}
   function gesture(): void {root.route("gesture")}
   function expand(): void {root.route("expand")}
-  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:6,version:"0.2.2",opened:false,locked:true,available:false})}
+  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:6,version:"0.2.3",opened:false,locked:true,available:false})}
 
  }
  DeviceEntry { id:barButton;anchors.fill:parent;bar:root.bar;contextKey:root.hostScreen;onActivated:root.toggle() }

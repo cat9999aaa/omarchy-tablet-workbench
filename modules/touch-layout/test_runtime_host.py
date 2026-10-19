@@ -5,6 +5,15 @@ from unittest.mock import patch
 from runtime_host import Host
 
 class RuntimeVerification(unittest.TestCase):
+    def test_active_versioned_bar_entry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            home=Path(temp);plugin=home/'.config/omarchy/plugins/test.bar'
+            (plugin/'release-3').mkdir(parents=True)
+            (plugin/'manifest.json').write_text('{"id":"test.bar","entryPoints":{"bar":"release-3/Bar.qml"}}')
+            (plugin/'release-3/Bar.qml').write_text('active')
+            self.assertEqual(Host(home).bar_source('test.bar'),plugin/'release-3')
+            (plugin/'manifest.json').write_text('{"id":"test.bar","entryPoints":{"bar":"../escape.qml"}}')
+            with self.assertRaises(ValueError):Host(home).bar_source('test.bar')
     def test_compact_requires_actual_original_height(self):
         with tempfile.TemporaryDirectory() as temp:
             home=Path(temp);theme=home/'.local/state/omarchy/current/theme/shell.toml'

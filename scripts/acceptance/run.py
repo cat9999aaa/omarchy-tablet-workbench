@@ -144,6 +144,8 @@ def checks_for(suite):
                    Check('device-observer', 'modules/control-center/device-observer',
                          ['cargo', 'test', '--locked', '--offline'])]
         python_suites = [
+            ('touch-layout','modules/touch-layout','test_*.py'),
+            ('navigation-touch-layout','modules/window-controls','test_touch_layout.py'),
             ('task-model','modules/window-controls','test_task_model.py'),
             ('task-config','modules/window-controls','test_task_config.py'),
             ('task-source','modules/window-controls','test_task_source.py'),
@@ -185,6 +187,7 @@ def checks_for(suite):
             ('shared-model', 'workbench-ui', 'test-model.cjs'),
             ('theme-tokens', 'workbench-ui', 'test-theme.cjs'),
             ('edge-gesture', 'edge-gestures', 'test-gesture.cjs'),
+            ('edge-policy', 'edge-gestures', 'test-edge-policy.cjs'),
         ]:
             checks.append(Check(name, 'modules/' + directory, ['node', file]))
         checks.append(Check('theme-contrast', 'scripts/themes', ['node', 'test-contrast.cjs']))
@@ -192,6 +195,8 @@ def checks_for(suite):
         runner = shutil.which('qmltestrunner') or next(
             (p for p in ('/usr/lib/qt6/bin/qmltestrunner', '/usr/lib/qt6/qmltestrunner')
              if Path(p).is_file()), 'qmltestrunner')
+        checks.append(Check('edge-input', 'modules/edge-gestures',
+                            [sys.executable, __file__, '--qml-suite', runner, 'tests']))
         checks.append(Check('control-layout', 'modules/control-center',
                             [sys.executable, 'check_panel_layout.py']))
         checks.append(Check('contract-qml', 'modules/control-center',
@@ -205,12 +210,18 @@ def checks_for(suite):
                             [sys.executable, 'tests/test_layout.py']))
         checks.append(Check('theme-surfaces', '.',
                             [sys.executable, 'scripts/themes/check_status_surfaces.py']))
+    if suite == 'native-host':
+        checks += [Check(name, '.', [sys.executable, path]) for name, path in [
+            ('bar-layout', 'modules/touch-layout/check_bar_layout.py'),
+            ('device-entry', 'modules/touch-layout/check_device_entry.py'),
+            ('edge-layers', 'modules/edge-gestures/check_layers.py'),
+            ('navigation-native', 'modules/window-controls/check_navigation_session.py')]]
     return checks
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', choices=('models', 'qml', 'all'), default='all')
+    parser.add_argument('--suite', choices=('models', 'qml', 'all', 'native-host'), default='all')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--verify-copies', action='store_true')
     parser.add_argument('--python-suite', nargs=2, help=argparse.SUPPRESS)

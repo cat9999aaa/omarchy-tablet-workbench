@@ -50,7 +50,7 @@ Item {
   activeAction=processFactory.createObject(root,{operation:"action",requestGeneration:session.generation,requestId:0,request:JSON.stringify({action:action,output:session.output})});activeAction.running=true
  }
  function sourceText(code){return ({'invalid-project':'未选择有效项目','timeout':'读取超时，请刷新','read-failed':'暂时无法读取','invalid-data':'来源数据不兼容','scope-changed':'会话归属已变化'})[code]||'暂时无法读取'}
- function publicState(){return JSON.stringify({version:"0.1.5",phase:session.phase,opened:opened,count:session.rows.length,needsPermission:session.rows.filter(r=>r.kind==="needs_permission").length,readers:(activeRead?1:0)+(activeGuard?1:0)+(activeAction?1:0)})}
+ function publicState(){return JSON.stringify({version:"0.1.6",phase:session.phase,opened:opened,count:session.rows.length,needsPermission:session.rows.filter(r=>r.kind==="needs_permission").length,readers:(activeRead?1:0)+(activeGuard?1:0)+(activeAction?1:0)})}
  IpcHandler{target:"pcadmin.tasks"
   function ready():bool{return true}
   function open(output:string):void{root.open(output)}

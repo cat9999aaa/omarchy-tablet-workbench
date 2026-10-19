@@ -7,6 +7,8 @@ import "EdgePolicy.js" as Policy
 Item {
     id: root
     property string barPosition: ""
+    property string hostPosition: ""
+    onHostPositionChanged: generation++
     property bool configKnown: false
     property int generation: 0
     function hasOutput(output) {
@@ -47,7 +49,7 @@ Item {
         required property string edge
         readonly property bool outputValid: !!screen && screen.width > 128 && screen.height > 0
             && root.hasOutput(screen)
-        readonly property bool captureEnabled: Policy.enabled(edge, root.barPosition, root.configKnown, outputValid)
+        readonly property bool captureEnabled: Policy.enabled(edge, root.hostPosition, root.configKnown, outputValid)
         visible: captureEnabled
         anchors { top: strip.edge === "top"; bottom: strip.edge === "bottom"; left: true; right: true }
         margins { left: 64; right: 64 }

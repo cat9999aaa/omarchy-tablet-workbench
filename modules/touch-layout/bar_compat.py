@@ -38,7 +38,8 @@ CLICK_NEW = '''        var currentTarget = root.moduleClickTargetAt(slot, mouse.
           return
         }
         if (!root.pressModuleClickTarget(slot, mouse.button, mouse.x, mouse.y)) mouse.accepted = false'''
-REPLACEMENTS = [(OLD, NEW), (PRESS_OLD, PRESS_NEW), (CAPTURE_OLD, CAPTURE_NEW), (CLICK_OLD, CLICK_NEW)]
+REPLACEMENTS = [(OLD, NEW), (PRESS_OLD, PRESS_NEW), (CAPTURE_OLD, CAPTURE_NEW), (CLICK_OLD, CLICK_NEW),
+                ('  EdgeGestures {}', '  EdgeGestures { hostPosition: root.position }')]
 
 def patched(source):
     for old,new in REPLACEMENTS:

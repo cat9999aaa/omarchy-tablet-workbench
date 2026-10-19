@@ -52,7 +52,7 @@ Item {
   var process=actionFactory.createObject(root,{requestGeneration:generation,requestId:id,request:JSON.stringify(value)})
   process.running=true
  }
- function publicState(){return JSON.stringify({version:"0.1.5",opened:opened,page:page,width:card.width,height:card.height,phase:session.phase,generation:session.generation,reason_code:session.phase==="closed"?session.feedback:""})}
+ function publicState(){return JSON.stringify({version:"0.1.6",opened:opened,page:page,width:card.width,height:card.height,phase:session.phase,generation:session.generation,reason_code:session.phase==="closed"?session.feedback:""})}
  IpcHandler {
   target:"pcadmin.navigation"
   function ready():bool{return true}
