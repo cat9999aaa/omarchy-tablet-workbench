@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 
-FILES = ('TouchButton.qml','PanelHeader.qml','PanelBody.qml','Layout.js','State.js','Theme.js','ThemeContext.qml','StyledText.qml','ActionGrid.qml')
+FILES = ('TouchButton.qml','PanelHeader.qml','PanelBody.qml','Layout.js','State.js','Theme.js','ThemeContext.qml','StyledText.qml','ActionGrid.qml','Readout.qml')
 DESTINATIONS = ('modules/control-center/Workbench','modules/network-center/Workbench',
                 'modules/battery-manager/panel/Workbench','modules/window-controls/Workbench')
 

@@ -77,7 +77,34 @@ tests = '''
   function buttons(item,list){if(!item.visible)return;if(item.minimumTouchHeight!==undefined)list.push(item);for(let i=0;i<item.children.length;i++)buttons(item.children[i],list)}
   function bring(button){wait(30);const y=button.mapToItem(body,0,0).y;scroll.contentY=Math.max(0,Math.min(y,scroll.contentHeight-scroll.height));wait(20)}
   function test_sizes_data(){let rows=[];for(const w of [640,480,320])for(const h of [480,800])for(const mode of ["tablet","desktop"])for(const scale of [1,1.25,1.5])for(const contrast of [false,true])rows.push({tag:w+"x"+h+"-"+mode+"-"+scale+"-"+contrast,width:w,height:h,mode:mode,scale:scale,contrast:contrast});return rows}
-  function init(){root.themeScale=1;root.themeAccent="#ffb454";root.confirmation=null;actionProcess.running=false;root.flight={entertainment:false,verified:false};root.expanded=false;root.suggestedMode="tablet";root.appliedMode="tablet";wait(30)}
+  function init(){readings.closeSession();root.themeScale=1;root.themeAccent="#ffb454";root.confirmation=null;actionProcess.running=false;root.flight={entertainment:false,verified:false};root.expanded=false;root.suggestedMode="tablet";root.appliedMode="tablet";wait(30)}
+  function test_readout_in_actual_panel_data(){let rows=[];for(const w of [320,480,864,1536])for(const scale of [1,1.25,1.5])for(const light of [false,true])rows.push({tag:w+"-"+scale+"-"+light,w:w,scale:scale,light:light});return rows}
+  function test_refresh_cancels_actual_pressed_action_data(){return [{tag:"replacement",aba:false},{tag:"round-trip",aba:true}]}
+  function test_refresh_cancels_actual_pressed_action(d){
+   root.width=640;root.height=800;
+   readings.beginOpen();const token=readings.startRequest()
+   readings.accept(token,{schema_version:1,legacy:{locked:false},contracts:{version:"0.1.0",status:"ok",states:[
+    {contract_version:"0.1.0",capability_id:"dashen.device.temperature",resource_id:"thermal-summary",output_id:"local",read_permission:"device.temperature.read",state:{available:true,actual:42,health:"observed",observed_at:100}},
+    {contract_version:"0.1.0",capability_id:"dashen.device.touch-mode",resource_id:"touch-mode",output_id:"local",read_permission:"device.touch-mode.read",state:{available:true,actual:1,health:"observed",observed_at:100,boot_default:1}}]}})
+   wait(30);const button=findChild(root,"quick-touch-normal");verify(button!==null);bring(button);const point=button.mapToItem(root,button.width/2,button.height/2);const before=root.actions.length
+   mousePress(root,point.x,point.y);verify(button.pressed);const pending=readings.startRequest();wait(30);compare(button.objectName,"quick-touch-refresh")
+   if(d.aba){readings.accept(pending,{schema_version:1,legacy:{locked:false},contracts:{version:"0.1.0",status:"ok",states:[{contract_version:"0.1.0",capability_id:"dashen.device.temperature",resource_id:"thermal-summary",output_id:"local",read_permission:"device.temperature.read",state:{available:true,actual:42,health:"observed"}},{contract_version:"0.1.0",capability_id:"dashen.device.touch-mode",resource_id:"touch-mode",output_id:"local",read_permission:"device.touch-mode.read",state:{available:true,actual:1,health:"observed"}}]}});wait(30)}
+   mouseRelease(root,point.x,point.y);compare(root.actions.length,before,"release must not execute replacement action")
+   bring(button);button.forceActiveFocus();keyClick(Qt.Key_Return);compare(root.actions.length,before+1);compare(root.actions[root.actions.length-1],d.aba?"touch-normal":"touch-refresh")
+  }
+  function test_readout_in_actual_panel(d){
+   root.width=d.w;root.height=800;root.themeScale=d.scale;root.fg=d.light?"#182024":"#eeeeee";root.bg=d.light?"#f3f0e7":"#101518"
+   readings.beginOpen();const token=readings.startRequest()
+   readings.accept(token,{schema_version:1,legacy:{locked:false},contracts:{version:"0.1.0",status:"ok",states:[
+    {contract_version:"0.1.0",capability_id:"dashen.device.temperature",resource_id:"thermal-summary",output_id:"local",read_permission:"device.temperature.read",state:{available:true,actual:42,health:"observed",observed_at:100}},
+    {contract_version:"0.1.0",capability_id:"dashen.device.touch-mode",resource_id:"touch-mode",output_id:"local",read_permission:"device.touch-mode.read",state:{available:true,actual:1,health:"observed",observed_at:100,boot_default:1}}]}})
+   readings.startRequest();wait(30)
+   const temperature=findChild(root,"temperatureReadout"),touch=findChild(root,"touchReadout");verify(temperature!==null,"real Panel temperature readout missing");verify(touch!==null)
+   verify(temperature.valueText.includes("上次"));verify(temperature.valueText.includes("42"));verify(touch.valueText.includes("上次"));compare(temperature.observedAt,100)
+   for(const row of [temperature,touch]){const p=row.mapToItem(root,0,0);verify(p.x>=0&&p.x+row.width<=root.width);verify(row.height>=row.implicitHeight);for(let i=0;i<row.children.length;i++){const text=row.children[i];if(text.visible)verify(text.paintedWidth<=text.width+1)}}
+   const refresh=findChild(root,"quick-touch-refresh");bring(refresh);const q=refresh.mapToItem(root,0,0);verify(q.y>=0&&q.y+refresh.height<=root.height);mouseClick(refresh,refresh.width/2,refresh.height/2);compare(root.actions[root.actions.length-1],"touch-refresh")
+   const close=findChild(root,"workbenchClose");const c=close.mapToItem(root,0,0);verify(c.y>=0&&c.y+close.height<=root.height);verify(close.height>=48)
+  }
   function test_theme_update_preserves_pressed_action_and_focus() {
    root.width=640;root.height=800
    const b=findChild(root,"quick-touch-refresh");bring(b);b.forceActiveFocus();const original=b;const oldMode=root.modeChoice;const identity=window;const before=root.actions.length

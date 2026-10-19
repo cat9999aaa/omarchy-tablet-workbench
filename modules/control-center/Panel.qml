@@ -243,7 +243,7 @@ Ui.Panel {
   return labelNetwork()+"  ·  "+(f("internet")==="ok"?"可上网":f("internet")==="failed"?"联网检测异常":f("internet"))+"\n"+
     "代理核心 "+b("proxy_core").label+"  ·  TUN "+b("tun").label
  }
- function serializedState() {return JSON.stringify({uiRevision:5,version:"0.2.1",nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
+ function serializedState() {return JSON.stringify({uiRevision:6,version:"0.2.2",readingRequest:readings.requestState,temperatureDisplay:readings.temperatureDisplay,touchDisplay:readings.touchDisplay,nightlight:data.nightlight,flight:flight,opened:opened,expanded:expanded,width:card.width,height:card.height,columns:tiles.columns,locked:!allowed,network:labelNetwork(),touch:touchLabel(),batteryCount:batteries.length,modeChoice:modeChoice,effectiveMode:appliedMode,modeHealth:deviceMode.health})}
  IpcHandler {
   target: "pcadmin.controlCenter"
   function ready(): bool {return root.focusedTarget()!==null && !root.peers().some(p=>p.transferPending)}
@@ -252,7 +252,7 @@ Ui.Panel {
   function toggle(): void {root.route("toggle")}
   function gesture(): void {root.route("gesture")}
   function expand(): void {root.route("expand")}
-  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:5,version:"0.2.1",opened:false,locked:true,available:false})}
+  function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:6,version:"0.2.2",opened:false,locked:true,available:false})}
 
  }
  Ui.BarIconButton { id:barButton;anchors.fill:parent;bar:root.bar;text:"󰒓";onPressed:root.toggle() }
@@ -341,7 +341,7 @@ Ui.Panel {
    onExited:function(exitCode,exitStatus){code=exitStatus===0?exitCode:-1;exitSeen=true;finishIfDone()}
    property Timer deadline: Timer {
     interval:20000;running:true
-    onTriggered:{readings.fail(request.requestToken,"read_timeout");request.cancelRead()}
+    onTriggered:{readings.fail(request.requestToken,output.text.length>0?"invalid_transport":"read_timeout");request.cancelRead()}
    }
    property Timer cancelDeadline: Timer {
     interval:2000
@@ -403,7 +403,11 @@ Ui.Panel {
      RowLayout {Layout.fillWidth:true;CButton {Layout.fillWidth:true;text:"取消";onClicked:root.confirmation=null}CButton {Layout.fillWidth:true;objectName:"confirm-action";text:"确认执行";onClicked:{const c=root.confirmation;root.confirmation=null;if(c)root.act(c.name,c.params,true)}}}
     }
     Text {Layout.fillWidth:true;text:root.summary();color:root.green;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
-    Text {Layout.fillWidth:true;text:root.batteryText()+"  ·  温度 "+readings.temperatureText;color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
+    Text {Layout.fillWidth:true;text:root.batteryText();color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
+    WB.Readout {objectName:"temperatureReadout";Layout.fillWidth:true;Layout.preferredHeight:implicitHeight;themeTokens:root.themeTokens;label:"温度"
+     valueText:readings.temperatureDisplay.valueText;statusText:readings.temperatureDisplay.statusText;observedAt:readings.temperatureDisplay.observedAt}
+    WB.Readout {objectName:"touchReadout";Layout.fillWidth:true;Layout.preferredHeight:implicitHeight;themeTokens:root.themeTokens;label:"触摸模式"
+     valueText:readings.touchDisplay.valueText;statusText:readings.touchDisplay.statusText;observedAt:readings.touchDisplay.observedAt}
     Text {Layout.fillWidth:true;text:"最近一次采样结果 · 触摸开机默认："+readings.bootDefaultLabel;color:root.fg;opacity:.65;font.pixelSize:root.themeTokens.font.subtitle;wrapMode:Text.Wrap}
       Text {objectName:"mode-status";Layout.fillWidth:true;text:Model.modeLabel(root.modeChoice,deviceMode.health,root.appliedMode,root.modeSaved);color:root.fg;font.pixelSize:root.themeTokens.font.body;wrapMode:Text.Wrap}
       RowLayout {
@@ -446,11 +450,12 @@ Ui.Panel {
          CButton {
           Layout.fillWidth:true;Layout.minimumWidth:0;Layout.minimumHeight:root.appliedMode==="desktop"?48:68
           stableActionId:parent.modelData
+          activationIdentity:entry.action
           objectName:"quick-"+entry.action
           selected:entry.action==="nightlight"&&root.b("nightlight").value===true
           text:entry.label+(root.appliedMode==="desktop"?" · ":"\n")+entry.sub
           enabled:!actionProcess.running&&entry.available!==false
-          onClicked:{if(entry.action==="zero"){root.expanded=true;root.page="连接"}else if(entry.action==="power-mode"){root.expanded=true;root.page="设备"}else root.act(entry.action,entry.params)}
+          onClicked:{if(pressedRevision!==activationRevision)return;if(entry.action==="zero"){root.expanded=true;root.page="连接"}else if(entry.action==="power-mode"){root.expanded=true;root.page="设备"}else root.act(entry.action,entry.params)}
          }
         }
        }
@@ -491,9 +496,14 @@ Ui.Panel {
  }
  component CButton: WB.TouchButton {themeTokens:root.themeTokens;
   id:controlButton
-  Keys.onReturnPressed:event=>{if(enabled&&!event.isAutoRepeat){clicked();event.accepted=true}}
-  Keys.onEnterPressed:event=>{if(enabled&&!event.isAutoRepeat){clicked();event.accepted=true}}
+  Keys.onReturnPressed:event=>{if(enabled&&!event.isAutoRepeat){pressedRevision=activationRevision;clicked();event.accepted=true}}
+  Keys.onEnterPressed:event=>{if(enabled&&!event.isAutoRepeat){pressedRevision=activationRevision;clicked();event.accepted=true}}
   onActiveFocusChanged:if(activeFocus)root.ensureControlVisible(controlButton)
+  property string activationIdentity:""
+  property int activationRevision:0
+  property int pressedRevision:-1
+  onActivationIdentityChanged:activationRevision++
+  onPressed:pressedRevision=activationRevision
   property string stableActionId:""
   property bool trackedPress:false
   onPressedChanged:{if(pressed!==trackedPress){root.buttonPressCount+=pressed?1:-1;trackedPress=pressed}if(!pressed)Qt.callLater(root.applySuggestedMode)}

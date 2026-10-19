@@ -24,3 +24,16 @@ for(const states of [[],[envelope('temperature')],[envelope('temperature'),envel
 const huge=response();huge.legacy.extra='中'.repeat(24000);assert.equal(M.snapshot(huge).valid,false);
 assert.equal(M.parse('{').valid,false);assert.equal(M.parse(JSON.stringify(response())).valid,true);
 console.log('contract identity, known-only units, zero/default and bounded input passed');
+// Missing/invalid source timestamps must never be replaced with receipt time.
+for(const kind of ['temperature','touch']) {
+ const e=envelope(kind,0);e.state.observed_at=100;
+ const r=M.reading(e,e.capability_id);
+ assert.equal(r.known,true);assert.equal(r.value,0);assert.equal(r.observedAt,100);assert.equal(r.health,'observed');
+ for(const stamp of [undefined,null,true,-1,NaN,Infinity,8640000000001]) {
+  e.state.observed_at=stamp;const v=M.reading(e,e.capability_id);
+  assert.equal(v.observedAt,null);assert.equal(v.known,true);
+ }
+ e.output_id='remote';assert.equal(M.reading(e,e.capability_id).known,false);
+ assert.equal(M.reading(e,e.capability_id).observedAt,null);
+}
+console.log('U2A source observation metadata passed');
