@@ -87,7 +87,15 @@ class Host:
         # One bounded settle for the existing event-driven theme refresh.
         time.sleep(.25)
         context=self.context();rows=[r for r in self.geometry() if r.get('visible') is True and r.get('itemVisible') is True]
+        tokens=tomllib.loads((self.home/'.local/state/omarchy/current/theme/shell.toml').read_text())
+        bar=tokens.get('bar',{});font=tokens.get('font',{}).get('base-size',12)
+        size=bar.get('size-horizontal',26)
+        if any(type(value) not in (int,float) or not math.isfinite(value) or value<=0 for value in (font,size)):return False
+        # Match official Style.barToken: positive Math.round, optionally font-scaled.
+        height=max(1,math.floor(size*(max(1/12,font/12) if bar.get('scale-with-font',True) else 1)+.5))
         if {r['id'] for r in rows}!=self.visible_ids:return False
+        if not any(r['id']=='pcadmin.control-center' and abs(r['height']-height)<1 for r in rows):return False
+        if any(r['y']<0 or r['y']+r['height']>height+1 for r in rows):return False
         rows.sort(key=lambda r:r['x'])
         if any(r['x']<0 or r['x']+r['width']>context['viewport'][0] or r['height']<=0 for r in rows):return False
         if any(a['x']+a['width']>b['x']+1 for a,b in zip(rows,rows[1:])):return False

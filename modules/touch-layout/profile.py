@@ -152,7 +152,9 @@ class Manager:
                 planned=self.plan(profile)
                 if planned.get('plan_id')!=plan_id:return self.result(profile,'conflict','plan-changed')
                 previous=self.state()
-                if previous and previous['profile']==profile:return self.result(profile,'applied','already-applied',transaction_id=previous['id'])
+                if previous and previous['profile']==profile:
+                    if not self.host.verify(profile):return self.result(profile,'unverified','actual-state-mismatch',transaction_id=previous['id'])
+                    return self.result(profile,'applied','already-applied',transaction_id=previous['id'])
                 tx={**planned,'id':uuid.uuid4().hex,'phase':'prepared','previous_id':previous['id'] if previous else None}
                 self.save(self.state_dir/(tx['id']+'.json'),tx);self.save(self.state_path,tx)
                 try:

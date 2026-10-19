@@ -56,6 +56,10 @@ class ProfileTests(unittest.TestCase):
         planned=self.manager.plan('touch');self.assertFalse(self.manager.state_dir.exists())
         first=self.manager.apply(planned['plan_id']);self.assertEqual(first['health'],'applied')
         self.assertEqual(self.apply()['transaction_id'],first['transaction_id'])
+    def test_idempotent_request_still_verifies_geometry(self):
+        self.assertEqual(self.apply()['health'],'applied')
+        self.host.verify=lambda profile:False
+        self.assertEqual(self.apply()['health'],'unverified')
     def test_concurrent_edit_preserved(self):
         planned=self.manager.plan('touch');path=self.manager.targets[0]
         path.write_text(self.original+'# concurrent\n')
