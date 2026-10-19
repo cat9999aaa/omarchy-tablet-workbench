@@ -27,7 +27,7 @@ class NavigationTests(unittest.TestCase):
   for v in [{'address':'0x12;evil','pid':1},{'address':'0x0','pid':1},{'address':'0x12','pid':0}]:
    with self.assertRaises(ValueError):n.window_script('close',v)
  def test_window_script_bound_and_allowlisted(self):
-  script=n.window_script('maximize',{'address':'0xab','pid':12})
+  script=n.window_script('maximize',{'address':'0xab','pid':12},output='HEADLESS-1')
   self.assertIn('w.pid==12',script);self.assertIn('w.address=="0xab"',script)
   self.assertIn('maximized',script)
   with self.assertRaises(ValueError):n.window_script('eval',{'address':'0xab','pid':12})

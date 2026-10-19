@@ -21,3 +21,7 @@ GitHub 的 push、pull request、手动运行使用相同入口。Action 固定�
 Ubuntu 云端验收证明可移植逻辑/Qt 基础布局；目标 Arch 的完整输入法编译仍使用 [远程构建器](../../modules/remote-build/README.md)。它们都不代表真实触摸、网络断开恢复、开机解密、待机续航或其他型号硬件已验。完整输入法后端、语音识别与真实应用测试有独立流程，本入口不会向正在使用的应用输入文字。
 
 维护归属：仓库 `scripts/acceptance/` 为权威源，属于工作台的发布与验收能力。新增测试组先确认其不会触及真实硬件或账号，再加入 `checks_for`；不要使用递归发现把真实输入测试混入软件门禁。
+
+C2导航软件组包含navigation-read/session/cancel/scope/candidate/layout与共享QML。真实双输出qs单独运行`modules/window-controls/check_navigation_session.py`；匹配Hyprland原子动作门槛为`check_navigation_compositor.py`，两者均要求隔离环境。普通all通过不能覆盖缺失的图形环境、官方菜单交接、helper/UI组合恢复或实体验收。候选打包器仅生成及检查完整文件，不执行安装。
+
+`navigation-recovery`在临时HOME组合真实候选和发布器，演练helper/UI文件升级与逆序恢复、偏好和模式保留、并发编辑保留。shell探针合成；不执行生产安装，不代表真实桌面交接/恢复通过。

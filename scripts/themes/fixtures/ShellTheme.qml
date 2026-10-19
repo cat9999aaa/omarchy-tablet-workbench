@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Window
 import Quickshell
 import Quickshell.Io
-import "Official" as Official
+import qs.Commons as Official
 ShellRoot {
  id:root
  property var passed:[]
@@ -31,9 +31,13 @@ ShellRoot {
    root.check(Official.Color.popups.background.toString()==='#182028','user-color-override')
    root.check(Official.Style.font.body===18,'user-font-override')
    root.check(Official.Color.accent.toString()==='#ffb454','palette-loaded')
+   const component=Qt.createComponent('Workbench/ThemeContext.qml')
+   root.check(component.status===Component.Ready,'shared-theme-adapter')
+   const adapter=component.createObject(root)
+   root.check(adapter!==null&&adapter.tokens.font.body===24&&adapter.tokens.colors.accent.toString()==='#ffb454','shared-theme-update')
    const identity=surface
    Official.Color.loadUserShell('')
-   root.check(Official.Style.font.body===12,'override-removal')
+   root.check(Official.Style.font.body===12&&adapter.tokens.font.body===16,'override-removal')
    root.check(Official.Color.popups.background.toString()==='#0c1014','theme-surface')
    Official.Color.loadColors('background = "#000000"\nforeground = "#ffffff"\naccent = "#00ffff"\nred = "#ff0000"')
    Official.Color.loadShell('')

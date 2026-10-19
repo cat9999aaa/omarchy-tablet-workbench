@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 """Tablet navigation and key actions. Fixed actions only, no shell evaluation."""
-import json,os,re,subprocess,sys,tempfile
+import json,os,re,signal,subprocess,sys,tempfile
 from pathlib import Path
+from navigation_read import ReadBudget,ReadError,read_json,check_lock,focused_output,window_identity,workspace,workspace_counts
 DEFAULTS={'P1':'keyboard','P2':'voice','P3':'authorize','rotation':'windows'}
 LABELS={'keyboard':'输入法开关','voice':'语音开始 / 停止','authorize':'系统窗口授权','navigation':'开始菜单','desktops':'选择桌面','windows':'当前窗口操作','control-center':'随身控制台','disabled':'不执行操作'}
 CONFIG=Path.home()/'.config/omarchy-tablet-workbench/buttons.json'
@@ -37,7 +38,21 @@ def key_action(key):
 def workspace_id(value):
  if isinstance(value,bool) or not isinstance(value,int) or not 1<=value<=10:raise ValueError('无效桌面编号')
  return value
-def window_script(action,target,workspace=None):
+def output_literal(value):
+ if not isinstance(value,str) or not value.strip() or len(value)>256 or any(ord(c)<32 or ord(c)==127 for c in value):raise ValueError('无效屏幕上下文')
+ # Lua quoted strings share these two escapes with JSON; reject controls above.
+ return json.dumps(value,ensure_ascii=False)
+def output_guard(output):
+ return 'assert(type(hl.get_active_monitor)=="function","capability-unavailable"); local m=hl.get_active_monitor(); assert(m and m.name=='+output_literal(output)+',"context-changed"); '
+def execute_script(script):
+ try:
+  result=subprocess.run(['hyprctl','eval',script],capture_output=True,text=True,timeout=5)
+  if result.returncode==0 and result.stdout.strip()=='ok':return {'ok':True,'reason_code':'','reason':''}
+  code=next((code for code in ('capability-unavailable','context-changed','window-changed') if code in result.stdout),'action-failed')
+ except (OSError,subprocess.SubprocessError):code='action-unavailable'
+ reasons={'capability-unavailable':'桌面接口不支持此操作','context-changed':'操作屏幕已变化，请重新打开','window-changed':'窗口已变化，请重新打开'}
+ return {'ok':False,'reason_code':code,'reason':reasons.get(code,'操作未完成，请重新打开菜单')}
+def window_script(action,target,workspace=None,output=None):
  if not isinstance(target,dict):raise ValueError('窗口无效')
  address=target.get('address','');pid=target.get('pid')
  if not isinstance(address,str) or not re.fullmatch(r'0x[0-9a-fA-F]{1,16}',address) or int(address,16)==0 or type(pid)!=int or pid<=0:raise ValueError('窗口无效')
@@ -45,35 +60,69 @@ def window_script(action,target,workspace=None):
  if action=='move':expression='hl.dsp.window.move({workspace="'+str(workspace_id(workspace))+'"})'
  elif action in expressions:expression=expressions[action]
  else:raise ValueError('未知窗口操作')
- return f'local w=hl.get_active_window(); assert(w and w.address=="{address}" and w.pid=={pid} and w.active,"window changed"); hl.dispatch({expression})'
+ return output_guard(output)+f'local w=hl.get_active_window(); assert(w and w.address=="{address}" and w.pid=={pid} and w.active,"window-changed"); hl.dispatch({expression})'
 def snapshot():
- if not unlocked():return {'ok':False,'reason':'锁屏或状态未知'}
+ budget=ReadBudget();output_name=None
  try:
-  active=json.loads(output(['hyprctl','activewindow','-j']));work=json.loads(output(['hyprctl','activeworkspace','-j']));clients=json.loads(output(['hyprctl','clients','-j']))
- except (ValueError,TypeError):return {'ok':False,'reason':'无法读取桌面'}
- counts={i:0 for i in range(1,11)}
- for client in clients:
-  ws=client.get('workspace',{}).get('id');
-  if ws in counts:counts[ws]+=1
- return {'ok':True,'target':{'address':active.get('address',''),'pid':active.get('pid',0)},'windowLabel':active.get('class','') or '当前没有应用窗口','current':work.get('id'),'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS}
+  check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+  output_name=focused_output(read_json(['hyprctl','monitors','-j'],budget))
+  active=read_json(['hyprctl','activewindow','-j'],budget);target=window_identity(active)
+  current=workspace(read_json(['hyprctl','activeworkspace','-j'],budget))
+  counts=workspace_counts(read_json(['hyprctl','clients','-j'],budget))
+  after=window_identity(read_json(['hyprctl','activewindow','-j'],budget))
+  output_after=focused_output(read_json(['hyprctl','monitors','-j'],budget))
+  check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+  budget.timeout()
+  if target!=after or output_name!=output_after:raise ReadError('context-changed')
+  return {'ok':True,'reason_code':'','output':output_name,'target':target,'windowLabel':active.get('class','') or '当前没有应用窗口','current':current,'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS}
+ except ReadError as error:
+  reasons={'locked':'设备已锁屏','lock-unknown':'锁屏状态未知','output-unavailable':'无法确定操作屏幕','context-changed':'操作目标已变化，请重新打开','timeout':'读取超时，请重试','invalid-data':'桌面数据无效','read-failed':'无法读取桌面'}
+  result={'ok':False,'reason_code':error.code,'reason':reasons.get(error.code,'无法读取桌面')}
+  # Error presentation has no window data or actions. Reuse the original deadline;
+  # failure feedback never extends a timed-out request or guesses another output.
+  if output_name and error.code in ('timeout','read-failed','invalid-data','context-changed'):
+   try:
+    if focused_output(read_json(['hyprctl','monitors','-j'],budget))==output_name:
+     check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+     budget.timeout();result['output']=output_name
+   except ReadError:pass
+  return result
 def action(request):
- if not unlocked():return {'ok':False,'reason':'锁屏或状态未知，操作已取消'}
+ context=request.get('context')
+ try:
+  expected=context.get('output') if isinstance(context,dict) else None
+  guard=output_guard(expected)
+ except ValueError:return {'ok':False,'reason_code':'context-changed','reason':'缺少有效屏幕上下文，请重新打开菜单'}
+ if not unlocked():return {'ok':False,'reason_code':'locked-or-unknown','reason':'锁屏或状态未知，操作已取消'}
  name=request.get('action')
+ if name=='switch':return execute_script(guard+'hl.dispatch(hl.dsp.focus({workspace="'+str(workspace_id(request.get('workspace')))+'"}))')
+ if name=='restore':return execute_script(guard+'hl.dispatch(hl.dsp.workspace.toggle_special("tablet"))')
+ if name in ('maximize','float','hide','center','close','move'):
+  return execute_script(window_script(name,request.get('target'),request.get('workspace'),expected))
+ # App/config handoff crosses processes: recheck, but never claim atomic dispatch.
+ try:
+  budget=ReadBudget()
+  if focused_output(read_json(['hyprctl','monitors','-j'],budget))!=expected:raise ReadError('context-changed')
+  actual=window_identity(read_json(['hyprctl','activewindow','-j'],budget))
+  if actual!=request.get('target'):raise ReadError('context-changed')
+  check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+ except ReadError as error:return {'ok':False,'reason_code':error.code,'reason':'操作上下文已变化或不可用，请重新打开菜单'}
  if name=='bindings':save_bindings(CONFIG,request.get('bindings'));return {'ok':True,'bindings':load_bindings()}
  if name=='defaults':save_bindings(CONFIG,DEFAULTS);return {'ok':True,'bindings':load_bindings()}
- if name=='switch':ok=run(['hyprctl','dispatch','hl.dsp.focus({workspace="'+str(workspace_id(request.get('workspace')))+'"})'])
- elif name=='restore':ok=run(['hyprctl','dispatch','hl.dsp.workspace.toggle_special("tablet")'])
- elif name in ('maximize','float','hide','center','close','move'):ok=run(['hyprctl','eval',window_script(name,request.get('target'),request.get('workspace'))])
- elif name in ('keyboard','voice','control-center'):ok=run(COMMANDS[name])
+ if name in ('keyboard','voice','control-center'):ok=run(COMMANDS[name])
  elif name=='browser':ok=run(['omarchy','launch','browser'])
  elif name=='files':ok=run(['omarchy','launch','nautilus'])
  elif name=='launcher':ok=run(['omarchy','menu','summon','apps'])
  else:raise ValueError('未知操作')
- return {'ok':ok,'reason':'' if ok else '操作未完成；窗口可能已改变，请重新打开菜单'}
+ return {'ok':ok,'reason_code':'' if ok else 'handoff-failed','reason':'' if ok else '操作未完成，请重试'}
 def main():
  try:
   args=sys.argv[1:]
-  if args==['snapshot']:result=snapshot()
+  if args==['snapshot']:
+   def cancelled(signum,frame):raise SystemExit(128+signum)
+   previous=signal.signal(signal.SIGTERM,cancelled)
+   try:result=snapshot()
+   finally:signal.signal(signal.SIGTERM,previous)
   elif len(args)==2 and args[0]=='key':result={'ok':key_action(args[1])}
   elif args==['action']:
    raw=sys.stdin.read(8193)

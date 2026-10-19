@@ -157,6 +157,11 @@ def checks_for(suite):
             ('arcade-catalog', 'modules/offline-arcade/catalog', 'test_*.py'),
             ('ime-control', 'modules/touch-ime-prototype', 'tests/test_control.py'),
             ('navigation', 'modules/window-controls', 'test_navigation.py'),
+            ('navigation-read', 'modules/window-controls', 'test_navigation_read.py'),
+            ('navigation-cancel', 'modules/window-controls', 'test_navigation_cancel.py'),
+            ('navigation-scope', 'modules/window-controls', 'test_navigation_scope.py'),
+            ('navigation-candidate', 'modules/window-controls', 'test_navigation_candidate.py'),
+            ('navigation-recovery', 'modules/window-controls', 'test_navigation_recovery.py'),
             ('edge-menu', 'modules/edge-gestures', 'test_menu.py'),
         ]
         for name, directory, pattern in python_suites:
@@ -164,6 +169,7 @@ def checks_for(suite):
             checks.append(Check(name, directory, [sys.executable, __file__, '--python-suite',
                                 str(p.parent), p.name]))
         for name, directory, file in [
+            ('navigation-session', 'window-controls', 'test-navigation-session.cjs'),
             ('control-model', 'control-center', 'test-model.cjs'),
             ('contract-model', 'control-center', 'test-contract-model.cjs'),
             ('output-route', 'control-center', 'test-output-route.cjs'),
