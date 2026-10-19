@@ -35,6 +35,10 @@ class ActionScopeTests(unittest.TestCase):
   with patch.object(n,'unlocked',return_value=True),patch.object(n.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout='error: capability-unavailable')):
    result=n.action({'action':'restore','context':{'output':'HEADLESS-2'}})
    self.assertFalse(result['ok']);self.assertEqual(result['reason_code'],'capability-unavailable')
+ def test_task_handoff_is_scoped_and_does_not_launch_a_process(self):
+  with patch.object(n,'unlocked',return_value=True),patch.object(n,'read_json',side_effect=[[{'name':'HEADLESS-2','focused':True}],{},False]),patch.object(n,'run') as run:
+   result=n.action({'action':'task-center','context':{'output':'HEADLESS-2'},'target':None})
+   self.assertTrue(result['ok']);self.assertEqual(result['open_tasks'],'HEADLESS-2');run.assert_not_called()
  def test_cross_process_launch_checks_snapshot_context(self):
   with patch.object(n,'unlocked',return_value=True),patch.object(n,'read_json',side_effect=n.ReadError('context-changed')),patch.object(n,'run') as run:
    result=n.action({'action':'browser','context':{'output':'HEADLESS-2'},'target':None})

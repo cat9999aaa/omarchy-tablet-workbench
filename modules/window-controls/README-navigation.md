@@ -19,3 +19,17 @@
 `navigation_read.py` 为一次snapshot提供共享5秒墙钟预算；每次外部读取最多1秒，输出最多1MiB，超限/超时终止并回收读取进程，错误不包含原始子进程输出。准备前后检查实际锁屏、唯一聚焦输出和窗口address/PID。无活动窗口以target=null表示；失败给出reason_code及中文说明，不写回按键偏好。
 
 这是候选读取接口；导航页面现已接入共享组件、会话代次与唯一输出绑定，关闭会取消读取并回收底层读取进程。动作提交的同边界输出保护仍待任务5，不能把此说明当作C2已安装或全部窗口操作已受保护。
+
+## C3 task center (candidate)
+
+The Start page gains a fixed task/notification entry. The same overlay package
+hosts a separate panel, sharing Workbench components with navigation. It reads
+local Paseo CLI metadata on open/refresh, filters the configured project and
+projects anonymous status. Detail is explicit, limited to five rows and five
+seconds cumulative query time per round. Idle/closed never mean task success.
+
+The local task-center.json under the workbench XDG config directory contains
+schema=1 and an existing absolute project_root. Missing/invalid config keeps
+application links available without querying Paseo. No personal path is shipped.
+Official notification history is replayed only on explicit click; approvals
+remain in Paseo. No new daemon or automatic message/approval control is added.

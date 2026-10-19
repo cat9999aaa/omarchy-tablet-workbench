@@ -8,6 +8,10 @@ from run import Check, run_checks, verify_shared_ui, run_python_suite, qml_resul
 
 
 class RunnerTests(unittest.TestCase):
+    def test_c3_checks_required(self):
+        names={c.name for c in checks_for('all')}
+        self.assertTrue({'task-model','task-source','task-process','task-session','task-layout'}<=names)
+
     def test_c2_navigation_groups_are_required(self):
         checks={c.name for c in checks_for("all")}
         self.assertTrue({"navigation", "navigation-read", "navigation-session", "navigation-cancel", "navigation-scope", "navigation-candidate", "navigation-recovery", "navigation-layout", "shared-qml"}<=checks)

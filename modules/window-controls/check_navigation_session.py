@@ -23,6 +23,7 @@ ShellRoot {
   target:"testNavigation"
   function surface():string{return JSON.stringify({screen:nav.boundScreen?nav.boundScreen.name:null,width:nav.boundScreen?nav.boundScreen.width:0})}
   function action():void{nav.act("browser")}
+  function tasks():void{nav.act("task-center")}
  }
 }
 '''
@@ -31,7 +32,7 @@ from pathlib import Path
 root=Path(__file__).parent
 if sys.argv[1]=='action':
  (root/'action-called').touch()
- sys.stdin.read();time.sleep(1.3);print('{"ok":true}');sys.exit()
+ request=json.load(sys.stdin);time.sleep(1.3);print(json.dumps({'ok':True,**({'open_tasks':'HEADLESS-2'} if request.get('action')=='task-center' else {})}));sys.exit()
 (root/'reader-pid').write_text(str(os.getpid()))
 mode=(root/'mode').read_text()
 time.sleep(.4 if mode!='slow' else 2)
@@ -54,12 +55,14 @@ def main():
  source=Path(__file__).resolve().parent
  with tempfile.TemporaryDirectory(prefix='navigation-session-') as temp:
   root=Path(temp)
-  for name in ['Navigation.qml','NavigationSession.js']:shutil.copy2(source/name,root/name)
+  for name in ['Navigation.qml','NavigationSession.js','TaskCenter.qml','TaskSession.js']:shutil.copy2(source/name,root/name)
   shutil.copytree(source/'Workbench',root/'Workbench')
   shutil.copytree('/official/Commons',root/'Commons')
   (root/'Commons/qmldir').write_text('module qs.Commons\n'+''.join('singleton '+n+' 1.0 '+n+'.qml\n' for n in ['Color','Style','Util','Border']))
   (root/'Test.qml').write_text(FIXTURE)
   helper=root/'helper.py';helper.write_text(HELPER)
+  from check_task_session import HELPER as TASK_HELPER
+  task_helper=root/'tasks.py';task_helper.write_text(TASK_HELPER)
   mode=root/'mode';mode.write_text('normal')
   binpath=root/'bin';binpath.mkdir()
   lock=binpath/'omarchy-shell';lock.write_text('#!/usr/bin/python3\nfrom pathlib import Path\np=Path(__file__).parent.parent/"locked"\nprint("true" if p.exists() else "false")\n');lock.chmod(0o755)
@@ -67,7 +70,7 @@ def main():
    env['SWAYSOCK']=str(next((root/'runtime').glob('sway-ipc.*.sock')))
    def sway(*args):subprocess.run(['swaymsg',*args],env=env,check=True,stdout=subprocess.PIPE,timeout=3)
    sway('create_output');sway('output','HEADLESS-2','resolution','1280x960')
-   env.update(PCADMIN_NAVIGATION_HELPER=str(helper),PATH=str(binpath)+':'+env['PATH'])
+   env.update(PCADMIN_TASK_HELPER=str(task_helper),PCADMIN_NAVIGATION_HELPER=str(helper),PATH=str(binpath)+':'+env['PATH'])
    with (root/'shell.log').open('w+') as log:
     shell=subprocess.Popen(['qs','-p',str(root/'Test.qml')],env=env,stdout=log,stderr=subprocess.STDOUT)
     def call(method,*args,target='pcadmin.navigation'):
@@ -105,6 +108,10 @@ def main():
      call('action',target='testNavigation');time.sleep(.2);assert state()['phase']=='error';assert not (root/'action-called').exists()
      call('close');time.sleep(.2);assert not opened();print('C2_PASS:read-error-visible-no-action')
      mode.write_text('normal');call('toggle','开始');wait_for(opened,'old toggle open');call('toggle','开始');assert not opened()
+     call('open','开始');wait_for(opened,'before task handoff');call('tasks',target='testNavigation')
+     wait_for(lambda:json.loads(call('state',target='pcadmin.tasks') or '{}').get('opened'),'task handoff');assert not opened()
+     call('open','窗口');wait_for(opened,'navigation returns');assert not json.loads(call('state',target='pcadmin.tasks'))['opened']
+     print('C3_PASS:mutually-exclusive-handoff')
      call('open','窗口');wait_for(opened,'before lock');(root/'locked').touch();wait_for(lambda:not opened(),'lock closes');print('C2_PASS:lock-closes')
     finally:
      shell.terminate()
