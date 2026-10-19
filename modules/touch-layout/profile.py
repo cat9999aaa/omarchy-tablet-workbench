@@ -26,9 +26,11 @@ def profile_tokens(name):
     if name not in ('touch','compact'): raise ValueError('unknown-profile')
     return dict(zip(KEYS,(56,48))) if name=='touch' else {}
 
-def read(path):
+TRANSACTION_LIMIT = 1024 * 1024
+
+def read(path, limit=65536):
     info=path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_size>65536: raise ValueError('unsafe-file')
+    if not stat.S_ISREG(info.st_mode) or info.st_size>limit: raise ValueError('unsafe-file')
     return path.read_text()
 
 def patch(text, tokens):
@@ -90,7 +92,7 @@ class Manager:
     def result(self, profile='unknown',health='unverified',reason='',**extra):
         return dict(schema_version=1,profile=profile,health=health,reason=reason,**extra)
     def state(self):
-        return json.loads(read(self.state_path)) if self.state_path.exists() else None
+        return json.loads(read(self.state_path,TRANSACTION_LIMIT)) if self.state_path.exists() else None
     def contents(self):
         for path in self.targets:
             if path.resolve()!=path:raise ValueError('symlink-target')
@@ -126,12 +128,15 @@ class Manager:
         try:
             fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);yield
         finally:os.close(fd)
-    def save(self,path,value):atomic(path,json.dumps(value,ensure_ascii=False,sort_keys=True)+'\n')
+    def save(self,path,value):
+        text=json.dumps(value,ensure_ascii=False,sort_keys=True)+'\n'
+        if len(text.encode())>TRANSACTION_LIMIT:raise ValueError('transaction-too-large')
+        atomic(path,text)
     def previous(self,tx):
         identity=tx.get('previous_id')
         if identity is None:return None
         if not isinstance(identity,str) or not re.fullmatch('[0-9a-f]{32}',identity):raise ValueError('invalid-history')
-        return json.loads(read(self.state_dir/(identity+'.json')))
+        return json.loads(read(self.state_dir/(identity+'.json'),TRANSACTION_LIMIT))
     def reload(self):
         try:return self.host.reload()
         except (OSError,ValueError,RuntimeError,subprocess.SubprocessError):return False

@@ -34,6 +34,14 @@ class ProfileTests(unittest.TestCase):
         planned=self.manager.plan(profile)
         self.assertEqual(planned['health'],'ready',planned)
         return self.manager.apply(planned['plan_id'])
+    def test_large_valid_theme_remains_recoverable(self):
+        original=self.original+'#'+('x'*12000)+'\n'
+        for path in self.manager.targets:path.write_text(original)
+        result=self.apply()
+        self.assertEqual(result['health'],'applied')
+        self.assertEqual(self.manager.status()['health'],'ready')
+        self.assertEqual(self.manager.rollback(result['transaction_id'])['health'],'rolled-back')
+        for path in self.manager.targets:self.assertEqual(path.read_text(),original)
     def test_transaction_history_is_bounded(self):
         for i in range(16):
             self.assertEqual(self.apply('touch' if i%2==0 else 'compact')['health'],'applied')

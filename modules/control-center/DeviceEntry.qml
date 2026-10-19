@@ -8,6 +8,8 @@ AbstractButton {
     id: entry
     property var bar: null
     property var contextKey: null
+    readonly property string contextGeometry: contextKey && typeof contextKey === "object"
+        ? [contextKey.width, contextKey.height, contextKey.devicePixelRatio].join(":") : ""
     readonly property var themeKey: Color.shellValues
     property int epoch: 0
     property int pressEpoch: -1
@@ -28,6 +30,7 @@ AbstractButton {
         if (registeredBar && registeredBar.registerClickTarget) registeredBar.registerClickTarget(entry)
     }
     onContextKeyChanged: cancelPendingPress()
+    onContextGeometryChanged: cancelPendingPress()
     onThemeKeyChanged: cancelPendingPress()
     onBarChanged: { cancelPendingPress(); syncRegistration() }
     Component.onCompleted: syncRegistration()

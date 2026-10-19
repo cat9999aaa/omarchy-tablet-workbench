@@ -255,7 +255,7 @@ Ui.Panel {
   function state(): string {const target=root.currentPanel()||root.focusedTarget();return target?target.serializedState():JSON.stringify({uiRevision:6,version:"0.2.3",opened:false,locked:true,available:false})}
 
  }
- DeviceEntry { id:barButton;anchors.fill:parent;bar:root.bar;contextKey:root.hostScreen;onActivated:root.toggle() }
+ DeviceEntry { id:barButton;anchors.fill:parent;bar:root.bar;contextKey:root.attachedScreen;onActivated:root.toggle() }
  Process {
   id: opener;onExited:function(code){if(code!==0&&root.wantOpen)root.close();root.releaseTransfer()}
   command:["python",root.helper,"prepare-open"]
