@@ -43,4 +43,35 @@ TestCase {
         var o=make(960,800,1,'missing-device');o.modelState=Model.reduce(o.modelState,{type:'navigate',id:'device'});wait(20);
         verify(findChild(o,'capability-light').text.indexOf('不支持')>=0);o.destroy();
     }
+
+    function work() {var o=make();o.modelState=Model.reduce(o.modelState,{type:'navigate',id:'work'});wait(30);return o}
+    function clickAction(o,id) {var b=findChild(o,'action-'+id);verify(b!==null,'missing '+id);mouseClick(b,b.width/2,b.height/2);wait(30)}
+    function test_restoreDiscoverable() {
+        var o=work();clickAction(o,'hide-a1');verify(o.modelState.windows[0].hidden);
+        clickAction(o,'restore-a1');verify(!o.modelState.windows[0].hidden);o.destroy();
+    }
+    function test_applicationVsWindow() {
+        var o=work();clickAction(o,'close-a1');compare(o.modelState.windows.length,2);
+        clickAction(o,'quit-a2');compare(o.modelState.windows.length,1);compare(o.modelState.windows[0].id,'b1');o.destroy();
+    }
+    function test_targetReplacementCancelsPress() {
+        var o=work();var b=findChild(o,'action-hide-a1');verify(b!==null);mousePress(b,b.width/2,b.height/2);
+        var changed=Model.initialState('normal');changed.destination='work';changed.windows[0].id='replacement';o.modelState=changed;wait(20);
+        mouseRelease(o,30,30);verify(!o.modelState.windows[0].hidden);o.destroy();
+    }
+    function test_offlineMagi() {
+        var o=make(480,800,1,'offline');var b=findChild(o,'magiEntry');mouseClick(b,b.width/2,b.height/2);wait(20);
+        var pane=findChild(o,'magiPanel');verify(pane!==null);verify(pane.visible);
+        verify(findChild(pane,'magiAvailability').text.indexOf('未接模型')>=0);
+        b=findChild(pane,'workbenchClose');mouseClick(b,b.width/2,b.height/2);verify(!o.modelState.magiOpen);o.destroy();
+    }
+    function test_previewOnly() {
+        var o=make();o.scene='lock-preview';wait(20);
+        var label=findChild(o,'lockPreviewNotice');verify(label!==null);verify(label.visible);verify(label.text.indexOf('不是真实锁屏')>=0);
+        var b=findChild(o,'dashboardEntry');mouseClick(b,b.width/2,b.height/2);compare(o.scene,'dashboard');verify(o.dashboardOpen);o.destroy();
+    }
+    function test_darkLightLongText() {
+        var o=make(480,800,1.5);o.themeTokens=Tokens.resolve({fontScale:1.5,background:'#F3F0E7',foreground:'#182024',accent:'#805000',muted:'#47565C'});wait(20);
+        reachable(o,findChild(o,'workbenchClose'));compare(findChild(o,'prototypeNotice').color,Qt.color('#805000'));o.destroy();
+    }
 }

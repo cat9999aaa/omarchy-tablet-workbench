@@ -2,11 +2,12 @@ import QtQuick
 import "../../../modules/workbench-ui" as UI
 Column {
     id:root;property var modelState;property var themeTokens;signal eventRequested(var event)
+    readonly property color accentColor:themeTokens.colors.accent
     spacing:themeTokens.metrics.gap
     UI.StyledText {width:parent.width;themeTokens:root.themeTokens;role:"subtitle";color:root.themeTokens.colors.accent;text:"01 / COMMAND OVERVIEW"}
     UI.StyledText {width:parent.width;themeTokens:root.themeTokens;role:"title";font.bold:true;text:"让工作回到一个入口。"}
     UI.StyledText {width:parent.width;themeTokens:root.themeTokens;tone:"muted";text:"工作、任务与设备状态集中呈现。建议由 MAGI 解释，决定仍然属于你。"}
-    Rectangle {width:parent.width;height:status.implicitHeight+root.themeTokens.metrics.paddingY*2;color:Qt.rgba(root.themeTokens.colors.accent.r,root.themeTokens.colors.accent.g,root.themeTokens.colors.accent.b,.06);border.color:root.themeTokens.colors.accent
+    Rectangle {width:parent.width;height:status.implicitHeight+root.themeTokens.metrics.paddingY*2;color:Qt.rgba(root.accentColor.r,root.accentColor.g,root.accentColor.b,.06);border.color:root.themeTokens.colors.accent
         Column {id:status;x:root.themeTokens.metrics.paddingX;y:root.themeTokens.metrics.paddingY;width:parent.width-x*2;spacing:root.themeTokens.metrics.gapSmall
             UI.StyledText {width:parent.width;themeTokens:root.themeTokens;role:"subtitle";text:"设备观测 / 示例"}
             UI.StyledText {objectName:"temperatureValue";width:parent.width;themeTokens:root.themeTokens;role:"title";text:"温度  "+root.modelState.observations.temperature.value+" °C"}
