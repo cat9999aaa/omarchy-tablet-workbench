@@ -26,6 +26,15 @@ class ThemeTests(unittest.TestCase):
         self.path = Path(self.tmp.name) / 'theme'
         shutil.copytree(ROOT / 'themes/dashen-overdrive', self.path)
 
+    def test_touch_dimension_tokens(self):
+        path=self.path/'shell.toml';original=path.read_text()
+        for value in ['48','56','16','128']:
+            path.write_text(original.replace('[bar]', '[bar]\nicon-slot = '+value+'\nsize-horizontal = '+value))
+            self.assertEqual(self.api.validate_theme(self.path),[])
+        for value in ['true','false','nan','inf','"48"','15','129','48.5']:
+            path.write_text(original.replace('[bar]', '[bar]\nicon-slot = '+value))
+            self.assertIn('invalid-dimension',self.api.validate_theme(self.path))
+
     def test_original_theme_and_cli(self):
         self.assertEqual(self.api.validate_theme(self.path), [])
         result = subprocess.run([sys.executable, str(HERE/'check_theme.py'), str(self.path)], capture_output=True)

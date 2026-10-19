@@ -1,0 +1,11 @@
+{
+  "Touch/Bar.qml": "220aeac9f27a0f3452dbd0e36e688bf7bd2d736917b47a192f16a13b0fd5090f",
+  "Touch/BarModel.js": "908f30edce60dcba46d2039ba3d501fd0faa35fa1f90b7dbda69439288f8a8d0",
+  "Ui/WidgetButton.qml": "a3cc74adca517b73a176eae0f93e976c24a3ec73b4b5855340b61b1ed2dcd08f",
+  "Ui/BarIconButton.qml": "bae9894d021655105b67d4ae7dec734bcd36ebf3b17a4aaef2c462e0cfa0c874",
+  "Ui/OpticalGlyph.qml": "293e2863c7ff18998a7aea651fa952a564a860df125bf8900b7e739500b3c352",
+  "Commons/Style.qml": "f5901092617ae62645597199270afd4dfb0644d596bdfff16e1834fca6ad7243",
+  "Commons/Color.qml": "cc9b62e2eaf8c307aa02206d9320c3d0ca349cf8feed452a6eddf387adaa5320",
+  "Commons/Util.qml": "6894c63190973b5dbe50b13b3f7a99dd5770e143699f3aae1650fb65ca3ebe9b",
+  "Commons/BorderGeometry.js": "8b99fb8d32a2f4ccb72f09a1c6421771d7329555c59bff69d181f1218033c85d"
+}

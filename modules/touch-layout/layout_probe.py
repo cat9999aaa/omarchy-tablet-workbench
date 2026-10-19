@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from bar_compat import patched, NEW
 
 
 def block(source, marker):
@@ -21,7 +22,7 @@ def block(source, marker):
     return source[start:end]
 
 
-def measure_layout(config, profile, viewport, font_scale):
+def measure_layout(config, profile, viewport, font_scale, *, source_root=None, theme_text=None):
     if profile not in ('touch','compact') or font_scale not in (1,1.25,1.5):raise ValueError('unsupported-profile-or-scale')
     if len(viewport)!=2 or any(type(v) is not int or not 240<=v<=8192 for v in viewport):raise ValueError('invalid-viewport')
     layout=config.get('layout',{})
@@ -34,13 +35,13 @@ def measure_layout(config, profile, viewport, font_scale):
             if entry['kind']=='fixed' and (type(entry.get('width')) not in (int,float) or not 0<entry['width']<=8192):raise ValueError('invalid-width')
             ids.append(entry['id'])
     if len(set(ids))!=len(ids):raise ValueError('duplicate-id')
-    official=Path(os.environ.get('U2B_OFFICIAL_ROOT','/official'))
+    official=Path(source_root or os.environ.get('U2B_OFFICIAL_ROOT','/official'))
     required=['Touch/Bar.qml','Touch/BarModel.js','Ui/WidgetButton.qml','Ui/BarIconButton.qml','Ui/OpticalGlyph.qml','Commons/Style.qml','Commons/Color.qml','Commons/Util.qml','Commons/BorderGeometry.js']
     hashes=json.loads((official/'hashes.json').read_text())
     for rel in required:
         p=official/rel
         if p.is_symlink() or hashlib.sha256(p.read_bytes()).hexdigest()!=hashes.get(rel):raise ValueError('source-changed:'+rel)
-    source=(official/'Touch/Bar.qml').read_text()
+    source=patched((official/'Touch/Bar.qml').read_text())
     panel=Path(__file__).resolve().parents[1]/'control-center/Panel.qml'
     device=block(panel.read_text(),' Ui.BarIconButton { id:barButton').replace('Ui.BarIconButton','BarIconButton').replace('bar:root.bar','bar:root.barApi')
     sections='\n'.join(block(source,m) for m in ('  component LeftModules:','  component RightModules:','  component CenterModules:','  component ModuleList:','    Component {\n      id: horizontalBar'))
@@ -88,7 +89,8 @@ ShellRoot {
    id:slot
    required property var entry
    property string region:""
-   implicitWidth:loader.item?loader.item.implicitWidth:0
+   readonly property var activeItem:loader.item
+   SLOT_WIDTH
    implicitHeight:loader.item?loader.item.implicitHeight:0
    width:implicitWidth;height:implicitHeight
    Component.onCompleted:root.slots=root.slots.concat([slot])
@@ -101,7 +103,7 @@ ShellRoot {
 SECTIONS
  }
  }
- Timer {interval:100;running:true;onTriggered:{Style.fontBaseSize=FONT_SIZE;Style.barOverrides=TOKENS;measure.start()}}
+ Timer {interval:100;running:true;onTriggered:{Color.loadShell(THEME_TEXT);measure.start()}}
  Timer {id:measure;interval:100;onTriggered:{
   const rows=[]
   for(let i=0;i<root.slots.length;i++) {const slot=root.slots[i];if(!slot.visible||!slot.entry||slot.width<=0)continue;const p=slot.mapToItem(root,0,0);rows.push({id:slot.entry.id,x:p.x,y:p.y,width:slot.width,height:slot.height,primary:slot.entry.primary===true})}
@@ -109,7 +111,7 @@ SECTIONS
  }}
 }
 '''
-        qml=qml.replace('VIEW_WIDTH',str(viewport[0])).replace('CONFIG',json.dumps(config)).replace('FONT_SIZE',str(round(12*font_scale))).replace('TOKENS',json.dumps({'size-horizontal':56,'icon-slot':48} if profile=='touch' else {})).replace('SECTIONS',sections).replace('DEVICE_ENTRY',device)
+        qml=qml.replace('SLOT_WIDTH',NEW).replace('VIEW_WIDTH',str(viewport[0])).replace('CONFIG',json.dumps(config)).replace('THEME_TEXT',json.dumps(theme_text if theme_text is not None else '[font]\nbase-size = '+str(round(12*font_scale))+'\n[bar]\n'+('size-horizontal = 56\nicon-slot = 48\n' if profile=='touch' else ''))).replace('SECTIONS',sections).replace('DEVICE_ENTRY',device)
         (path/'shell.qml').write_text(qml)
         env={**os.environ,'HOME':str(path/'home'),'QT_QPA_PLATFORM':'offscreen','QT_QUICK_BACKEND':'software'}
         for key in ('WAYLAND_DISPLAY','DISPLAY','DBUS_SESSION_BUS_ADDRESS','HYPRLAND_INSTANCE_SIGNATURE'):env.pop(key,None)

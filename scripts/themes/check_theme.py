@@ -15,7 +15,7 @@ FILES = {'colors.toml', 'shell.toml', 'README.md', 'LICENSE', 'source.json'}
 PALETTE = set('accent selection muted background dark_background darker_background lighter_background foreground dark_foreground light_foreground bright_foreground red yellow orange green cyan blue magenta brown bright_red bright_yellow bright_green bright_cyan bright_blue bright_magenta'.split())
 SURFACE = {'background', 'background-alpha', 'text', 'border', 'border-alpha', 'border-width'}
 SHELL = {
-    'bar': {'background', 'background-alpha', 'text', 'active'},
+    'bar': {'background', 'background-alpha', 'text', 'active', 'size-horizontal', 'icon-slot'},
     'popups': SURFACE,
     'notifications': SURFACE | {'countdown'},
     'menu': SURFACE | {'scrim', 'scrim-alpha', 'selected-background', 'selected-background-alpha', 'selected-text', 'selected-border', 'selected-border-alpha'},
@@ -88,7 +88,10 @@ def validate_theme(path: Path) -> list[str]:
         for key, value in values.items():
             if key not in SHELL[section]:
                 errors.append('unsupported-shell-key');continue
-            if key.endswith('-alpha'):
+            if key in ('size-horizontal', 'icon-slot'):
+                if type(value) is not int or not 16 <= value <= 128:
+                    errors.append('invalid-dimension')
+            elif key.endswith('-alpha'):
                 if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
                     errors.append('invalid-alpha')
             elif key.endswith('-width'):
