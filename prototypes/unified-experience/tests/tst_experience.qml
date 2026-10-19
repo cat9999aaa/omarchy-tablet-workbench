@@ -2,6 +2,7 @@ import QtQuick
 import QtTest
 import "../ExperienceModel.js" as Model
 import "../PreviewTokens.js" as Tokens
+import "../../../scripts/themes/Contrast.js" as Contrast
 TestCase {
     id:test; name:"UnifiedExperience"; when:windowShown; visible:true; width:1536;height:1536
     function make(w,h,scale,scenario) {
@@ -55,9 +56,9 @@ TestCase {
         clickAction(o,'quit-a2');compare(o.modelState.windows.length,1);compare(o.modelState.windows[0].id,'b1');o.destroy();
     }
     function test_targetReplacementCancelsPress() {
-        var o=work();var b=findChild(o,'action-hide-a1');verify(b!==null);mousePress(b,b.width/2,b.height/2);
+        var o=work();var b=findChild(o,'action-hide-a1');verify(b!==null);var point=b.mapToItem(o,b.width/2,b.height/2);var calls=0;o.eventRequested.connect(function(){calls++});mousePress(o,point.x,point.y);
         var changed=Model.initialState('normal');changed.destination='work';changed.windows[0].id='replacement';o.modelState=changed;wait(20);
-        mouseRelease(o,30,30);verify(!o.modelState.windows[0].hidden);o.destroy();
+        mouseRelease(o,point.x,point.y);compare(calls,0);verify(!o.modelState.windows[0].hidden);o.destroy();
     }
     function test_offlineMagi() {
         var o=make(480,800,1,'offline');var b=findChild(o,'magiEntry');mouseClick(b,b.width/2,b.height/2);wait(20);
@@ -79,5 +80,12 @@ TestCase {
         var o=make();o.modelState=Model.reduce(o.modelState,{type:'toggleMagi'});wait(20);
         var covered=findChild(o,'action-open-tasks');var point=covered.mapToItem(o,covered.width*.8,covered.height/2);
         mouseClick(o,point.x,point.y);compare(o.modelState.destination,'overview');verify(o.modelState.magiOpen);o.destroy();
+    }
+
+    function test_lightWallpaperTextContrast() {
+        var o=make();o.scene='desktop';o.themeTokens=Tokens.resolve({background:'#F3F0E7',foreground:'#182024',accent:'#805000',muted:'#47565C'});wait(60);
+        var rendered=grabImage(o);var background=rendered.pixel(6,6);
+        verify(Contrast.ratio(Qt.color(o.themeTokens.colors.muted),background)>=4.5,'muted text on actual wallpaper');
+        verify(Contrast.ratio(findChild(o,'prototypeNotice').color,background)>=4.5,'prototype label on actual wallpaper');o.destroy();
     }
 }

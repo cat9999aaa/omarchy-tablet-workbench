@@ -10,7 +10,7 @@
 /usr/lib/qt6/bin/qml prototypes/unified-experience/Main.qml
 ```
 
-若发行版提供`qml6`或`qml`，使用其对应Qt6入口；不要为预览修改系统默认Qt或安装另一套桌面。关闭窗口即可退出，无后台服务。
+若发行版提供`qml6`或`qml`，使用其对应Qt6入口；不要为预览修改系统默认Qt或安装另一套桌面。点击顶部“退出预览”或关闭窗口即可退出，无后台服务；窄屏工具栏自动换为两行。
 
 顶部工具栏切换指挥台/桌面/窗口/锁屏视觉预览、常规/过期/离线/缺硬件示例和深浅配色。工具栏是原型评审工具，不是最终桌面入口。侧栏六分类固定，窄屏通过“分类”展开；底部指挥台可收起/打开，MAGI只展示建议示例。
 
@@ -28,6 +28,6 @@
 
 Qt交互：`QT_QUICK_BACKEND=software /usr/lib/qt6/bin/qmltestrunner -input prototypes/unified-experience/tests/tst_experience.qml -platform offscreen`。
 
-截图夹具`tst_capture.qml`输出到测试沙箱的`/evidence`，需由测试调度器绑定可写目录；不得为运行测试在宿主根目录创建目录。运行该夹具生成四场景横竖屏及MAGI/窄屏10张图。测试环境无网络、真实桌面总线或设备权限；截图不含用户工作内容。
+截图夹具`tst_capture.qml`输出到测试沙箱的`/evidence`，需由测试调度器绑定可写目录；不得为运行测试在宿主根目录创建目录。运行该夹具生成四场景横竖屏及MAGI/窄屏及浅色桌面/指挥台/锁屏共13张图。测试环境无网络、真实桌面总线或设备权限；截图不含用户工作内容。
 
 批量核验使用已授权远程环境；本机只预览。具体证据、审查和未验范围见[交付报告](../../docs/validation/2026-10-19-unified-experience-u1.md)。

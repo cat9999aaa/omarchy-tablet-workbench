@@ -14,12 +14,14 @@ Rectangle {
     readonly property real inset:themeTokens.metrics.paddingX
     signal eventRequested(var event)
     readonly property color accentColor:themeTokens.colors.accent
+    readonly property color backgroundColor:themeTokens.colors.background
+    readonly property bool lightBackground:(backgroundColor.r+backgroundColor.g+backgroundColor.b)/3>.5
     onSceneChanged: {
         dashboardOpen=scene==='dashboard'||scene==='windows';navigationOpen=false;
         if(scene==='windows')eventRequested({type:'navigate',id:'work'});
     }
     color:themeTokens.colors.background
-    Image {anchors.fill:parent;source:"assets/wallpaper.svg";fillMode:Image.PreserveAspectCrop;opacity:.65}
+    Image {anchors.fill:parent;source:"assets/wallpaper.svg";fillMode:Image.PreserveAspectCrop;opacity:root.lightBackground?.05:.65}
 
     function navItems() {return Model.destinations().map(function(d,i){return {id:'nav-'+d.id,label:'0'+(i+1)+'  '+d.label,action:'navigate',payload:d.id,selected:root.modelState.destination===d.id}})}
     Column {
