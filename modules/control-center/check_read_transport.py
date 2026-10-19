@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix='contract-transport-') as tmp:
     p=Path(tmp)
     for name in ('ContractModel.js','ContractState.qml'):shutil.copy2(root/name,p/name)
     payload=repr(json.dumps(response))
-    scripts={'success':f'print({payload})', 'nonzero':f'print({payload});raise SystemExit(1)', 'huge':'print("中"*24000)', 'truncated':'print("{")', 'locked':f'print({repr(json.dumps({**response,"legacy":{"locked":True}}))})', 'cancel':'import time;time.sleep(30)', 'timeout':'import time;time.sleep(30)'}
+    scripts={'success':f'print({payload})', 'nonzero':f'print({payload});raise SystemExit(1)', 'huge':'print("中"*24000)', 'truncated':'print("{")', 'locked':f'print({repr(json.dumps({**response,"legacy":{"locked":True}}))})', 'cancel':'import time;time.sleep(30)', 'timeout':'import time;time.sleep(30)', 'partial_timeout':f'import time,signal,sys;signal.signal(signal.SIGTERM,lambda *args:(print({payload},flush=True),sys.exit(0)));print("{{",flush=True);time.sleep(30)', 'complete_text_timeout':f'import time;print({payload},flush=True);time.sleep(30)'}
     for name,body in scripts.items():(p/(name+'.py')).write_text(body)
     qml='''import QtQuick
 import Quickshell
@@ -35,11 +35,12 @@ ShellRoot {
  property string feedback:""
  property var data:({})
  property int index:0
- property var cases:["success","nonzero","huge","truncated","locked","cancel","timeout"]
+ property var cases:["success","nonzero","huge","truncated","locked","cancel","timeout","partial_timeout","complete_text_timeout"]
  ContractState {id:readings}
  function close(){readings.closeSession();if(activeRead)activeRead.cancelRead()}
  function start(){
   readings.beginOpen();helper=Qt.resolvedUrl(cases[index]+".py").toString().replace("file://","")
+  readings.accept(readings.startRequest(),GOOD_RESPONSE)
   activeRead=readRequest.createObject(root,{requestToken:readings.startRequest()});activeRead.running=true
   if(cases[index]==="cancel")cancelLater.start()
  }
@@ -48,13 +49,14 @@ ShellRoot {
  Timer {interval:20;running:true;repeat:true;onTriggered:{
   if(root.activeRead!==null)return
   const name=root.cases[root.index]
-  if(name==="success" ? !readings.ready || readings.temperatureText!=="0 °C" : readings.ready || readings.temperatureText.indexOf("°C")>=0){console.log("TRANSPORT_FAILED "+name);Qt.quit();return}
+  const keepHistory=name==="timeout" || name==="nonzero"
+  if(name==="success" ? !readings.ready || readings.temperatureText!=="0 °C" : readings.ready || (keepHistory ? !readings.temperatureDisplay.historical : readings.temperatureText.indexOf("°C")>=0)){console.log("TRANSPORT_FAILED "+name);Qt.quit();return}
   console.log("TRANSPORT_PASSED "+name)
   root.index++;if(root.index===root.cases.length){Qt.quit();return}root.start()
  }}
 '''+component+'\n}\n'
-    (p/'shell.qml').write_text(qml)
-    result=subprocess.run(['qs','-p',str(p/'shell.qml')],capture_output=True,text=True,timeout=35)
+    (p/'shell.qml').write_text(qml.replace('GOOD_RESPONSE',json.dumps(response)))
+    result=subprocess.run(['qs','-p',str(p/'shell.qml')],capture_output=True,text=True,timeout=85)
     output=result.stdout+result.stderr
     print(output[-5000:])
     assert result.returncode==0,result.returncode

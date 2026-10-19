@@ -341,7 +341,7 @@ Ui.Panel {
    onExited:function(exitCode,exitStatus){code=exitStatus===0?exitCode:-1;exitSeen=true;finishIfDone()}
    property Timer deadline: Timer {
     interval:20000;running:true
-    onTriggered:{readings.fail(request.requestToken,"read_timeout");request.cancelRead()}
+    onTriggered:{readings.fail(request.requestToken,output.text.length>0?"invalid_transport":"read_timeout");request.cancelRead()}
    }
    property Timer cancelDeadline: Timer {
     interval:2000

@@ -22,8 +22,9 @@
 |共享Readout|29项通过，含窄屏、字体、主题与实际滚动容器|
 |共享副本同步|4项测试通过，sync.py --check通过|
 |实际Panel布局|104项通过；含24种Readout布局与按压动作变化/往返变化取消|
-|完整验收|45组全部通过，无跳过；scripts/acceptance/run.py|
-|独立审查|待完成|
+|完整验收|首次及审查修复后45组全部通过，无跳过；scripts/acceptance/run.py|
+|真实Quickshell传输|9种场景通过；半截响应超时先复现失败再修复，迟到退出不恢复历史|
+|独立审查|一次最终审查；0 Critical、1 Important已修复、1 Minor文档状态已更新|
 
 ## 实机与恢复
 
