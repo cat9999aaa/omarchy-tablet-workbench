@@ -36,7 +36,7 @@ elif name=='paseo':
   self.assertNotIn('gtk-launch',(self.root/'calls').read_text());self.assertNotIn('showHistory',(self.root/'calls').read_text())
  def test_source_error_and_timeout(self):
   (self.root/'bad').touch();p=self.run_helper();r=json.loads(p.stdout);self.assertIsNone(r['rows']);self.assertNotIn('PRIVATE',p.stdout+p.stderr)
-  (self.root/'bad').unlink();(self.root/'slow').touch();start=time.monotonic();r=json.loads(self.run_helper().stdout);self.assertLess(time.monotonic()-start,6);self.assertEqual(r['source_reason'],'timeout')
+  (self.root/'bad').unlink();(self.root/'slow').touch();start=time.monotonic();r=json.loads(self.run_helper().stdout);self.assertLess(time.monotonic()-start,8);self.assertEqual(r['source_reason'],'timeout')
   pid=int((self.root/'pid').read_text());self.assertFalse(Path('/proc',str(pid)).exists())
  def test_snapshot_detail_scope_is_carried_through_cli(self):
   snapshot=json.loads(self.run_helper().stdout)

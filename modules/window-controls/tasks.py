@@ -29,7 +29,7 @@ def request(command,value):
   if not isinstance(output,str) or not output.strip() or len(output)>256 or any(ord(c)<32 or ord(c)==127 for c in output):raise ReadError('invalid-request')
  remaining=value.get('remaining_ms',12000)
  if type(remaining) is not int or not 1<=remaining<=12000:raise ReadError('invalid-request')
- budget=ReadBudget(remaining/1000 if command!='guard' else 1,max_read_seconds=4)
+ budget=ReadBudget(remaining/1000 if command!='guard' else 1,max_read_seconds=6)
  if command=='detail' and (not isinstance(value['scope'],str) or re.fullmatch('[0-9a-f]{64}',value['scope']) is None):raise ReadError('invalid-request')
  if command=='guard':return finish(budget,value['output'])
  if command=='action':return handoff(value['action'],value['output'],budget)
