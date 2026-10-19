@@ -29,11 +29,29 @@ import "Commons"
 TestCase {
  id:root;visible:true;when:windowShown;name:"ActualDeviceEntry";width:300;height:200
  property int calls:0
+ property int dragStarts:0
  property var attachedScreen:screen1
  QtObject {id:screen1;property int width:800;property int height:600;property real devicePixelRatio:1}
  QtObject {id:screen2;property int width:800;property int height:600;property real devicePixelRatio:1}
  property var hostScreen:null
  property var shell:null
+ QtObject {id:reorderShell;function mutateShellConfig(){}}
+ property var barDragWindow:null
+ property var barDragScreen:null
+ property var barDragSource:null
+ property var barDragTargetGeometry:null
+ property real barDragOffsetX:0
+ property real barDragOffsetY:0
+ property real barDragSceneX:0
+ property real barDragSceneY:0
+ property real barDragScreenX:0
+ property real barDragScreenY:0
+ function captureBarDragGhost(slot){root.dragStarts++}
+ function hideTooltip(item){}
+ function barDragScreenPoint(point){return point}
+ function moduleDropAtScene(point,slot){return null}
+ function dropMarkerRect(slot,after){return null}
+ function dropBarModuleAtTarget(slot,target,after){}
  property var barDragTarget:null
  property bool barDragAfter:false
  function clearBarDrag(){}
@@ -50,7 +68,7 @@ TestCase {
  DeviceEntry {id:mountedEntry;anchors.fill:parent;bar:bar}
  }
  function test_actual_panel_mount(){compare(mountedEntry.parent,actualPanel);verify(mountedEntry.Window.window!==null);var point=mountedEntry.mapToItem(root,0,0);compare(point.x,100);compare(point.y,100)}
- function init(){bar.barSize=56;root.attachedScreen=screen1;calls=0;wait(1)}
+ function init(){root.shell=null;bar.barSize=56;root.attachedScreen=screen1;calls=0;dragStarts=0;wait(1)}
  function test_visible_label(){
   var visual=entry.contentItem
   compare(visual.text,"设备");verify(visual.visible);verify(visual.opacity>0.9)
@@ -59,6 +77,35 @@ TestCase {
   verify(label.width>0);verify(label.height>0)
   var point=label.mapToItem(entry,0,0);verify(point.x>=0&&point.y>=0)
   verify(point.x+label.width<=entry.width&&point.y+label.height<=entry.height)
+ }
+ function test_touch_small_motion_with_reorder(){
+  root.shell=reorderShell
+  var touch=touchEvent(entry)
+  touch.press(0,entry,24,28).commit();wait(20)
+  touch.move(0,entry,30,28).commit();wait(20)
+  touch.release(0,entry,30,28).commit();wait(20)
+  compare(calls,1,"a short in-target touch with six-pixel motion must remain a tap")
+ }
+ function test_mouse_reorder_precision_preserved(){
+  root.shell=reorderShell
+  mousePress(entry,24,28);mouseMove(entry,30,28);mouseRelease(entry,30,28)
+  compare(dragStarts,1);compare(calls,0)
+ }
+ function test_touch_long_motion_is_drag(){
+  root.shell=reorderShell
+  var touch=touchEvent(entry)
+  touch.press(0,entry,10,28).commit();wait(20)
+  touch.move(0,entry,40,28).commit();wait(20)
+  touch.release(0,entry,40,28).commit();wait(20)
+  compare(dragStarts,1);compare(calls,0)
+ }
+ function test_touch_identity_change_cancels(){
+  root.shell=reorderShell
+  var touch=touchEvent(entry)
+  touch.press(0,entry,24,28).commit();wait(20)
+  Color.shellValues={touchTheme:true};wait(1)
+  touch.release(0,entry,24,28).commit();wait(20)
+  compare(calls,0)
  }
  function test_centers_and_edges(){for(const p of [[24,28],[1,28],[47,28],[24,1],[24,55]]){mousePress(entry,p[0],p[1]);mouseRelease(entry,p[0],p[1]);}compare(calls,5)}
  function test_resize_cancels(){mousePress(entry,24,20);bar.barSize=70;wait(1);mouseRelease(entry,24,20);compare(calls,0)}
