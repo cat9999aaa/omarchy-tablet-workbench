@@ -78,7 +78,10 @@ class SnapshotTests(unittest.TestCase):
  def snapshot(self,values):
   self.assertTrue(hasattr(self.n,'read_json'),'snapshot must use bounded reader')
   budgets=[]
-  def read(argv,budget,**kwargs):budgets.append(budget);return values.pop(0)
+  def read(argv,budget,**kwargs):
+   budgets.append(budget)
+   if not values:raise self.n.ReadError('read-failed')
+   return values.pop(0)
   with patch.object(self.n,'read_json',side_effect=read),patch.object(self.n,'load_bindings',return_value=self.n.DEFAULTS),patch.object(self.n,'save_bindings') as save:
    result=self.n.snapshot();save.assert_not_called()
   self.assertTrue(all(b is budgets[0] for b in budgets));return result
@@ -93,6 +96,34 @@ class SnapshotTests(unittest.TestCase):
   for index,value in [(1,{}),(1,[{'name':'bad\nname','focused':True}]),(2,{'address':'0xab','pid':True}),(2,[]),(3,{'id':True}),(4,[None]),(4,[{'workspace':{'id':True}}])]:
    with self.subTest(index=index,value=value):
     v=self.values();v[index]=value;r=self.snapshot(v);self.assertFalse(r['ok']);self.assertEqual(r['reason_code'],'invalid-data')
+ def test_failure_only_returns_safe_output_after_fresh_checks(self):
+  for final,expected in [(False,'TEST-1'),(True,None),(None,None)]:
+   values=[False,self.monitors,self.n.ReadError('timeout'),self.monitors,final]
+   def read(argv,budget):
+    value=values.pop(0)
+    if isinstance(value,Exception):raise value
+    return value
+   with patch.object(self.n,'read_json',side_effect=read):result=self.n.snapshot()
+   self.assertFalse(result['ok']);self.assertEqual(result.get('output'),expected)
+   self.assertNotIn('target',result);self.assertNotIn('windowLabel',result)
+ def test_failure_feedback_cannot_extend_expired_budget(self):
+  clock=[0.0];budget=self.n.ReadBudget(clock=lambda:clock[0]);calls=[]
+  def read(argv,current):
+   calls.append(argv);current.timeout()
+   if len(calls)==1:return False
+   if len(calls)==2:return self.monitors
+   clock[0]=5.0;raise self.n.ReadError('timeout')
+  with patch.object(self.n,'ReadBudget',return_value=budget),patch.object(self.n,'read_json',side_effect=read):result=self.n.snapshot()
+  self.assertNotIn('output',result);self.assertEqual(result['reason_code'],'timeout')
+  self.assertEqual(len(calls),4)
+ def test_failure_does_not_migrate_to_new_output(self):
+  values=[False,self.monitors,self.n.ReadError('timeout'),[{'name':'TEST-2','focused':True}]]
+  def read(argv,budget):
+   value=values.pop(0)
+   if isinstance(value,Exception):raise value
+   return value
+  with patch.object(self.n,'read_json',side_effect=read):result=self.n.snapshot()
+  self.assertNotIn('output',result)
  def test_ambiguous_output(self):
   v=self.values();v[1]=self.monitors+[{'name':'TEST-2','focused':True}];r=self.snapshot(v);self.assertFalse(r['ok']);self.assertEqual(r['reason_code'],'output-unavailable')
 

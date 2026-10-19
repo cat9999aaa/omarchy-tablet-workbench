@@ -26,3 +26,15 @@ let success=send(acting,ev('ACT_RESULT',{generation:2,id:'one',result:{ok:true}}
 for(const type of ['LOCKED','OUTPUT_LOST']){let r=send(opened(),ev(type));assert.equal(r.state.phase,'closed');assert.equal(r.state.output,null);assert.equal(r.state.data,null);}
 let invalid=send(a.state,ev('READ_OK',{generation:1,data:{ok:true}}));assert.equal(invalid.state.phase,'closed');assert.equal(invalid.state.feedback,'invalid-data');
 console.log('navigation session lifecycle cases passed');
+
+// A preparation failure must stay readable without exposing actions or window data.
+let pending=send(initial(),ev('OPEN',{page:'窗口'})).state;
+let failed=send(pending,ev('READ_ERROR',{generation:pending.generation,code:'timeout',output:'TEST-1'})).state;
+assert.equal(failed.phase,'error');assert.equal(failed.output,'TEST-1');assert.equal(failed.data,null);
+assert.match(failed.feedback,/超时/);
+assert.deepEqual(send(failed,ev('ACT_STARTED',{generation:failed.generation,id:'unsafe'})).state,failed);
+assert.equal(send(failed,ev('OPEN',{page:'窗口'})).state.phase,'loading');
+for(const code of ['locked','lock-unknown','output-unavailable','unexpected'])
+ assert.equal(send(pending,ev('READ_ERROR',{generation:pending.generation,code,output:'TEST-1'})).state.phase,'closed');
+for(const type of ['LOCKED','OUTPUT_LOST','CLOSE'])assert.equal(send(failed,ev(type)).state.phase,'closed');
+assert.equal(send(pending,ev('READ_ERROR',{generation:pending.generation,code:'timeout'})).state.phase,'closed');

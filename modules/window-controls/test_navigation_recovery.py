@@ -73,7 +73,7 @@ class RecoveryRehearsal(unittest.TestCase):
  def test_upgrade_and_inverse_recovery_preserve_preferences_modes_and_absence(self):
   transaction=self.prepare();self.rollback_ui(transaction)
   self.assertEqual(set(self.restore_helpers().values()),{'restored'})
-  self.assertEqual(self.events,['helpers-prepared','ui-0.1.3','ui-0.1.2','helpers-restored'])
+  self.assertEqual(self.events,['helpers-prepared','ui-0.1.4','ui-0.1.2','helpers-restored'])
   self.assertEqual((self.plugin/'manifest.json').read_bytes(),self.old_manifest)
   self.assertEqual((self.helpers/'navigation.py').read_bytes(),self.backup['navigation.py'][0])
   self.assertEqual((self.helpers/'navigation.py').stat().st_mode&0o777,0o750)

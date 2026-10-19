@@ -16,6 +16,9 @@ import "Workbench" as WB
 import "Workbench/Theme.js" as Theme
 Item {
  id:root;width:640;height:604
+ property var session:({phase:"open"})
+ property int retries:0
+ function openPage(value){retries++;page=value}
  property string page:"开始"
  property string feedback:""
  property bool busy:false
@@ -34,6 +37,14 @@ Item {
 tests='''
  TestCase {
   name:"NavigationGeometry";when:windowShown
+  function test_error_has_only_retry_and_close() {
+   root.width=320;root.height=480;root.session={phase:'error'};root.feedback='读取超时，请重试';wait(30)
+   const retry=findChild(root,'navigation-retry');verify(retry.visible);verify(retry.width>=48);verify(retry.height>=48)
+   for(const id of ['browser','close','maximize'])verify(!findChild(root,'action-'+id).visible)
+   verify(!findChild(root,'navigation-tab-开始').visible)
+   const before=root.retries;mouseClick(retry,retry.width/2,retry.height/2);compare(root.retries,before+1)
+   root.session={phase:'open'};root.feedback=''
+  }
   function test_no_window_disables_only_target_actions() {
    root.width=640;root.height=800;root.page='窗口';root.snapshot=Object.assign({},root.snapshot,{target:null});wait(30)
    for(const id of ['maximize','float','hide','center','close'])verify(!findChild(root,'action-'+id).enabled)

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "pcadmin.navigation",
   "name": "平板导航",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "旋转键的开始、桌面、窗口和按键设置",
   "kinds": [
     "overlay"

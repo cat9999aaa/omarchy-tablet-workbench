@@ -62,7 +62,7 @@ def window_script(action,target,workspace=None,output=None):
  else:raise ValueError('未知窗口操作')
  return output_guard(output)+f'local w=hl.get_active_window(); assert(w and w.address=="{address}" and w.pid=={pid} and w.active,"window-changed"); hl.dispatch({expression})'
 def snapshot():
- budget=ReadBudget()
+ budget=ReadBudget();output_name=None
  try:
   check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
   output_name=focused_output(read_json(['hyprctl','monitors','-j'],budget))
@@ -77,7 +77,16 @@ def snapshot():
   return {'ok':True,'reason_code':'','output':output_name,'target':target,'windowLabel':active.get('class','') or '当前没有应用窗口','current':current,'workspaces':[{'id':i,'count':counts[i]} for i in counts],'bindings':load_bindings(),'labels':LABELS}
  except ReadError as error:
   reasons={'locked':'设备已锁屏','lock-unknown':'锁屏状态未知','output-unavailable':'无法确定操作屏幕','context-changed':'操作目标已变化，请重新打开','timeout':'读取超时，请重试','invalid-data':'桌面数据无效','read-failed':'无法读取桌面'}
-  return {'ok':False,'reason_code':error.code,'reason':reasons.get(error.code,'无法读取桌面')}
+  result={'ok':False,'reason_code':error.code,'reason':reasons.get(error.code,'无法读取桌面')}
+  # Error presentation has no window data or actions. Reuse the original deadline;
+  # failure feedback never extends a timed-out request or guesses another output.
+  if output_name and error.code in ('timeout','read-failed','invalid-data','context-changed'):
+   try:
+    if focused_output(read_json(['hyprctl','monitors','-j'],budget))==output_name:
+     check_lock(read_json(['omarchy-shell','lock','isLocked'],budget))
+     budget.timeout();result['output']=output_name
+   except ReadError:pass
+  return result
 def action(request):
  context=request.get('context')
  try:

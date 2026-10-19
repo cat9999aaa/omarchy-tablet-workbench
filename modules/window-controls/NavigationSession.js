@@ -24,7 +24,13 @@ function reduce(state,event) {
   if(!data||data.ok!==true||typeof data.output!=='string'||!data.output)return closed('invalid-data');
   return {state:Object.assign({},state,{phase:'open',data:data,output:data.output,feedback:''}),effects:[]};
  }
- if(event.type==='READ_ERROR'&&state.phase==='loading')return closed(event.code||'invalid-data');
+ if(event.type==='READ_ERROR'&&state.phase==='loading') {
+  var reasons={'timeout':'读取超时，请重试','read-failed':'无法读取桌面，请重试','invalid-data':'桌面数据无效，请重试','context-changed':'操作目标已变化，请重新打开'};
+  var output=event.output;
+  if(Object.prototype.hasOwnProperty.call(reasons,event.code)&&typeof output==='string'&&output.trim()&&output.length<=256&&!/[\x00-\x1f\x7f]/.test(output))
+   return {state:Object.assign({},state,{phase:'error',output:output,data:null,feedback:reasons[event.code]}),effects:[]};
+  return closed(event.code||'invalid-data');
+ }
  if(event.type==='ACT_STARTED'&&state.phase==='open') {
   if(typeof event.id!=='string'||!event.id)return unchanged;
   return {state:Object.assign({},state,{phase:'acting',actionId:event.id,feedback:''}),effects:[]};

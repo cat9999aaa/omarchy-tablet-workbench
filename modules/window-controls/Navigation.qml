@@ -11,7 +11,7 @@ import "NavigationSession.js" as Session
 Item {
  id:root
  property var session:Session.initial()
- readonly property bool opened:session.phase==="open"||session.phase==="acting"
+ readonly property bool opened:session.phase==="open"||session.phase==="acting"||session.phase==="error"
  readonly property string page:session.page
  readonly property var snapshot:session.data||({})
  readonly property string feedback:session.feedback
@@ -42,7 +42,7 @@ Item {
  }
  function openPage(value){dispatch({type:"OPEN",page:value})}
  function close(){dispatch({type:"CLOSE"})}
- function selectPage(value){if(opened&&["开始","桌面","窗口","按键"].indexOf(value)>=0)session=Object.assign({},session,{page:value,feedback:""})}
+ function selectPage(value){if(session.phase==="open"&&["开始","桌面","窗口","按键"].indexOf(value)>=0)session=Object.assign({},session,{page:value,feedback:""})}
  function act(action,extra) {
   if(session.phase!=="open")return
   var id=String(++actionSerial),generation=session.generation
@@ -51,7 +51,7 @@ Item {
   var process=actionFactory.createObject(root,{requestGeneration:generation,requestId:id,request:JSON.stringify(value)})
   process.running=true
  }
- function publicState(){return JSON.stringify({version:"0.1.3",opened:opened,page:page,width:card.width,height:card.height,phase:session.phase,generation:session.generation,reason_code:session.phase==="closed"?session.feedback:""})}
+ function publicState(){return JSON.stringify({version:"0.1.4",opened:opened,page:page,width:card.width,height:card.height,phase:session.phase,generation:session.generation,reason_code:session.phase==="closed"?session.feedback:""})}
  IpcHandler {
   target:"pcadmin.navigation"
   function ready():bool{return true}
@@ -69,7 +69,7 @@ Item {
    command:["python",root.helper,"snapshot"]
    stdout:StdioCollector {onStreamFinished:{
     reader.received=true
-    try {var value=JSON.parse(text);root.dispatch(value.ok?{type:"READ_OK",generation:reader.requestGeneration,data:value}:{type:"READ_ERROR",generation:reader.requestGeneration,code:value.reason_code||"read-failed"})}
+    try {var value=JSON.parse(text);root.dispatch(value.ok?{type:"READ_OK",generation:reader.requestGeneration,data:value}:{type:"READ_ERROR",generation:reader.requestGeneration,code:value.reason_code||"read-failed",output:value.output})}
     catch(error){root.dispatch({type:"READ_ERROR",generation:reader.requestGeneration,code:"invalid-data"})}
    }}
    onExited:{if(!received)root.dispatch({type:"READ_ERROR",generation:requestGeneration,code:"read-failed"});if(root.activeRead===reader)root.activeRead=null;destroy()}
@@ -132,14 +132,16 @@ Item {
        return Math.max(1,Math.min(limit,Math.floor((available+gap)/(minimum+gap))))
       }
     RowLayout {
+     visible:root.session.phase!=="error"
      Layout.fillWidth:true;spacing:root.themeTokens.metrics.gapSmall
      Repeater{model:["开始","桌面","窗口","按键"]
       WB.TouchButton{themeTokens:root.themeTokens;required property string modelData;objectName:"navigation-tab-"+modelData;Layout.fillWidth:true;text:modelData;foreground:root.fg;accent:root.themeTokens.colors.accent;selected:root.page===modelData;onClicked:root.selectPage(modelData)}
      }
     }
     WB.StyledText{themeTokens:root.themeTokens;visible:!!root.feedback;Layout.fillWidth:true;text:root.feedback;color:root.themeTokens.colors.urgent;wrapMode:Text.Wrap;role:"body"}
+      WB.TouchButton{themeTokens:root.themeTokens;objectName:"navigation-retry";visible:root.session.phase==="error";Layout.fillWidth:true;text:"重新读取";foreground:root.fg;accent:root.themeTokens.colors.accent;onClicked:root.openPage(root.page)}
       ColumnLayout {
-       visible:root.page==="开始";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
+       visible:root.session.phase!=="error"&&root.page==="开始";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"开始使用";color:root.fg;role:"title"}
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"设备状态和网络设置仍在三指下滑的随身控制台。";color:root.fg;wrapMode:Text.Wrap;role:"body"}
        WB.ActionGrid {
@@ -149,7 +151,7 @@ Item {
        }
       }
       ColumnLayout {
-       visible:root.page==="桌面";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
+       visible:root.session.phase!=="error"&&root.page==="桌面";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"全局桌面 · 打开时所在桌面带 ✓";color:root.fg;role:"body"}
        GridLayout{Layout.fillWidth:true;columns:2;rowSpacing:10;columnSpacing:10
         Repeater{model:root.snapshot.workspaces||[]
@@ -165,7 +167,7 @@ Item {
        }
       }
       ColumnLayout {
-       visible:root.page==="窗口";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
+       visible:root.session.phase!=="error"&&root.page==="窗口";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:root.snapshot.windowLabel||"当前窗口";elide:Text.ElideRight;maximumLineCount:1;color:root.fg;role:"title"}
        WB.ActionGrid {
         Layout.fillWidth:true;themeTokens:root.themeTokens;busy:root.busy;columns:3
@@ -180,7 +182,7 @@ Item {
        }
       }
       ColumnLayout {
-       visible:root.page==="按键";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
+       visible:root.session.phase!=="error"&&root.page==="按键";Layout.fillWidth:true;spacing:root.themeTokens.metrics.gap
        WB.StyledText{themeTokens:root.themeTokens;Layout.fillWidth:true;text:"自定义短按 · 长按暂保留原行为";color:root.fg;role:"body"}
        Repeater{model:["P1","P2","P3","rotation"]
         RowLayout{

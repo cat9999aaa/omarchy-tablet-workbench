@@ -30,11 +30,13 @@ HELPER = '''import json,os,time,sys
 from pathlib import Path
 root=Path(__file__).parent
 if sys.argv[1]=='action':
+ (root/'action-called').touch()
  sys.stdin.read();time.sleep(1.3);print('{"ok":true}');sys.exit()
 (root/'reader-pid').write_text(str(os.getpid()))
 mode=(root/'mode').read_text()
 time.sleep(.4 if mode!='slow' else 2)
 value={'ok':True,'output':'HEADLESS-2','target':None,'workspaces':[],'bindings':{},'labels':{}}
+if mode=='failure':value={'ok':False,'reason_code':'timeout','output':'HEADLESS-2'}
 if mode=='changed':value={'ok':False,'reason_code':'context-changed'}
 if mode=='missing':value['output']='HEADLESS-missing'
 print(json.dumps(value))
@@ -97,6 +99,11 @@ def main():
      mode.write_text('missing');call('open','窗口');time.sleep(.7);assert not opened();print('C2_PASS:unmatched-output-closes')
      mode.write_text('changed');call('open','窗口');wait_for(lambda:state().get('reason_code')=='context-changed','changed focus cancels preparation');assert not opened()
      print('C2_PASS:preparation-context-change')
+     mode.write_text('failure');call('open','窗口');wait_for(lambda:state().get('phase')=='error','read failure visible')
+     assert opened();assert json.loads(call('surface',target='testNavigation'))['screen']=='HEADLESS-2'
+     (root/'action-called').unlink(missing_ok=True)
+     call('action',target='testNavigation');time.sleep(.2);assert state()['phase']=='error';assert not (root/'action-called').exists()
+     call('close');time.sleep(.2);assert not opened();print('C2_PASS:read-error-visible-no-action')
      mode.write_text('normal');call('toggle','开始');wait_for(opened,'old toggle open');call('toggle','开始');assert not opened()
      call('open','窗口');wait_for(opened,'before lock');(root/'locked').touch();wait_for(lambda:not opened(),'lock closes');print('C2_PASS:lock-closes')
     finally:
